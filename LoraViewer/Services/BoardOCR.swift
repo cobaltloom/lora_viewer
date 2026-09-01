@@ -16,6 +16,7 @@ enum BoardOCR {
         request.recognitionLevel = .accurate
         request.usesLanguageCorrection = true
         request.recognitionLanguages = ["ja-JP", "en-US"]
+        request.customWords = knownVocabulary
 
         let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
         try handler.perform([request])
@@ -48,6 +49,21 @@ enum BoardOCR {
         }
         return result
     }
+
+    /// Words and abbreviations that keep showing up on this club's board —
+    /// glider model/class names and the university abbreviations used as
+    /// team names — fed to Vision as recognition hints (only used when
+    /// `usesLanguageCorrection` is on) so handwriting isn't only matched
+    /// against a general-purpose dictionary. Send over more vocabulary as
+    /// it turns up and this list can grow.
+    private static let knownVocabulary: [String] = [
+        // Glider model / class names
+        "Discus", "Discus Jr", "Discus LS", "Jr", "LS",
+        // University team-name abbreviations seen so far
+        "日大", "青山", "法政",
+        // Serial-number suffixes seen so far
+        "21", "23"
+    ]
 
     /// Fixes OCR mistakes seen consistently enough on this club's roster to
     /// correct blindly. A handwritten "1" right after another digit keeps
