@@ -2,6 +2,7 @@ import SwiftUI
 
 struct GliderListView: View {
     @ObservedObject var viewModel: GliderTrackerViewModel
+    @State private var showBoardScan = false
 
     var body: some View {
         List(viewModel.positions.sorted(by: { $0.index < $1.index })) { glider in
@@ -36,6 +37,18 @@ struct GliderListView: View {
         .navigationTitle("メンバー一覧")
         .refreshable {
             await viewModel.refreshOnce()
+        }
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    showBoardScan = true
+                } label: {
+                    Label("名簿から登録", systemImage: "text.viewfinder")
+                }
+            }
+        }
+        .sheet(isPresented: $showBoardScan) {
+            BoardScanView(viewModel: viewModel)
         }
     }
 }

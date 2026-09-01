@@ -16,15 +16,17 @@
 		C23FAA2133A8B55314D480D7 /* APISettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3BD5573E1B1D020906A47D41 /* APISettings.swift */; };
 		057C0C53C6C190F98C140D6F /* TrailRouteAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 777141038F1829324D2FF6D0 /* TrailRouteAPI.swift */; };
 		03506518F69492FBE2AF81FE /* NicknameStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34D4FEBC6B661B12F0604AD2 /* NicknameStore.swift */; };
-		455F26725B676EB029F2F6D0 /* GliderTrackerViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 691C9D5B8D3B57890FA827FF /* GliderTrackerViewModel.swift */; };
-		4936AE0D1D6A314CF48DEE8C /* GliderMarkerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2BAFAD79506D60F2278738B4 /* GliderMarkerView.swift */; };
-		4666585B431ECACE032D5044 /* GliderDetailCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 669F3AE2794ABAC9C1357318 /* GliderDetailCard.swift */; };
-		F004DBB18AD32AF7EACE7547 /* GliderListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 230A7F39FF1E994371936FC5 /* GliderListView.swift */; };
-		1E55F57D77EC49E28BBF8BC4 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6644A0B2E46F784A8EC9DF8 /* SettingsView.swift */; };
-		05AF9A10D5F965080619A20F /* TrackHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8538038A401235D48E02DD54 /* TrackHistoryView.swift */; };
-		47B75E974EAB3B0B7869C1E7 /* CurrentMapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3DE50FF2F456D015B64D8C3 /* CurrentMapView.swift */; };
-		CA4CDE62B20ECD7CC82DF0D7 /* EditableGliderName.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5D2D695A53DC61D1E7C6295 /* EditableGliderName.swift */; };
-		33E5C4C64020E99FBCD00766 /* MKCoordinateRegion+Fit.swift in Sources */ = {isa = PBXBuildFile; fileRef = E593BB4A5865287F03682373 /* MKCoordinateRegion+Fit.swift */; };
+		481A05FE9F4708121B77C13C /* BoardOCR.swift in Sources */ = {isa = PBXBuildFile; fileRef = 190A221DDE93AFAA965D431E /* BoardOCR.swift */; };
+		6A8798A803EF081965D9571F /* GliderTrackerViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95B1AD9227233843A57A3284 /* GliderTrackerViewModel.swift */; };
+		213994C929CF1E69F2690E34 /* GliderMarkerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 871A66D81467F77C1909573C /* GliderMarkerView.swift */; };
+		CF9F4AC42E9620E60F1A2C9D /* GliderDetailCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = F17EFA020160FE28FE28E667 /* GliderDetailCard.swift */; };
+		3ACC1E33E79689E7BCF33B18 /* GliderListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4C62DF6C65C0DAEDA4EA898 /* GliderListView.swift */; };
+		9EECC348FB45A3DC11762297 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B68A2CAD86EBD0F019CC871E /* SettingsView.swift */; };
+		198C79F5909E9AFDB388D0C7 /* TrackHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5F3DB4AF0CF504FBDEC4726 /* TrackHistoryView.swift */; };
+		C3734AEC45E8A2D62D7A63B3 /* CurrentMapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A62B8E3B292E335B272E06F1 /* CurrentMapView.swift */; };
+		C0220839763D747966E18B7B /* EditableGliderName.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4EBBD6F3C5011B631D8ABD09 /* EditableGliderName.swift */; };
+		B5952F19F1F101A1B074076D /* BoardScanView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F449530F93C20A05766E09D7 /* BoardScanView.swift */; };
+		DEDE21E6C59697198A113EDB /* MKCoordinateRegion+Fit.swift in Sources */ = {isa = PBXBuildFile; fileRef = B73522FCFF1461370D31BF3C /* MKCoordinateRegion+Fit.swift */; };
 		45B13990ADAFB8366DA6DC33 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = E57D97F88D9220B6A495EF00 /* Assets.xcassets */; };
 		81BEF3A474DBBEFADE4F4952 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AD0A3C648792354BFDB982CC /* Preview Assets.xcassets */; };
 /* End PBXBuildFile section */
@@ -39,15 +41,17 @@
 		3BD5573E1B1D020906A47D41 /* APISettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "APISettings.swift"; sourceTree = "<group>"; };
 		777141038F1829324D2FF6D0 /* TrailRouteAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TrailRouteAPI.swift"; sourceTree = "<group>"; };
 		34D4FEBC6B661B12F0604AD2 /* NicknameStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NicknameStore.swift"; sourceTree = "<group>"; };
-		691C9D5B8D3B57890FA827FF /* GliderTrackerViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "GliderTrackerViewModel.swift"; sourceTree = "<group>"; };
-		2BAFAD79506D60F2278738B4 /* GliderMarkerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "GliderMarkerView.swift"; sourceTree = "<group>"; };
-		669F3AE2794ABAC9C1357318 /* GliderDetailCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "GliderDetailCard.swift"; sourceTree = "<group>"; };
-		230A7F39FF1E994371936FC5 /* GliderListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "GliderListView.swift"; sourceTree = "<group>"; };
-		F6644A0B2E46F784A8EC9DF8 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SettingsView.swift"; sourceTree = "<group>"; };
-		8538038A401235D48E02DD54 /* TrackHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TrackHistoryView.swift"; sourceTree = "<group>"; };
-		F3DE50FF2F456D015B64D8C3 /* CurrentMapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CurrentMapView.swift"; sourceTree = "<group>"; };
-		C5D2D695A53DC61D1E7C6295 /* EditableGliderName.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EditableGliderName.swift"; sourceTree = "<group>"; };
-		E593BB4A5865287F03682373 /* MKCoordinateRegion+Fit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MKCoordinateRegion+Fit.swift"; sourceTree = "<group>"; };
+		190A221DDE93AFAA965D431E /* BoardOCR.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "BoardOCR.swift"; sourceTree = "<group>"; };
+		95B1AD9227233843A57A3284 /* GliderTrackerViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "GliderTrackerViewModel.swift"; sourceTree = "<group>"; };
+		871A66D81467F77C1909573C /* GliderMarkerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "GliderMarkerView.swift"; sourceTree = "<group>"; };
+		F17EFA020160FE28FE28E667 /* GliderDetailCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "GliderDetailCard.swift"; sourceTree = "<group>"; };
+		B4C62DF6C65C0DAEDA4EA898 /* GliderListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "GliderListView.swift"; sourceTree = "<group>"; };
+		B68A2CAD86EBD0F019CC871E /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SettingsView.swift"; sourceTree = "<group>"; };
+		B5F3DB4AF0CF504FBDEC4726 /* TrackHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TrackHistoryView.swift"; sourceTree = "<group>"; };
+		A62B8E3B292E335B272E06F1 /* CurrentMapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CurrentMapView.swift"; sourceTree = "<group>"; };
+		4EBBD6F3C5011B631D8ABD09 /* EditableGliderName.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EditableGliderName.swift"; sourceTree = "<group>"; };
+		F449530F93C20A05766E09D7 /* BoardScanView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "BoardScanView.swift"; sourceTree = "<group>"; };
+		B73522FCFF1461370D31BF3C /* MKCoordinateRegion+Fit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MKCoordinateRegion+Fit.swift"; sourceTree = "<group>"; };
 		E89172D281EBCA2A34EE5097 /* LoraViewer.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = LoraViewer.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E57D97F88D9220B6A495EF00 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		AD0A3C648792354BFDB982CC /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
@@ -112,6 +116,7 @@
 				3BD5573E1B1D020906A47D41 /* APISettings.swift */,
 				777141038F1829324D2FF6D0 /* TrailRouteAPI.swift */,
 				34D4FEBC6B661B12F0604AD2 /* NicknameStore.swift */,
+				190A221DDE93AFAA965D431E /* BoardOCR.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -119,14 +124,15 @@
 		3F23291F6EE8E16A2D556705 /* Views */ = {
 			isa = PBXGroup;
 			children = (
-				691C9D5B8D3B57890FA827FF /* GliderTrackerViewModel.swift */,
-				2BAFAD79506D60F2278738B4 /* GliderMarkerView.swift */,
-				669F3AE2794ABAC9C1357318 /* GliderDetailCard.swift */,
-				230A7F39FF1E994371936FC5 /* GliderListView.swift */,
-				F6644A0B2E46F784A8EC9DF8 /* SettingsView.swift */,
-				8538038A401235D48E02DD54 /* TrackHistoryView.swift */,
-				F3DE50FF2F456D015B64D8C3 /* CurrentMapView.swift */,
-				C5D2D695A53DC61D1E7C6295 /* EditableGliderName.swift */,
+				95B1AD9227233843A57A3284 /* GliderTrackerViewModel.swift */,
+				871A66D81467F77C1909573C /* GliderMarkerView.swift */,
+				F17EFA020160FE28FE28E667 /* GliderDetailCard.swift */,
+				B4C62DF6C65C0DAEDA4EA898 /* GliderListView.swift */,
+				B68A2CAD86EBD0F019CC871E /* SettingsView.swift */,
+				B5F3DB4AF0CF504FBDEC4726 /* TrackHistoryView.swift */,
+				A62B8E3B292E335B272E06F1 /* CurrentMapView.swift */,
+				4EBBD6F3C5011B631D8ABD09 /* EditableGliderName.swift */,
+				F449530F93C20A05766E09D7 /* BoardScanView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -134,7 +140,7 @@
 		6A3AA93937C8724920FC941C /* Utilities */ = {
 			isa = PBXGroup;
 			children = (
-				E593BB4A5865287F03682373 /* MKCoordinateRegion+Fit.swift */,
+				B73522FCFF1461370D31BF3C /* MKCoordinateRegion+Fit.swift */,
 			);
 			path = Utilities;
 			sourceTree = "<group>";
@@ -226,15 +232,17 @@
 				C23FAA2133A8B55314D480D7 /* APISettings.swift in Sources */,
 				057C0C53C6C190F98C140D6F /* TrailRouteAPI.swift in Sources */,
 				03506518F69492FBE2AF81FE /* NicknameStore.swift in Sources */,
-				455F26725B676EB029F2F6D0 /* GliderTrackerViewModel.swift in Sources */,
-				4936AE0D1D6A314CF48DEE8C /* GliderMarkerView.swift in Sources */,
-				4666585B431ECACE032D5044 /* GliderDetailCard.swift in Sources */,
-				F004DBB18AD32AF7EACE7547 /* GliderListView.swift in Sources */,
-				1E55F57D77EC49E28BBF8BC4 /* SettingsView.swift in Sources */,
-				05AF9A10D5F965080619A20F /* TrackHistoryView.swift in Sources */,
-				47B75E974EAB3B0B7869C1E7 /* CurrentMapView.swift in Sources */,
-				CA4CDE62B20ECD7CC82DF0D7 /* EditableGliderName.swift in Sources */,
-				33E5C4C64020E99FBCD00766 /* MKCoordinateRegion+Fit.swift in Sources */,
+				481A05FE9F4708121B77C13C /* BoardOCR.swift in Sources */,
+				6A8798A803EF081965D9571F /* GliderTrackerViewModel.swift in Sources */,
+				213994C929CF1E69F2690E34 /* GliderMarkerView.swift in Sources */,
+				CF9F4AC42E9620E60F1A2C9D /* GliderDetailCard.swift in Sources */,
+				3ACC1E33E79689E7BCF33B18 /* GliderListView.swift in Sources */,
+				9EECC348FB45A3DC11762297 /* SettingsView.swift in Sources */,
+				198C79F5909E9AFDB388D0C7 /* TrackHistoryView.swift in Sources */,
+				C3734AEC45E8A2D62D7A63B3 /* CurrentMapView.swift in Sources */,
+				C0220839763D747966E18B7B /* EditableGliderName.swift in Sources */,
+				B5952F19F1F101A1B074076D /* BoardScanView.swift in Sources */,
+				DEDE21E6C59697198A113EDB /* MKCoordinateRegion+Fit.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
