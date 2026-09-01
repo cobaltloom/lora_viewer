@@ -2,12 +2,12 @@ import SwiftUI
 
 struct GliderDetailCard: View {
     let glider: GliderPosition
-    let name: String
+    let baseName: String
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
-                Text(name)
+                EditableGliderName(imei: glider.imei, baseName: baseName)
                     .font(.headline)
                 Spacer()
                 Text(glider.source.label)

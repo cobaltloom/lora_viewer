@@ -7,7 +7,7 @@ struct GliderListView: View {
         List(viewModel.positions.sorted(by: { $0.index < $1.index })) { glider in
             VStack(alignment: .leading, spacing: 4) {
                 HStack {
-                    Text(viewModel.nameFor(index: glider.index))
+                    EditableGliderName(imei: glider.imei, baseName: viewModel.nameFor(index: glider.index))
                         .font(.headline)
                     Spacer()
                     if glider.isDisconnected {

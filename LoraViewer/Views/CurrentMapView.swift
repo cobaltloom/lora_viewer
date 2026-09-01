@@ -32,7 +32,7 @@ struct CurrentMapView: View {
                 }
 
                 if let selectedGlider {
-                    GliderDetailCard(glider: selectedGlider, name: viewModel.nameFor(index: selectedGlider.index))
+                    GliderDetailCard(glider: selectedGlider, baseName: viewModel.nameFor(index: selectedGlider.index))
                         .padding()
                         .transition(.move(edge: .bottom).combined(with: .opacity))
                         .onTapGesture {
