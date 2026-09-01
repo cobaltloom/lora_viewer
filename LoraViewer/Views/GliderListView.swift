@@ -2,12 +2,25 @@ import SwiftUI
 
 struct GliderListView: View {
     @ObservedObject var viewModel: GliderTrackerViewModel
+    @EnvironmentObject private var favoritesStore: FavoritesStore
     @State private var showBoardScan = false
 
+    private var sortedPositions: [GliderPosition] {
+        viewModel.positions.sorted { lhs, rhs in
+            let lhsFavorite = favoritesStore.isFavorite(lhs.imei)
+            let rhsFavorite = favoritesStore.isFavorite(rhs.imei)
+            if lhsFavorite != rhsFavorite {
+                return lhsFavorite && !rhsFavorite
+            }
+            return lhs.index < rhs.index
+        }
+    }
+
     var body: some View {
-        List(viewModel.positions.sorted(by: { $0.index < $1.index })) { glider in
+        List(sortedPositions) { glider in
             VStack(alignment: .leading, spacing: 4) {
                 HStack {
+                    FavoriteButton(imei: glider.imei)
                     EditableGliderName(imei: glider.imei, baseName: viewModel.nameFor(index: glider.index))
                         .font(.headline)
                     Spacer()

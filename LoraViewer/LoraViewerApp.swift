@@ -4,12 +4,14 @@ import SwiftUI
 struct LoraViewerApp: App {
     @StateObject private var settings = APISettings()
     @StateObject private var nicknameStore = NicknameStore()
+    @StateObject private var favoritesStore = FavoritesStore()
 
     var body: some Scene {
         WindowGroup {
             CurrentMapView(settings: settings)
                 .environmentObject(settings)
                 .environmentObject(nicknameStore)
+                .environmentObject(favoritesStore)
         }
     }
 }

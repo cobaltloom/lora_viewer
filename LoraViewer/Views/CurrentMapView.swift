@@ -3,6 +3,7 @@ import MapKit
 
 struct CurrentMapView: View {
     @EnvironmentObject var settings: APISettings
+    @EnvironmentObject private var favoritesStore: FavoritesStore
     @StateObject private var viewModel: GliderTrackerViewModel
     @State private var cameraPosition: MapCameraPosition = .automatic
     @State private var selectedGlider: GliderPosition?
@@ -19,7 +20,11 @@ struct CurrentMapView: View {
                 Map(position: $cameraPosition) {
                     ForEach(viewModel.positions) { glider in
                         Annotation(viewModel.nameFor(index: glider.index), coordinate: glider.coordinate) {
-                            GliderMarkerView(glider: glider, isSelected: selectedGlider?.id == glider.id)
+                            GliderMarkerView(
+                                glider: glider,
+                                isSelected: selectedGlider?.id == glider.id,
+                                isFavorite: favoritesStore.isFavorite(glider.imei)
+                            )
                                 .onTapGesture {
                                     withAnimation { selectedGlider = glider }
                                 }
@@ -49,6 +54,14 @@ struct CurrentMapView: View {
                     } label: {
                         Image(systemName: "list.bullet")
                     }
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        focusOnFavorites()
+                    } label: {
+                        Image(systemName: "star.circle")
+                    }
+                    .disabled(!viewModel.positions.contains { favoritesStore.isFavorite($0.imei) })
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
@@ -103,5 +116,13 @@ struct CurrentMapView: View {
         didCenterInitially = true
         let coordinates = positions.map(\.coordinate)
         cameraPosition = .region(MKCoordinateRegion(coordinates: coordinates))
+    }
+
+    private func focusOnFavorites() {
+        let favoritePositions = viewModel.positions.filter { favoritesStore.isFavorite($0.imei) }
+        guard !favoritePositions.isEmpty else { return }
+        withAnimation {
+            cameraPosition = .region(MKCoordinateRegion(coordinates: favoritePositions.map(\.coordinate)))
+        }
     }
 }

@@ -7,6 +7,7 @@ struct GliderDetailCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
+                FavoriteButton(imei: glider.imei)
                 EditableGliderName(imei: glider.imei, baseName: baseName)
                     .font(.headline)
                 Spacer()
