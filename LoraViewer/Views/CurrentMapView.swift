@@ -9,16 +9,24 @@ struct CurrentMapView: View {
     @State private var selectedGlider: GliderPosition?
     @State private var showSettings = false
     @State private var didCenterInitially = false
+    @State private var showFavoritesOnly = false
 
     init(settings: APISettings) {
         _viewModel = StateObject(wrappedValue: GliderTrackerViewModel(settings: settings))
+    }
+
+    private var displayedPositions: [GliderPosition] {
+        guard showFavoritesOnly else { return viewModel.positions }
+        let favorites = viewModel.positions.filter { favoritesStore.isFavorite($0.imei) }
+        // Don't leave the map blank if the last favorite just got un-favorited.
+        return favorites.isEmpty ? viewModel.positions : favorites
     }
 
     var body: some View {
         NavigationStack {
             ZStack(alignment: .bottom) {
                 Map(position: $cameraPosition) {
-                    ForEach(viewModel.positions) { glider in
+                    ForEach(displayedPositions) { glider in
                         Annotation(viewModel.nameFor(index: glider.index), coordinate: glider.coordinate) {
                             GliderMarkerView(
                                 glider: glider,
@@ -57,9 +65,9 @@ struct CurrentMapView: View {
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
-                        focusOnFavorites()
+                        toggleFavoritesOnly()
                     } label: {
-                        Image(systemName: "star.circle")
+                        Image(systemName: showFavoritesOnly ? "star.circle.fill" : "star.circle")
                     }
                     .disabled(!viewModel.positions.contains { favoritesStore.isFavorite($0.imei) })
                 }
@@ -118,7 +126,17 @@ struct CurrentMapView: View {
         cameraPosition = .region(MKCoordinateRegion(coordinates: coordinates))
     }
 
-    private func focusOnFavorites() {
+    private func toggleFavoritesOnly() {
+        withAnimation {
+            showFavoritesOnly.toggle()
+        }
+
+        guard showFavoritesOnly else { return }
+
+        if let selectedGlider, !favoritesStore.isFavorite(selectedGlider.imei) {
+            self.selectedGlider = nil
+        }
+
         let favoritePositions = viewModel.positions.filter { favoritesStore.isFavorite($0.imei) }
         guard !favoritePositions.isEmpty else { return }
         withAnimation {
