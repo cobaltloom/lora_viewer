@@ -61,6 +61,7 @@ enum BoardOCR {
         "Discus", "Discus Jr", "Discus LS", "Jr", "LS",
         // University team-name abbreviations seen so far
         "日大", "青山", "法政",
+        "中央", "慶應", "早稲田", "立教", "関東", "千葉工", "東大", "明治", "学習院",
         // Serial-number suffixes seen so far
         "21", "23"
     ]
