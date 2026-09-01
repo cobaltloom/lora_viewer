@@ -1,0 +1,440 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		9F4121848BF06BCA87FC45DD /* LoraViewerApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F39064AF272E5F39AB635C25 /* LoraViewerApp.swift */; };
+		3514E81538087D9475EA80E1 /* Decoding+Lenient.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE7CD10DEAF21412EFE32B75 /* Decoding+Lenient.swift */; };
+		5FC376F489829692CAABB4D1 /* TrailRouteDateFormatter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39D444621A5E97344731E878 /* TrailRouteDateFormatter.swift */; };
+		E72AA217A4AB034A7212F48C /* GliderPosition.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2383D2DC61F334C8414CFD32 /* GliderPosition.swift */; };
+		0444EB8124CC1E178193F263 /* AppConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10E597B0E687C0B538C795D6 /* AppConfig.swift */; };
+		327E7786C411702BBC2FCC61 /* TrackPoint.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95ABBA36EE558B48D2D4CFA2 /* TrackPoint.swift */; };
+		C23FAA2133A8B55314D480D7 /* APISettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3BD5573E1B1D020906A47D41 /* APISettings.swift */; };
+		057C0C53C6C190F98C140D6F /* TrailRouteAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 777141038F1829324D2FF6D0 /* TrailRouteAPI.swift */; };
+		2651FF393DDBF4C7295299DC /* GliderTrackerViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F065AA24BAC6EEFA662C4C74 /* GliderTrackerViewModel.swift */; };
+		F28ED1CC89C44945EA6A826E /* GliderMarkerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6E908885A959515A6AA8C28 /* GliderMarkerView.swift */; };
+		83D6C2AFD8FE75C9AF9532EE /* GliderDetailCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7890607A5EE2A297901C0231 /* GliderDetailCard.swift */; };
+		A072833909FC8AC66DDC9FA2 /* GliderListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50212BE9973FD0015B40E672 /* GliderListView.swift */; };
+		0047F98C7C6796708C12C2D9 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 286BB172C4451DA3771127AF /* SettingsView.swift */; };
+		AA55AE891928E0894800A3B3 /* TrackHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 105811D5869E967BE6CF5237 /* TrackHistoryView.swift */; };
+		EC72183D2C3C12A525DD3D5A /* CurrentMapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C6E7DD7D3B81B2274C3269D /* CurrentMapView.swift */; };
+		A41D372FC49A7FB368BB99D4 /* MKCoordinateRegion+Fit.swift in Sources */ = {isa = PBXBuildFile; fileRef = 507373A663792CB9A70F9B9E /* MKCoordinateRegion+Fit.swift */; };
+		45B13990ADAFB8366DA6DC33 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = E57D97F88D9220B6A495EF00 /* Assets.xcassets */; };
+		81BEF3A474DBBEFADE4F4952 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AD0A3C648792354BFDB982CC /* Preview Assets.xcassets */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		F39064AF272E5F39AB635C25 /* LoraViewerApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "LoraViewerApp.swift"; sourceTree = "<group>"; };
+		FE7CD10DEAF21412EFE32B75 /* Decoding+Lenient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Decoding+Lenient.swift"; sourceTree = "<group>"; };
+		39D444621A5E97344731E878 /* TrailRouteDateFormatter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TrailRouteDateFormatter.swift"; sourceTree = "<group>"; };
+		2383D2DC61F334C8414CFD32 /* GliderPosition.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "GliderPosition.swift"; sourceTree = "<group>"; };
+		10E597B0E687C0B538C795D6 /* AppConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppConfig.swift"; sourceTree = "<group>"; };
+		95ABBA36EE558B48D2D4CFA2 /* TrackPoint.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TrackPoint.swift"; sourceTree = "<group>"; };
+		3BD5573E1B1D020906A47D41 /* APISettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "APISettings.swift"; sourceTree = "<group>"; };
+		777141038F1829324D2FF6D0 /* TrailRouteAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TrailRouteAPI.swift"; sourceTree = "<group>"; };
+		F065AA24BAC6EEFA662C4C74 /* GliderTrackerViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "GliderTrackerViewModel.swift"; sourceTree = "<group>"; };
+		E6E908885A959515A6AA8C28 /* GliderMarkerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "GliderMarkerView.swift"; sourceTree = "<group>"; };
+		7890607A5EE2A297901C0231 /* GliderDetailCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "GliderDetailCard.swift"; sourceTree = "<group>"; };
+		50212BE9973FD0015B40E672 /* GliderListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "GliderListView.swift"; sourceTree = "<group>"; };
+		286BB172C4451DA3771127AF /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SettingsView.swift"; sourceTree = "<group>"; };
+		105811D5869E967BE6CF5237 /* TrackHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TrackHistoryView.swift"; sourceTree = "<group>"; };
+		2C6E7DD7D3B81B2274C3269D /* CurrentMapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CurrentMapView.swift"; sourceTree = "<group>"; };
+		507373A663792CB9A70F9B9E /* MKCoordinateRegion+Fit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MKCoordinateRegion+Fit.swift"; sourceTree = "<group>"; };
+		E89172D281EBCA2A34EE5097 /* LoraViewer.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = LoraViewer.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		E57D97F88D9220B6A495EF00 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		AD0A3C648792354BFDB982CC /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		7171CF7FDDD27C0032BEF555 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		F2E53A901BAF2572112B408E = {
+			isa = PBXGroup;
+			children = (
+				444866EAEAFF154FB3E46334 /* LoraViewer */,
+				1C2E7EBAFE5884061F6DB64A /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		1C2E7EBAFE5884061F6DB64A /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				E89172D281EBCA2A34EE5097 /* LoraViewer.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		444866EAEAFF154FB3E46334 /* LoraViewer */ = {
+			isa = PBXGroup;
+			children = (
+				F39064AF272E5F39AB635C25 /* LoraViewerApp.swift */,
+				FFBEB2BD4B739956333D7CC6 /* Models */,
+				41D8D87831B35C9C75712811 /* Services */,
+				3F23291F6EE8E16A2D556705 /* Views */,
+				6A3AA93937C8724920FC941C /* Utilities */,
+				E57D97F88D9220B6A495EF00 /* Assets.xcassets */,
+				828EEF42003A1558EE6E6479 /* Preview Content */,
+			);
+			path = LoraViewer;
+			sourceTree = "<group>";
+		};
+		FFBEB2BD4B739956333D7CC6 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				FE7CD10DEAF21412EFE32B75 /* Decoding+Lenient.swift */,
+				39D444621A5E97344731E878 /* TrailRouteDateFormatter.swift */,
+				2383D2DC61F334C8414CFD32 /* GliderPosition.swift */,
+				10E597B0E687C0B538C795D6 /* AppConfig.swift */,
+				95ABBA36EE558B48D2D4CFA2 /* TrackPoint.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		41D8D87831B35C9C75712811 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				3BD5573E1B1D020906A47D41 /* APISettings.swift */,
+				777141038F1829324D2FF6D0 /* TrailRouteAPI.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		3F23291F6EE8E16A2D556705 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				F065AA24BAC6EEFA662C4C74 /* GliderTrackerViewModel.swift */,
+				E6E908885A959515A6AA8C28 /* GliderMarkerView.swift */,
+				7890607A5EE2A297901C0231 /* GliderDetailCard.swift */,
+				50212BE9973FD0015B40E672 /* GliderListView.swift */,
+				286BB172C4451DA3771127AF /* SettingsView.swift */,
+				105811D5869E967BE6CF5237 /* TrackHistoryView.swift */,
+				2C6E7DD7D3B81B2274C3269D /* CurrentMapView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		6A3AA93937C8724920FC941C /* Utilities */ = {
+			isa = PBXGroup;
+			children = (
+				507373A663792CB9A70F9B9E /* MKCoordinateRegion+Fit.swift */,
+			);
+			path = Utilities;
+			sourceTree = "<group>";
+		};
+		828EEF42003A1558EE6E6479 /* Preview Content */ = {
+			isa = PBXGroup;
+			children = (
+				AD0A3C648792354BFDB982CC /* Preview Assets.xcassets */,
+			);
+			path = "Preview Content";
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		C493E5B9D19364E766DE0D1B /* LoraViewer */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 4D0A4D6EEBC1F5E97631D59C /* Build configuration list for PBXNativeTarget "LoraViewer" */;
+			buildPhases = (
+				FBAEFC8EDF63713929964F62 /* Sources */,
+				7171CF7FDDD27C0032BEF555 /* Frameworks */,
+				8AA3D43F2D653A45FB3CF531 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = LoraViewer;
+			productName = LoraViewer;
+			productReference = E89172D281EBCA2A34EE5097 /* LoraViewer.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		FEE91B0278E5F119A24F6306 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1600;
+				LastUpgradeCheck = 1600;
+				TargetAttributes = {
+					C493E5B9D19364E766DE0D1B = {
+						CreatedOnToolsVersion = 16.0;
+					};
+				};
+			};
+			buildConfigurationList = 52ACF2C757877ACBCBC431FD /* Build configuration list for PBXProject "LoraViewer" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = ja;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				ja,
+				Base,
+			);
+			mainGroup = F2E53A901BAF2572112B408E;
+			productRefGroup = 1C2E7EBAFE5884061F6DB64A /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				C493E5B9D19364E766DE0D1B /* LoraViewer */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		8AA3D43F2D653A45FB3CF531 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				45B13990ADAFB8366DA6DC33 /* Assets.xcassets in Resources */,
+				81BEF3A474DBBEFADE4F4952 /* Preview Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		FBAEFC8EDF63713929964F62 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				9F4121848BF06BCA87FC45DD /* LoraViewerApp.swift in Sources */,
+				3514E81538087D9475EA80E1 /* Decoding+Lenient.swift in Sources */,
+				5FC376F489829692CAABB4D1 /* TrailRouteDateFormatter.swift in Sources */,
+				E72AA217A4AB034A7212F48C /* GliderPosition.swift in Sources */,
+				0444EB8124CC1E178193F263 /* AppConfig.swift in Sources */,
+				327E7786C411702BBC2FCC61 /* TrackPoint.swift in Sources */,
+				C23FAA2133A8B55314D480D7 /* APISettings.swift in Sources */,
+				057C0C53C6C190F98C140D6F /* TrailRouteAPI.swift in Sources */,
+				2651FF393DDBF4C7295299DC /* GliderTrackerViewModel.swift in Sources */,
+				F28ED1CC89C44945EA6A826E /* GliderMarkerView.swift in Sources */,
+				83D6C2AFD8FE75C9AF9532EE /* GliderDetailCard.swift in Sources */,
+				A072833909FC8AC66DDC9FA2 /* GliderListView.swift in Sources */,
+				0047F98C7C6796708C12C2D9 /* SettingsView.swift in Sources */,
+				AA55AE891928E0894800A3B3 /* TrackHistoryView.swift in Sources */,
+				EC72183D2C3C12A525DD3D5A /* CurrentMapView.swift in Sources */,
+				A41D372FC49A7FB368BB99D4 /* MKCoordinateRegion+Fit.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		6F6D6D119D225F94A7F1BFD5 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			ALWAYS_SEARCH_USER_PATHS = NO;
+			ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+			CLANG_ANALYZER_NONNULL = YES;
+			CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+			CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+			CLANG_ENABLE_MODULES = YES;
+			CLANG_ENABLE_OBJC_ARC = YES;
+			CLANG_ENABLE_OBJC_WEAK = YES;
+			CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+			CLANG_WARN_BOOL_CONVERSION = YES;
+			CLANG_WARN_COMMA = YES;
+			CLANG_WARN_CONSTANT_CONVERSION = YES;
+			CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+			CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+			CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+			CLANG_WARN_EMPTY_BODY = YES;
+			CLANG_WARN_ENUM_CONVERSION = YES;
+			CLANG_WARN_INFINITE_RECURSION = YES;
+			CLANG_WARN_INT_CONVERSION = YES;
+			CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+			CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+			CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+			CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+			CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+			CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+			CLANG_WARN_STRICT_PROTOTYPES = YES;
+			CLANG_WARN_SUSPICIOUS_MOVE = YES;
+			CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+			CLANG_WARN_UNREACHABLE_CODE = YES;
+			CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+			COPY_PHASE_STRIP = NO;
+			DEBUG_INFORMATION_FORMAT = dwarf;
+			ENABLE_STRICT_OBJC_MSGSEND = YES;
+			ENABLE_TESTABILITY = YES;
+			ENABLE_USER_SCRIPT_SANDBOXING = YES;
+			GCC_C_LANGUAGE_STANDARD = gnu17;
+			GCC_DYNAMIC_NO_PIC = NO;
+			GCC_NO_COMMON_BLOCKS = YES;
+			GCC_OPTIMIZATION_LEVEL = 0;
+			GCC_PREPROCESSOR_DEFINITIONS = (
+				"DEBUG=1",
+				"$(inherited)",
+			);
+			GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+			GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+			GCC_WARN_UNDECLARED_SELECTOR = YES;
+			GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+			GCC_WARN_UNUSED_FUNCTION = YES;
+			GCC_WARN_UNUSED_VARIABLE = YES;
+			IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+			LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+			MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+			MTL_FAST_MATH = YES;
+			ONLY_ACTIVE_ARCH = YES;
+			SDKROOT = iphoneos;
+			SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+			SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		D5403B28432F8BE2FA36A420 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			ALWAYS_SEARCH_USER_PATHS = NO;
+			ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+			CLANG_ANALYZER_NONNULL = YES;
+			CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+			CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+			CLANG_ENABLE_MODULES = YES;
+			CLANG_ENABLE_OBJC_ARC = YES;
+			CLANG_ENABLE_OBJC_WEAK = YES;
+			CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+			CLANG_WARN_BOOL_CONVERSION = YES;
+			CLANG_WARN_COMMA = YES;
+			CLANG_WARN_CONSTANT_CONVERSION = YES;
+			CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+			CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+			CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+			CLANG_WARN_EMPTY_BODY = YES;
+			CLANG_WARN_ENUM_CONVERSION = YES;
+			CLANG_WARN_INFINITE_RECURSION = YES;
+			CLANG_WARN_INT_CONVERSION = YES;
+			CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+			CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+			CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+			CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+			CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+			CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+			CLANG_WARN_STRICT_PROTOTYPES = YES;
+			CLANG_WARN_SUSPICIOUS_MOVE = YES;
+			CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+			CLANG_WARN_UNREACHABLE_CODE = YES;
+			CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+			COPY_PHASE_STRIP = NO;
+			DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+			ENABLE_NS_ASSERTIONS = NO;
+			ENABLE_STRICT_OBJC_MSGSEND = YES;
+			ENABLE_USER_SCRIPT_SANDBOXING = YES;
+			GCC_C_LANGUAGE_STANDARD = gnu17;
+			GCC_NO_COMMON_BLOCKS = YES;
+			GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+			GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+			GCC_WARN_UNDECLARED_SELECTOR = YES;
+			GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+			GCC_WARN_UNUSED_FUNCTION = YES;
+			GCC_WARN_UNUSED_VARIABLE = YES;
+			IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+			LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+			MTL_ENABLE_DEBUG_INFO = NO;
+			MTL_FAST_MATH = YES;
+			SDKROOT = iphoneos;
+			SWIFT_COMPILATION_MODE = wholemodule;
+			VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		7FCDE99FDFF37E71626E1FB8 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+			ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+			CODE_SIGN_STYLE = Automatic;
+			CURRENT_PROJECT_VERSION = 1;
+			DEVELOPMENT_ASSET_PATHS = "\"LoraViewer/Preview Content\"";
+			ENABLE_PREVIEWS = YES;
+			GENERATE_INFOPLIST_FILE = YES;
+			INFOPLIST_KEY_CFBundleDisplayName = "グライダー位置";
+			INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+			INFOPLIST_KEY_UIApplicationSupportsIndoorNavigation = NO;
+			INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+			INFOPLIST_KEY_UIRequiresFullScreen = NO;
+			INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+			INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+			LD_RUNPATH_SEARCH_PATHS = (
+				"$(inherited)",
+				"@executable_path/Frameworks",
+			);
+			MARKETING_VERSION = 1.0;
+			PRODUCT_BUNDLE_IDENTIFIER = com.cobaltloom.loraviewer;
+			PRODUCT_NAME = "$(TARGET_NAME)";
+			SWIFT_EMIT_LOC_STRINGS = YES;
+			SWIFT_VERSION = 5.0;
+			TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		93F175443B5B674CF400622F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+			ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+			CODE_SIGN_STYLE = Automatic;
+			CURRENT_PROJECT_VERSION = 1;
+			DEVELOPMENT_ASSET_PATHS = "\"LoraViewer/Preview Content\"";
+			ENABLE_PREVIEWS = YES;
+			GENERATE_INFOPLIST_FILE = YES;
+			INFOPLIST_KEY_CFBundleDisplayName = "グライダー位置";
+			INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+			INFOPLIST_KEY_UIApplicationSupportsIndoorNavigation = NO;
+			INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+			INFOPLIST_KEY_UIRequiresFullScreen = NO;
+			INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+			INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+			LD_RUNPATH_SEARCH_PATHS = (
+				"$(inherited)",
+				"@executable_path/Frameworks",
+			);
+			MARKETING_VERSION = 1.0;
+			PRODUCT_BUNDLE_IDENTIFIER = com.cobaltloom.loraviewer;
+			PRODUCT_NAME = "$(TARGET_NAME)";
+			SWIFT_EMIT_LOC_STRINGS = YES;
+			SWIFT_VERSION = 5.0;
+			TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		52ACF2C757877ACBCBC431FD /* Build configuration list for PBXProject "LoraViewer" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				6F6D6D119D225F94A7F1BFD5 /* Debug */,
+				D5403B28432F8BE2FA36A420 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		4D0A4D6EEBC1F5E97631D59C /* Build configuration list for PBXNativeTarget "LoraViewer" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				7FCDE99FDFF37E71626E1FB8 /* Debug */,
+				93F175443B5B674CF400622F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+	};
+	rootObject = FEE91B0278E5F119A24F6306 /* Project object */;
+}
