@@ -5,6 +5,7 @@ struct LoraViewerApp: App {
     @StateObject private var settings = APISettings()
     @StateObject private var nicknameStore = NicknameStore()
     @StateObject private var favoritesStore = FavoritesStore()
+    @StateObject private var alertSettings = AlertSettings()
 
     var body: some Scene {
         WindowGroup {
@@ -12,6 +13,7 @@ struct LoraViewerApp: App {
                 .environmentObject(settings)
                 .environmentObject(nicknameStore)
                 .environmentObject(favoritesStore)
+                .environmentObject(alertSettings)
         }
     }
 }

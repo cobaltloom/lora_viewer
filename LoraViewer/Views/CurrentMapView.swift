@@ -4,6 +4,7 @@ import MapKit
 struct CurrentMapView: View {
     @EnvironmentObject var settings: APISettings
     @EnvironmentObject private var favoritesStore: FavoritesStore
+    @EnvironmentObject private var alertSettings: AlertSettings
     @StateObject private var viewModel: GliderTrackerViewModel
     @State private var cameraPosition: MapCameraPosition = .automatic
     @State private var selectedGlider: GliderPosition?
@@ -22,16 +23,45 @@ struct CurrentMapView: View {
         return favorites.isEmpty ? viewModel.positions : favorites
     }
 
+    /// The site's own configured map center, normally the airfield itself —
+    /// used as the safety-altitude reference point unless a custom one is set.
+    private var defaultReferenceCoordinate: CLLocationCoordinate2D? {
+        guard let siteSettings = viewModel.config?.settings, siteSettings.lat != 0, siteSettings.lon != 0 else {
+            return nil
+        }
+        return CLLocationCoordinate2D(latitude: siteSettings.lat, longitude: siteSettings.lon)
+    }
+
+    private var alertReferenceCoordinate: CLLocationCoordinate2D? {
+        alertSettings.referenceCoordinate(default: defaultReferenceCoordinate)
+    }
+
+    private var alertingGliders: [GliderPosition] {
+        displayedPositions.filter { alertSettings.isBelowSafeAltitude($0, defaultReference: defaultReferenceCoordinate) }
+    }
+
     var body: some View {
         NavigationStack {
             ZStack(alignment: .bottom) {
                 Map(position: $cameraPosition) {
+                    if alertSettings.isEnabled, let alertReferenceCoordinate {
+                        MapCircle(center: alertReferenceCoordinate, radius: alertSettings.distanceThresholdKm * 1000)
+                            .foregroundStyle(.red.opacity(0.08))
+                            .stroke(.red.opacity(0.4), lineWidth: 1)
+                        Annotation("基準地点", coordinate: alertReferenceCoordinate) {
+                            Image(systemName: "flag.circle.fill")
+                                .font(.title2)
+                                .foregroundStyle(.red)
+                                .background(Circle().fill(.white))
+                        }
+                    }
                     ForEach(displayedPositions) { glider in
                         Annotation(viewModel.nameFor(index: glider.index), coordinate: glider.coordinate) {
                             GliderMarkerView(
                                 glider: glider,
                                 isSelected: selectedGlider?.id == glider.id,
-                                isFavorite: favoritesStore.isFavorite(glider.imei)
+                                isFavorite: favoritesStore.isFavorite(glider.imei),
+                                isAlerting: alertSettings.isBelowSafeAltitude(glider, defaultReference: defaultReferenceCoordinate)
                             )
                                 .onTapGesture {
                                     withAnimation { selectedGlider = glider }
@@ -43,9 +73,18 @@ struct CurrentMapView: View {
                     MapCompass()
                     MapScaleView()
                 }
+                .safeAreaInset(edge: .top) {
+                    if !alertingGliders.isEmpty {
+                        alertBanner
+                    }
+                }
 
                 if let selectedGlider {
-                    GliderDetailCard(glider: selectedGlider, baseName: viewModel.nameFor(index: selectedGlider.index))
+                    GliderDetailCard(
+                        glider: selectedGlider,
+                        baseName: viewModel.nameFor(index: selectedGlider.index),
+                        isAlerting: alertSettings.isBelowSafeAltitude(selectedGlider, defaultReference: defaultReferenceCoordinate)
+                    )
                         .padding()
                         .transition(.move(edge: .bottom).combined(with: .opacity))
                         .onTapGesture {
@@ -96,7 +135,7 @@ struct CurrentMapView: View {
                 }
             }
             .sheet(isPresented: $showSettings) {
-                SettingsView()
+                SettingsView(defaultReferenceCoordinate: defaultReferenceCoordinate)
                     .environmentObject(settings)
             }
             .alert("エラー", isPresented: Binding(
@@ -142,5 +181,20 @@ struct CurrentMapView: View {
         withAnimation {
             cameraPosition = .region(MKCoordinateRegion(coordinates: favoritePositions.map(\.coordinate)))
         }
+    }
+
+    private var alertBanner: some View {
+        HStack(alignment: .top, spacing: 6) {
+            Image(systemName: "exclamationmark.triangle.fill")
+            Text("高度不足の可能性: " + alertingGliders.map { viewModel.nameFor(index: $0.index) }.joined(separator: "、"))
+                .font(.caption)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .foregroundStyle(.white)
+        .background(.red, in: RoundedRectangle(cornerRadius: 12))
+        .padding(.horizontal)
+        .padding(.top, 4)
     }
 }
