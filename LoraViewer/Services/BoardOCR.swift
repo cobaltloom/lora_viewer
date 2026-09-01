@@ -28,7 +28,7 @@ enum BoardOCR {
 
         let items: [Item] = (request.results ?? []).compactMap { observation in
             guard let candidate = observation.topCandidates(1).first else { return nil }
-            let text = candidate.string.trimmingCharacters(in: .whitespaces)
+            let text = correctCommonMisreads(candidate.string.trimmingCharacters(in: .whitespaces))
             guard !text.isEmpty, looksLikeName(text) else { return nil }
 
             let box = observation.boundingBox // normalized, origin at bottom-left
@@ -47,6 +47,23 @@ enum BoardOCR {
             result[offset + 9] = item.text
         }
         return result
+    }
+
+    /// Fixes OCR mistakes seen consistently enough on this club's roster to
+    /// correct blindly. A handwritten "1" right after another digit keeps
+    /// getting read as a slash (e.g. "青山21" -> "青山2/"), so treat any "/"
+    /// touching a digit as a misread "1". Add more rules here as they turn
+    /// up — this is meant to grow with real examples, not guess in general.
+    private static func correctCommonMisreads(_ text: String) -> String {
+        var chars = Array(text)
+        for i in chars.indices where chars[i] == "/" {
+            let precededByDigit = i > 0 && chars[i - 1].isNumber
+            let followedByDigit = i < chars.count - 1 && chars[i + 1].isNumber
+            if precededByDigit || followedByDigit {
+                chars[i] = "1"
+            }
+        }
+        return String(chars)
     }
 
     /// The board's printed position badges (circled numbers) often get OCR'd
