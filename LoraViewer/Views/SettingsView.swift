@@ -12,13 +12,13 @@ struct SettingsView: View {
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                         .keyboardType(.URL)
-                    SecureField("シークレットキー (key)", text: $settings.secretKey)
+                    SecureField("シークレットキー (任意)", text: $settings.secretKey)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                 } header: {
                     Text("サーバー")
                 } footer: {
-                    Text("MacのSafariでサイトを開き、「開発」>「Webインスペクタを表示」の「ネットワーク」タブで mapapi.php へのリクエストを確認し、URL中の key= の値を入力してください。")
+                    Text("シークレットキーは通常は空欄のままで問題ありません。動作しない場合のみ、MacのSafariで「開発」>「Webインスペクタを表示」の「ネットワーク」タブから mapapi.php へのリクエストを確認し、URL中に key= があればその値を入力してください。")
                 }
                 Section {
                     Stepper(value: $settings.refreshIntervalSeconds, in: 3...60, step: 1) {

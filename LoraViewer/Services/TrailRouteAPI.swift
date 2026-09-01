@@ -46,10 +46,15 @@ final class TrailRouteAPI {
     func fetchCurrentPositions() async throws -> [GliderPosition] {
         guard let base = settings.baseURL else { throw TrailRouteAPIError.invalidBaseURL }
         var components = URLComponents(url: base.appendingPathComponent("mapapi.php"), resolvingAgainstBaseURL: false)
-        components?.queryItems = [
-            URLQueryItem(name: "key", value: settings.secretKey),
+        // The per-account URL path is the site's actual access control; `key` is only
+        // sent when the user has supplied one, in case some deployments still check it.
+        var queryItems: [URLQueryItem] = [
             URLQueryItem(name: "rdm", value: String(Double.random(in: 0...1)))
         ]
+        if !settings.secretKey.isEmpty {
+            queryItems.append(URLQueryItem(name: "key", value: settings.secretKey))
+        }
+        components?.queryItems = queryItems
         guard let url = components?.url else { throw TrailRouteAPIError.invalidBaseURL }
 
         let (data, response) = try await session.data(from: url)
