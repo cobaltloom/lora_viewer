@@ -31,6 +31,10 @@ final class GliderTrackerViewModel: ObservableObject {
     }
 
     func refreshOnce() async {
+        guard !settings.secretKey.isEmpty else {
+            errorMessage = "設定画面でシークレットキーを入力してください。"
+            return
+        }
         isLoading = true
         defer { isLoading = false }
         do {

@@ -70,7 +70,7 @@ struct CurrentMapView: View {
                     NavigationLink {
                         TrackHistoryView(settings: settings)
                     } label: {
-                        Label("行動軌跡", systemImage: "point.topleft.down.curvedto.point.bottomright.up")
+                        Label("行動軌跡", systemImage: "clock.arrow.circlepath")
                     }
                 }
             }
