@@ -1,15 +1,23 @@
 import SwiftUI
 import PhotosUI
 
-/// Lets the user photograph (or pick a photo of) the club's whiteboard
-/// roster, auto-fills a name for each board position via OCR, and saves the
-/// confirmed/edited names as nicknames after the user reviews them.
+/// Lets the user pick a photo of the club's whiteboard roster, shows the
+/// names OCR found on it as a copyable reference list, and saves whatever
+/// the user types (or pastes) into each numbered slot as nicknames.
+///
+/// This deliberately does not try to auto-match a recognized name to a board
+/// position — a tilted photo throws off simple top-to-bottom ordering enough
+/// that an automatic guess was often wrong, and a confidently-wrong prefill
+/// is worse than no prefill. Matching name to number is quick for a person
+/// who knows the roster and unreliable for OCR position math, so that step
+/// is left to the user.
 struct BoardScanView: View {
     @ObservedObject var viewModel: GliderTrackerViewModel
     @EnvironmentObject private var nicknameStore: NicknameStore
     @Environment(\.dismiss) private var dismiss
 
     @State private var photoItem: PhotosPickerItem?
+    @State private var recognizedCandidates: [String] = []
     @State private var draftNames: [Int: String] = [:]
     @State private var isRecognizing = false
     @State private var errorMessage: String?
@@ -28,7 +36,16 @@ struct BoardScanView: View {
                         }
                     }
                 } footer: {
-                    Text("ホワイトボードの写真を選ぶと、番号ごとの名前を自動で読み取って下の欄に入力します。丸数字のバッジ部分が写り込むと誤読の原因になりやすいので、できるだけ正面から、名前の文字部分が大きく写るように撮ると読み取り精度が上がります。手書き文字は読み間違えることが多いため、保存前に必ず内容を確認・修正してください。")
+                    Text("写真から名前らしき文字を読み取り、下に参考として一覧表示します。番号との対応づけは自動では行っていないので、一覧の文字を長押ししてコピーし、該当する番号の欄に貼り付けてください。")
+                }
+
+                if !recognizedCandidates.isEmpty {
+                    Section("読み取った文字(参考)") {
+                        ForEach(recognizedCandidates, id: \.self) { text in
+                            Text(text)
+                                .textSelection(.enabled)
+                        }
+                    }
                 }
 
                 Section("番号ごとの名前") {
@@ -83,12 +100,9 @@ struct BoardScanView: View {
                 errorMessage = "写真を読み込めませんでした。"
                 return
             }
-            let recognized = try await Task.detached(priority: .userInitiated) {
+            recognizedCandidates = try await Task.detached(priority: .userInitiated) {
                 try BoardOCR.recognizeNames(in: image)
             }.value
-            for (index, name) in recognized {
-                draftNames[index] = name
-            }
         } catch {
             errorMessage = "文字の読み取りに失敗しました: \(error.localizedDescription)"
         }
