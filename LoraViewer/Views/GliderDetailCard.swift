@@ -3,12 +3,12 @@ import SwiftUI
 struct GliderDetailCard: View {
     let glider: GliderPosition
     let baseName: String
-    let isAlerting: Bool
+    let alertReasons: [String]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            if isAlerting {
-                Label("基準地点から離れているのに高度が低いです", systemImage: "exclamationmark.triangle.fill")
+            if !alertReasons.isEmpty {
+                Label("基準地点から離れているのに高度が低いです(\(alertReasons.joined(separator: "・")))", systemImage: "exclamationmark.triangle.fill")
                     .font(.caption.bold())
                     .foregroundStyle(.white)
                     .padding(.horizontal, 8)

@@ -6,6 +6,7 @@ struct SettingsView: View {
 
     @EnvironmentObject var settings: APISettings
     @EnvironmentObject private var alertSettings: AlertSettings
+    @EnvironmentObject private var competitionGuideline: CompetitionAltitudeGuideline
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -60,9 +61,17 @@ struct SettingsView: View {
                             .foregroundStyle(.secondary)
                     }
                 } header: {
-                    Text("高度不足アラート")
+                    Text("高度不足アラート(カスタム設定)")
                 } footer: {
                     Text("グライダーはエンジンがないため、基準地点から一定距離以上離れているのに高度が低いと戻れない可能性があります。ここで設定した条件に当てはまる機体は、地図上で赤く警告表示されます。あくまで目安であり、実際の判断の根拠にはしないでください。高度は本サイトが提供する値(海抜高)をそのまま使っています。")
+                }
+
+                Section {
+                    Toggle("有効にする", isOn: $competitionGuideline.isEnabled)
+                } header: {
+                    Text("競技会ガイドライン(妻沼滑空場)")
+                } footer: {
+                    Text("日本学生航空連盟(JSAL)妻沼滑空場の公式ガイドライン(Ver.2026-01-26)を使用します。滑空場中心(N36°12'41\", E139°25'08\")から2.5km未満は制限なし、2.5〜3kmでMSL350m以上、以降1kmごとに70mずつ増加し、10km以上でMSL910m以上が必要です。公式資料に基づく固定値のため、数値はここでは変更できません(上のカスタム設定とは別に、両方同時に有効化できます)。")
                 }
             }
             .navigationTitle("設定")

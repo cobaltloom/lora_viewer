@@ -5,6 +5,7 @@ struct CurrentMapView: View {
     @EnvironmentObject var settings: APISettings
     @EnvironmentObject private var favoritesStore: FavoritesStore
     @EnvironmentObject private var alertSettings: AlertSettings
+    @EnvironmentObject private var competitionGuideline: CompetitionAltitudeGuideline
     @StateObject private var viewModel: GliderTrackerViewModel
     @State private var cameraPosition: MapCameraPosition = .automatic
     @State private var selectedGlider: GliderPosition?
@@ -36,8 +37,19 @@ struct CurrentMapView: View {
         alertSettings.referenceCoordinate(default: defaultReferenceCoordinate)
     }
 
+    private func alertReasons(for glider: GliderPosition) -> [String] {
+        var reasons: [String] = []
+        if alertSettings.isBelowSafeAltitude(glider, defaultReference: defaultReferenceCoordinate) {
+            reasons.append("カスタム設定")
+        }
+        if competitionGuideline.isBelowGuideline(glider) {
+            reasons.append("競技会ガイドライン")
+        }
+        return reasons
+    }
+
     private var alertingGliders: [GliderPosition] {
-        displayedPositions.filter { alertSettings.isBelowSafeAltitude($0, defaultReference: defaultReferenceCoordinate) }
+        displayedPositions.filter { !alertReasons(for: $0).isEmpty }
     }
 
     var body: some View {
@@ -55,13 +67,28 @@ struct CurrentMapView: View {
                                 .background(Circle().fill(.white))
                         }
                     }
+                    if competitionGuideline.isEnabled {
+                        MapCircle(
+                            center: CompetitionAltitudeGuideline.referenceCoordinate,
+                            radius: CompetitionAltitudeGuideline.innerRadiusKm * 1000
+                        )
+                            .foregroundStyle(.purple.opacity(0.06))
+                            .stroke(.purple.opacity(0.4), lineWidth: 1)
+                        Annotation("競技会基準地点", coordinate: CompetitionAltitudeGuideline.referenceCoordinate) {
+                            Image(systemName: "flag.checkered")
+                                .font(.subheadline.bold())
+                                .foregroundStyle(.purple)
+                                .padding(6)
+                                .background(Circle().fill(.white))
+                        }
+                    }
                     ForEach(displayedPositions) { glider in
                         Annotation(viewModel.nameFor(index: glider.index), coordinate: glider.coordinate) {
                             GliderMarkerView(
                                 glider: glider,
                                 isSelected: selectedGlider?.id == glider.id,
                                 isFavorite: favoritesStore.isFavorite(glider.imei),
-                                isAlerting: alertSettings.isBelowSafeAltitude(glider, defaultReference: defaultReferenceCoordinate)
+                                isAlerting: !alertReasons(for: glider).isEmpty
                             )
                                 .onTapGesture {
                                     withAnimation { selectedGlider = glider }
@@ -83,7 +110,7 @@ struct CurrentMapView: View {
                     GliderDetailCard(
                         glider: selectedGlider,
                         baseName: viewModel.nameFor(index: selectedGlider.index),
-                        isAlerting: alertSettings.isBelowSafeAltitude(selectedGlider, defaultReference: defaultReferenceCoordinate)
+                        alertReasons: alertReasons(for: selectedGlider)
                     )
                         .padding()
                         .transition(.move(edge: .bottom).combined(with: .opacity))
