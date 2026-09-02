@@ -62,7 +62,7 @@ struct SettingsView: View {
 
                     if alertSettings.mode == .steps {
                         ForEach($alertSettings.steps) { $step in
-                            VStack(alignment: .leading, spacing: 4) {
+                            Group {
                                 Stepper(value: $step.distanceKm, in: 0.5...50, step: 0.5) {
                                     Text("基準地点から \(step.distanceKm, specifier: "%.1f") km 以上")
                                 }
