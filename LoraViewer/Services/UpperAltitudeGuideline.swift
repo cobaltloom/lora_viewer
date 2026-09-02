@@ -108,7 +108,12 @@ final class UpperAltitudeGuideline: ObservableObject {
     static let zoneBWeekdayCeilingFt = 2500.0
     static let zoneBWeekendCeilingFt = 3500.0
 
-    private static let feetToMeters = 0.3048
+    static let feetToMeters = 0.3048
+
+    /// A区域's ceiling in meters — the glider position data (and every
+    /// other altitude alert in this app) is in meters MSL, so this is the
+    /// unit worth showing next to it for a direct comparison.
+    static var zoneACeilingM: Double { zoneACeilingFt * feetToMeters }
 
     /// B区域's ceiling (ft) for today, given the current mode/settings.
     var bZoneCeilingFt: Double {
@@ -122,19 +127,28 @@ final class UpperAltitudeGuideline: ObservableObject {
         }
     }
 
-    /// True if `glider` is above the ceiling for whichever zone (B takes
-    /// priority as the more restrictive, inner one) it's currently inside.
-    /// Outside both zones, there's no published limit, so this never fires.
-    func exceedsCeiling(_ glider: GliderPosition) -> Bool {
-        guard isEnabled, let altM = glider.alt else { return false }
-        let coordinate = glider.coordinate
+    /// B区域's ceiling for today, in meters (see `zoneACeilingM`).
+    var bZoneCeilingM: Double { bZoneCeilingFt * Self.feetToMeters }
 
+    /// The zone `glider` is currently inside and its ceiling (meters MSL),
+    /// or nil if it's in neither zone. B takes priority as the more
+    /// restrictive, inner one.
+    func applicableZone(for glider: GliderPosition) -> (name: String, ceilingM: Double)? {
+        let coordinate = glider.coordinate
         if Self.zoneB.contains(coordinate) {
-            return altM > bZoneCeilingFt * Self.feetToMeters
+            return (Self.zoneB.name, bZoneCeilingM)
         }
         if Self.zoneA.contains(coordinate) {
-            return altM > Self.zoneACeilingFt * Self.feetToMeters
+            return (Self.zoneA.name, Self.zoneACeilingM)
         }
-        return false
+        return nil
+    }
+
+    /// True if `glider` is above the ceiling for whichever zone it's
+    /// currently inside. Outside both zones, there's no published limit,
+    /// so this never fires.
+    func exceedsCeiling(_ glider: GliderPosition) -> Bool {
+        guard isEnabled, let altM = glider.alt, let zone = applicableZone(for: glider) else { return false }
+        return altM > zone.ceilingM
     }
 }

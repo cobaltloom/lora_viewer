@@ -157,16 +157,16 @@ struct SettingsView: View {
                         Toggle("今日を祝日として扱う", isOn: $upperAltitudeGuideline.treatTodayAsHoliday)
                     } else {
                         Stepper(value: $upperAltitudeGuideline.competitionCeilingFt, in: 500...10000, step: 100) {
-                            Text("競技会中の上限 \(Int(upperAltitudeGuideline.competitionCeilingFt)) ft MSL")
+                            Text("競技会中の上限 \(Int(upperAltitudeGuideline.competitionCeilingFt)) ft (約\(Int((upperAltitudeGuideline.competitionCeilingFt * UpperAltitudeGuideline.feetToMeters).rounded())) m) MSL")
                         }
                     }
 
                     LabeledContent("A区域の上限") {
-                        Text("\(Int(UpperAltitudeGuideline.zoneACeilingFt)) ft MSL")
+                        Text("\(Int(UpperAltitudeGuideline.zoneACeilingFt)) ft (約\(Int(UpperAltitudeGuideline.zoneACeilingM.rounded())) m) MSL")
                             .foregroundStyle(.secondary)
                     }
                     LabeledContent("B区域の上限(本日)") {
-                        Text("\(Int(upperAltitudeGuideline.bZoneCeilingFt)) ft MSL")
+                        Text("\(Int(upperAltitudeGuideline.bZoneCeilingFt)) ft (約\(Int(upperAltitudeGuideline.bZoneCeilingM.rounded())) m) MSL")
                             .foregroundStyle(.secondary)
                     }
                 } header: {
