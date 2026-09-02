@@ -54,24 +54,39 @@ struct SettingsView: View {
                 Section {
                     Toggle("高度不足アラートを有効にする", isOn: $alertSettings.isEnabled)
 
-                    ForEach($alertSettings.steps) { $step in
-                        VStack(alignment: .leading, spacing: 4) {
-                            Stepper(value: $step.distanceKm, in: 0.5...50, step: 0.5) {
-                                Text("基準地点から \(step.distanceKm, specifier: "%.1f") km 以上")
-                            }
-                            Stepper(value: $step.minimumAltitudeM, in: 50...3000, step: 10) {
-                                Text("高度 \(Int(step.minimumAltitudeM)) m 未満で警告")
+                    Picker("計算方法", selection: $alertSettings.mode) {
+                        Text("距離ごとの段階").tag(AltitudeCalculationMode.steps)
+                        Text("帰投高度とL/D").tag(AltitudeCalculationMode.glideRatio)
+                    }
+                    .pickerStyle(.segmented)
+
+                    if alertSettings.mode == .steps {
+                        ForEach($alertSettings.steps) { $step in
+                            VStack(alignment: .leading, spacing: 4) {
+                                Stepper(value: $step.distanceKm, in: 0.5...50, step: 0.5) {
+                                    Text("基準地点から \(step.distanceKm, specifier: "%.1f") km 以上")
+                                }
+                                Stepper(value: $step.minimumAltitudeM, in: 50...3000, step: 10) {
+                                    Text("高度 \(Int(step.minimumAltitudeM)) m 未満で警告")
+                                }
                             }
                         }
-                    }
-                    .onDelete { indices in
-                        alertSettings.steps.remove(atOffsets: indices)
-                    }
+                        .onDelete { indices in
+                            alertSettings.steps.remove(atOffsets: indices)
+                        }
 
-                    Button {
-                        alertSettings.addStep()
-                    } label: {
-                        Label("段階を追加", systemImage: "plus.circle")
+                        Button {
+                            alertSettings.addStep()
+                        } label: {
+                            Label("段階を追加", systemImage: "plus.circle")
+                        }
+                    } else {
+                        Stepper(value: $alertSettings.arrivalAltitudeM, in: 50...3000, step: 10) {
+                            Text("基準地点での必要高度 \(Int(alertSettings.arrivalAltitudeM)) m")
+                        }
+                        Stepper(value: $alertSettings.glideRatio, in: 5...60, step: 1) {
+                            Text("滑空比(L/D) \(Int(alertSettings.glideRatio))")
+                        }
                     }
 
                     Toggle("基準地点を自分で指定する", isOn: $alertSettings.useCustomReference)
@@ -104,7 +119,7 @@ struct SettingsView: View {
                 } header: {
                     Text("高度不足アラート(カスタム設定)")
                 } footer: {
-                    Text("段階を複数追加して、距離ごとに必要な高度を設定できます(競技会ガイドラインのように、遠いほど高い高度を要求する設定も可能)。各機体には、その時点の距離以下となる段階のうち、最も距離が大きいものが適用されます。地図上には各段階の距離を半径とした円が表示されます。あくまで目安であり、実際の判断の根拠にはしないでください。高度は本サイトが提供する値(海抜高)をそのまま使っています。")
+                    Text("「距離ごとの段階」は、段階を複数追加して距離ごとに必要な高度を設定する方式です(各機体には、その時点の距離以下となる段階のうち最も距離が大きいものが適用されます)。「帰投高度とL/D」は、基準地点での必要高度に、距離÷滑空比(L/D)を加えた高度を必要高度とする方式です。地図上には、段階方式では各段階の距離を半径とした円が表示されます。あくまで目安であり、実際の判断の根拠にはしないでください。高度は本サイトが提供する値(海抜高)をそのまま使っています。")
                 }
 
                 Section {

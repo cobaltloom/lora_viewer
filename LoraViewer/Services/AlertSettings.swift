@@ -1,30 +1,48 @@
 import Foundation
 import CoreLocation
 
-/// One step of the custom rule: past `distanceKm` from the reference point,
-/// at least `minimumAltitudeM` (MSL) is required. Mirrors how
-/// `CompetitionAltitudeGuideline`'s official table is structured, but here
-/// the steps are whatever the person configuring this decides.
+/// One step of the "steps" calculation mode: past `distanceKm` from the
+/// reference point, at least `minimumAltitudeM` (MSL) is required. Mirrors
+/// how `CompetitionAltitudeGuideline`'s official table is structured, but
+/// here the steps are whatever the person configuring this decides.
 struct AltitudeStep: Identifiable, Codable, Equatable {
     var id = UUID()
     var distanceKm: Double
     var minimumAltitudeM: Double
 }
 
-/// Configurable "minimum altitude beyond a distance" safety rule, as a list
-/// of distance/altitude steps: gliders have no engine, so past a given
-/// distance from the field they need enough altitude (MSL, matching the
-/// site's own altitude data) to glide back, and that required altitude can
-/// increase in steps the further out they go.
+/// How the custom rule turns distance-from-reference-point into a required
+/// altitude.
+enum AltitudeCalculationMode: String, Codable, Hashable {
+    /// A list of discrete distance/altitude steps (see `AltitudeStep`).
+    case steps
+    /// A continuous "final glide" calculation: `arrivalAltitudeM` needed
+    /// right at the reference point, plus one more meter of altitude for
+    /// every `glideRatio` meters of distance beyond it.
+    case glideRatio
+}
+
+/// Configurable "minimum altitude beyond a distance" safety rule: gliders
+/// have no engine, so past a given distance from the field they need enough
+/// altitude (MSL, matching the site's own altitude data) to glide back.
+/// `mode` picks which of two ways to compute that required altitude is
+/// active; each mode keeps its own settings so switching between them
+/// doesn't lose either one's configuration.
 ///
 /// This is an advisory aid only, not a certified instrument — the threshold
 /// values are whatever the person configuring this decides are safe.
 final class AlertSettings: ObservableObject {
     @Published var isEnabled: Bool { didSet { persist() } }
+    @Published var mode: AltitudeCalculationMode { didSet { persist() } }
     @Published var useCustomReference: Bool { didSet { persist() } }
     @Published var customLatitude: Double { didSet { persist() } }
     @Published var customLongitude: Double { didSet { persist() } }
     @Published var steps: [AltitudeStep] { didSet { persist() } }
+    /// Required MSL altitude right at the reference point, in glide-ratio mode.
+    @Published var arrivalAltitudeM: Double { didSet { persist() } }
+    /// Glide ratio (L/D) used in glide-ratio mode: how many meters of
+    /// distance one meter of altitude covers.
+    @Published var glideRatio: Double { didSet { persist() } }
     /// Altitude (MSL) at or below which a position is treated as "on the
     /// ground, not actually flying" and never alerted on, regardless of
     /// distance — otherwise a glider parked at the field or landed out
@@ -35,10 +53,13 @@ final class AlertSettings: ObservableObject {
 
     private enum Keys {
         static let isEnabled = "altIsEnabled"
+        static let mode = "altMode"
         static let useCustomReference = "altUseCustomReference"
         static let customLat = "altCustomLat"
         static let customLon = "altCustomLon"
         static let steps = "altSteps"
+        static let arrivalAltM = "altArrivalAltitudeM"
+        static let glideRatio = "altGlideRatio"
         static let minFlyingAltM = "altMinimumFlyingAltitudeM"
         // Superseded by `steps`, kept only to migrate existing values once.
         static let legacyDistanceKm = "altDistanceThresholdKm"
@@ -48,6 +69,7 @@ final class AlertSettings: ObservableObject {
     init() {
         let d = UserDefaults.standard
         isEnabled = d.bool(forKey: Keys.isEnabled)
+        mode = AltitudeCalculationMode(rawValue: d.string(forKey: Keys.mode) ?? "") ?? .steps
         useCustomReference = d.bool(forKey: Keys.useCustomReference)
         customLatitude = d.double(forKey: Keys.customLat)
         customLongitude = d.double(forKey: Keys.customLon)
@@ -66,6 +88,11 @@ final class AlertSettings: ObservableObject {
             }
         }
 
+        let storedArrivalAlt = d.double(forKey: Keys.arrivalAltM)
+        arrivalAltitudeM = storedArrivalAlt > 0 ? storedArrivalAlt : 300
+        let storedGlideRatio = d.double(forKey: Keys.glideRatio)
+        glideRatio = storedGlideRatio > 0 ? storedGlideRatio : 30
+
         let storedFlyingAlt = d.double(forKey: Keys.minFlyingAltM)
         minimumFlyingAltitudeM = storedFlyingAlt > 0 ? storedFlyingAlt : 60
     }
@@ -80,15 +107,20 @@ final class AlertSettings: ObservableObject {
         return defaultCoordinate
     }
 
-    /// The minimum MSL altitude (meters) required at this distance, or nil
-    /// if it's closer than every configured step (no restriction applies).
-    /// Picks the step with the largest `distanceKm` that's still <= the
-    /// given distance, same logic as the official competition table.
+    /// The minimum MSL altitude (meters) required at this distance under the
+    /// active `mode`, or nil if no restriction applies there (only possible
+    /// in `.steps` mode, when closer than every configured step).
     func requiredAltitudeM(atDistanceKm distanceKm: Double) -> Double? {
-        steps
-            .filter { $0.distanceKm <= distanceKm }
-            .max { $0.distanceKm < $1.distanceKm }?
-            .minimumAltitudeM
+        switch mode {
+        case .steps:
+            return steps
+                .filter { $0.distanceKm <= distanceKm }
+                .max { $0.distanceKm < $1.distanceKm }?
+                .minimumAltitudeM
+        case .glideRatio:
+            guard glideRatio > 0 else { return nil }
+            return arrivalAltitudeM + (distanceKm * 1000) / glideRatio
+        }
     }
 
     func isBelowSafeAltitude(_ glider: GliderPosition, defaultReference: CLLocationCoordinate2D?) -> Bool {
@@ -119,12 +151,15 @@ final class AlertSettings: ObservableObject {
     private func persist() {
         let d = UserDefaults.standard
         d.set(isEnabled, forKey: Keys.isEnabled)
+        d.set(mode.rawValue, forKey: Keys.mode)
         d.set(useCustomReference, forKey: Keys.useCustomReference)
         d.set(customLatitude, forKey: Keys.customLat)
         d.set(customLongitude, forKey: Keys.customLon)
         if let data = try? JSONEncoder().encode(steps) {
             d.set(data, forKey: Keys.steps)
         }
+        d.set(arrivalAltitudeM, forKey: Keys.arrivalAltM)
+        d.set(glideRatio, forKey: Keys.glideRatio)
         d.set(minimumFlyingAltitudeM, forKey: Keys.minFlyingAltM)
     }
 }
