@@ -34,6 +34,16 @@ struct SettingsView: View {
                 }
 
                 Section {
+                    Stepper(value: $alertSettings.minimumFlyingAltitudeM, in: 0...500, step: 10) {
+                        Text("高度 \(Int(alertSettings.minimumFlyingAltitudeM)) m 以下は地上とみなす")
+                    }
+                } header: {
+                    Text("地上判定(共通)")
+                } footer: {
+                    Text("この高度以下は駐機中・着陸後とみなし、距離に関わらず下の2つのアラートどちらも出しません。滑空場の標高より少し高い値にしておくと、実際に飛んでいない機体を誤って警告しにくくなります。")
+                }
+
+                Section {
                     Toggle("高度不足アラートを有効にする", isOn: $alertSettings.isEnabled)
 
                     Stepper(value: $alertSettings.distanceThresholdKm, in: 0.5...50, step: 0.5) {

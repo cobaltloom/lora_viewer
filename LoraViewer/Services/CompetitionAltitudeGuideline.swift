@@ -41,8 +41,12 @@ final class CompetitionAltitudeGuideline: ObservableObject {
         return 420 + 70 * Double(bracket - 3)
     }
 
-    func isBelowGuideline(_ glider: GliderPosition) -> Bool {
-        guard isEnabled, let alt = glider.alt else { return false }
+    /// `minimumFlyingAltitudeM` comes from `AlertSettings` — a position at or
+    /// below it is treated as on the ground (parked, or landed out), never
+    /// alerted on regardless of distance, so a stationary glider doesn't sit
+    /// in permanent "low altitude" alert.
+    func isBelowGuideline(_ glider: GliderPosition, minimumFlyingAltitudeM: Double) -> Bool {
+        guard isEnabled, let alt = glider.alt, alt > minimumFlyingAltitudeM else { return false }
 
         let referenceLocation = CLLocation(latitude: Self.referenceCoordinate.latitude, longitude: Self.referenceCoordinate.longitude)
         let gliderLocation = CLLocation(latitude: glider.lat, longitude: glider.lon)

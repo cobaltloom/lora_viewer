@@ -16,6 +16,13 @@ final class AlertSettings: ObservableObject {
     @Published var customLongitude: Double { didSet { persist() } }
     @Published var distanceThresholdKm: Double { didSet { persist() } }
     @Published var minimumAltitudeM: Double { didSet { persist() } }
+    /// Altitude (MSL) at or below which a position is treated as "on the
+    /// ground, not actually flying" and never alerted on, regardless of
+    /// distance — otherwise a glider parked at the field or landed out
+    /// somewhere would sit in permanent "low altitude" alert. Shared by both
+    /// this rule and `CompetitionAltitudeGuideline` since it's about
+    /// distinguishing flying from not, not about either rule's own numbers.
+    @Published var minimumFlyingAltitudeM: Double { didSet { persist() } }
 
     private enum Keys {
         static let isEnabled = "altIsEnabled"
@@ -24,6 +31,7 @@ final class AlertSettings: ObservableObject {
         static let customLon = "altCustomLon"
         static let distanceKm = "altDistanceThresholdKm"
         static let minAltM = "altMinimumAltitudeM"
+        static let minFlyingAltM = "altMinimumFlyingAltitudeM"
     }
 
     init() {
@@ -36,6 +44,8 @@ final class AlertSettings: ObservableObject {
         distanceThresholdKm = storedDistance > 0 ? storedDistance : 3.0
         let storedAlt = d.double(forKey: Keys.minAltM)
         minimumAltitudeM = storedAlt > 0 ? storedAlt : 300
+        let storedFlyingAlt = d.double(forKey: Keys.minFlyingAltM)
+        minimumFlyingAltitudeM = storedFlyingAlt > 0 ? storedFlyingAlt : 60
     }
 
     /// The point distance is measured from: the custom point if the user set
@@ -49,7 +59,7 @@ final class AlertSettings: ObservableObject {
     }
 
     func isBelowSafeAltitude(_ glider: GliderPosition, defaultReference: CLLocationCoordinate2D?) -> Bool {
-        guard isEnabled, let alt = glider.alt else { return false }
+        guard isEnabled, let alt = glider.alt, alt > minimumFlyingAltitudeM else { return false }
         guard let reference = referenceCoordinate(default: defaultReference) else { return false }
 
         let referenceLocation = CLLocation(latitude: reference.latitude, longitude: reference.longitude)
@@ -68,5 +78,6 @@ final class AlertSettings: ObservableObject {
         d.set(customLongitude, forKey: Keys.customLon)
         d.set(distanceThresholdKm, forKey: Keys.distanceKm)
         d.set(minimumAltitudeM, forKey: Keys.minAltM)
+        d.set(minimumFlyingAltitudeM, forKey: Keys.minFlyingAltM)
     }
 }

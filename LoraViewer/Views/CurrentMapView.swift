@@ -42,7 +42,7 @@ struct CurrentMapView: View {
         if alertSettings.isBelowSafeAltitude(glider, defaultReference: defaultReferenceCoordinate) {
             reasons.append("カスタム設定")
         }
-        if competitionGuideline.isBelowGuideline(glider) {
+        if competitionGuideline.isBelowGuideline(glider, minimumFlyingAltitudeM: alertSettings.minimumFlyingAltitudeM) {
             reasons.append("競技会ガイドライン")
         }
         return reasons
