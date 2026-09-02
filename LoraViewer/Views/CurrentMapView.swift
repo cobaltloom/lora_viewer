@@ -134,8 +134,13 @@ struct CurrentMapView: View {
                     MapUserLocationButton()
                 }
                 .safeAreaInset(edge: .top) {
-                    if !alertingGliders.isEmpty {
-                        alertBanner
+                    VStack(spacing: 6) {
+                        if !activeAlertLabels.isEmpty {
+                            activeAlertsIndicator
+                        }
+                        if !alertingGliders.isEmpty {
+                            alertBanner
+                        }
                     }
                 }
 
@@ -184,11 +189,6 @@ struct CurrentMapView: View {
                     if let lastUpdated = viewModel.lastUpdated {
                         Text("更新: \(lastUpdated, style: .time)")
                             .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    if !activeAlertLabels.isEmpty {
-                        Text(activeAlertLabels.joined(separator: "・"))
-                            .font(.caption2)
                             .foregroundStyle(.secondary)
                     }
                     Spacer()
@@ -266,6 +266,21 @@ struct CurrentMapView: View {
         withAnimation {
             cameraPosition = .region(MKCoordinateRegion(coordinates: favoritePositions.map(\.coordinate)))
         }
+    }
+
+    private var activeAlertsIndicator: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "bell.fill")
+            Text(activeAlertLabels.joined(separator: "・"))
+        }
+        .font(.caption2)
+        .foregroundStyle(.secondary)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 4)
+        .background(.thinMaterial, in: Capsule())
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal)
+        .padding(.top, 4)
     }
 
     private var alertBanner: some View {
