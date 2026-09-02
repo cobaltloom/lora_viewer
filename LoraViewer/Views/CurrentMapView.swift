@@ -172,7 +172,7 @@ struct CurrentMapView: View {
                         }
                 }
             }
-            .navigationTitle(viewModel.config?.settings.siteTitle ?? "妻沼LoRa")
+            .navigationTitle(viewModel.config?.settings.siteTitle ?? "LoRa妻沼")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
