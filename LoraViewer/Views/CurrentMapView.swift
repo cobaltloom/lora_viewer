@@ -7,6 +7,7 @@ struct CurrentMapView: View {
     @EnvironmentObject private var alertSettings: AlertSettings
     @EnvironmentObject private var competitionGuideline: CompetitionAltitudeGuideline
     @StateObject private var viewModel: GliderTrackerViewModel
+    @StateObject private var locationManager = LocationManager()
     @State private var cameraPosition: MapCameraPosition = .automatic
     @State private var selectedGlider: GliderPosition?
     @State private var showSettings = false
@@ -98,10 +99,12 @@ struct CurrentMapView: View {
                                 }
                         }
                     }
+                    UserAnnotation()
                 }
                 .mapControls {
                     MapCompass()
                     MapScaleView()
+                    MapUserLocationButton()
                 }
                 .safeAreaInset(edge: .top) {
                     if !alertingGliders.isEmpty {
@@ -178,6 +181,7 @@ struct CurrentMapView: View {
             }
             .task {
                 viewModel.startPolling()
+                locationManager.requestAuthorizationIfNeeded()
             }
             .onDisappear {
                 viewModel.stopPolling()
