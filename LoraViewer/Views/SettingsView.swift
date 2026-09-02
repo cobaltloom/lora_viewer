@@ -84,8 +84,11 @@ struct SettingsView: View {
                         Stepper(value: $alertSettings.arrivalAltitudeM, in: 50...3000, step: 10) {
                             Text("基準地点での必要高度 \(Int(alertSettings.arrivalAltitudeM)) m")
                         }
-                        Stepper(value: $alertSettings.glideRatio, in: 5...60, step: 1) {
-                            Text("滑空比(L/D) \(Int(alertSettings.glideRatio))")
+                        Stepper(value: $alertSettings.warningGlideRatio, in: 5...60, step: 1) {
+                            Text("警告の滑空比(L/D) \(Int(alertSettings.warningGlideRatio))")
+                        }
+                        Stepper(value: $alertSettings.cautionGlideRatio, in: 5...60, step: 1) {
+                            Text("注意の滑空比(L/D) \(Int(alertSettings.cautionGlideRatio))")
                         }
                     }
 
@@ -119,7 +122,7 @@ struct SettingsView: View {
                 } header: {
                     Text("高度不足アラート(カスタム設定)")
                 } footer: {
-                    Text("「距離ごとの段階」は、段階を複数追加して距離ごとに必要な高度を設定する方式です(各機体には、その時点の距離以下となる段階のうち最も距離が大きいものが適用されます)。「帰投高度とL/D」は、基準地点での必要高度に、距離÷滑空比(L/D)を加えた高度を必要高度とする方式です。地図上には、段階方式では各段階の距離を半径とした円が表示されます。あくまで目安であり、実際の判断の根拠にはしないでください。高度は本サイトが提供する値(海抜高)をそのまま使っています。")
+                    Text("「距離ごとの段階」は、段階を複数追加して距離ごとに必要な高度を設定する方式です(各機体には、その時点の距離以下となる段階のうち最も距離が大きいものが適用されます)。「帰投高度とL/D」は、基準地点での必要高度に、距離÷滑空比(L/D)を加えた高度を必要高度とする方式で、警告と注意で異なる滑空比を設定し2段階で警告します。警告の滑空比は注意の滑空比より大きい値(より楽観的な数値)にしてください。地図上には、段階方式では各段階の距離を半径とした円が表示されます。あくまで目安であり、実際の判断の根拠にはしないでください。高度は本サイトが提供する値(海抜高)をそのまま使っています。")
                 }
 
                 Section {

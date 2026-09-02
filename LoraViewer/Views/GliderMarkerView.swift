@@ -4,7 +4,7 @@ struct GliderMarkerView: View {
     let glider: GliderPosition
     let isSelected: Bool
     let isFavorite: Bool
-    let isAlerting: Bool
+    let alertSeverity: AlertSeverity?
 
     var body: some View {
         VStack(spacing: 2) {
@@ -12,7 +12,7 @@ struct GliderMarkerView: View {
                 Circle()
                     .fill(colorForSource)
                     .frame(width: isSelected ? 34 : 28, height: isSelected ? 34 : 28)
-                    .overlay(Circle().stroke(ringColor, lineWidth: isAlerting || isFavorite ? 3 : 2))
+                    .overlay(Circle().stroke(ringColor, lineWidth: alertSeverity != nil || isFavorite ? 3 : 2))
                 Text(glider.index)
                     .font(.caption.bold())
                     .foregroundStyle(.white)
@@ -28,10 +28,10 @@ struct GliderMarkerView: View {
                 }
             }
             .overlay(alignment: .bottomTrailing) {
-                if isAlerting {
+                if alertSeverity != nil {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .font(.system(size: 10))
-                        .foregroundStyle(.red)
+                        .foregroundStyle(ringColor)
                         .padding(2)
                         .background(Circle().fill(.white))
                         .offset(x: 4, y: 4)
@@ -42,7 +42,7 @@ struct GliderMarkerView: View {
                     .font(.caption2.bold())
                     .padding(.horizontal, 4)
                     .padding(.vertical, 1)
-                    .background((isAlerting ? Color.red : Color.black).opacity(0.75), in: Capsule())
+                    .background(altitudeBadgeColor.opacity(0.75), in: Capsule())
                     .foregroundStyle(.white)
             }
         }
@@ -51,9 +51,19 @@ struct GliderMarkerView: View {
     }
 
     private var ringColor: Color {
-        if isAlerting { return .red }
-        if isFavorite { return .yellow }
-        return .white
+        switch alertSeverity {
+        case .warning: return .red
+        case .caution: return .orange
+        case nil: return isFavorite ? .yellow : .white
+        }
+    }
+
+    private var altitudeBadgeColor: Color {
+        switch alertSeverity {
+        case .warning: return .red
+        case .caution: return .orange
+        case nil: return .black
+        }
     }
 
     private var colorForSource: Color {

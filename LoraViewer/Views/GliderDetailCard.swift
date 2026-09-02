@@ -3,17 +3,18 @@ import SwiftUI
 struct GliderDetailCard: View {
     let glider: GliderPosition
     let baseName: String
-    let alertReasons: [String]
+    let alertReasons: [GliderAlertReason]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            if !alertReasons.isEmpty {
-                Label("基準地点から離れているのに高度が低いです(\(alertReasons.joined(separator: "・")))", systemImage: "exclamationmark.triangle.fill")
+            if let severity = alertReasons.overallSeverity {
+                let labels = alertReasons.map { "\($0.severity.label): \($0.label)" }.joined(separator: "・")
+                Label("基準地点から離れているのに高度が低いです(\(labels))", systemImage: "exclamationmark.triangle.fill")
                     .font(.caption.bold())
                     .foregroundStyle(.white)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
-                    .background(.red, in: RoundedRectangle(cornerRadius: 8))
+                    .background(severity == .warning ? .red : .orange, in: RoundedRectangle(cornerRadius: 8))
             }
             HStack {
                 FavoriteButton(imei: glider.imei)

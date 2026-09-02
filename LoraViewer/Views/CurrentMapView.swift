@@ -43,13 +43,13 @@ struct CurrentMapView: View {
         alertSettings.referenceCoordinate(default: defaultReferenceCoordinate)
     }
 
-    private func alertReasons(for glider: GliderPosition) -> [String] {
-        var reasons: [String] = []
-        if alertSettings.isBelowSafeAltitude(glider, defaultReference: defaultReferenceCoordinate) {
-            reasons.append("カスタム設定")
+    private func alertReasons(for glider: GliderPosition) -> [GliderAlertReason] {
+        var reasons: [GliderAlertReason] = []
+        if let severity = alertSettings.alertSeverity(for: glider, defaultReference: defaultReferenceCoordinate) {
+            reasons.append(GliderAlertReason(label: "カスタム設定", severity: severity))
         }
         if competitionGuideline.isBelowGuideline(glider, minimumFlyingAltitudeM: alertSettings.minimumFlyingAltitudeM) {
-            reasons.append("競技会ガイドライン")
+            reasons.append(GliderAlertReason(label: "競技会ガイドライン", severity: .warning))
         }
         return reasons
     }
@@ -103,7 +103,7 @@ struct CurrentMapView: View {
                                 glider: glider,
                                 isSelected: selectedGlider?.id == glider.id,
                                 isFavorite: favoritesStore.isFavorite(glider.imei),
-                                isAlerting: !alertReasons(for: glider).isEmpty
+                                alertSeverity: alertReasons(for: glider).overallSeverity
                             )
                                 .onTapGesture {
                                     withAnimation { selectedGlider = glider }
@@ -248,16 +248,17 @@ struct CurrentMapView: View {
     }
 
     private var alertBanner: some View {
-        HStack(alignment: .top, spacing: 6) {
+        let worstSeverity = alertingGliders.compactMap { alertReasons(for: $0).overallSeverity }.max() ?? .caution
+        return HStack(alignment: .top, spacing: 6) {
             Image(systemName: "exclamationmark.triangle.fill")
-            Text("高度不足の可能性: " + alertingGliders.map { viewModel.nameFor(index: $0.index) }.joined(separator: "、"))
+            Text("高度不足の可能性(\(worstSeverity.label)): " + alertingGliders.map { viewModel.nameFor(index: $0.index) }.joined(separator: "、"))
                 .font(.caption)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .padding(10)
         .frame(maxWidth: .infinity, alignment: .leading)
         .foregroundStyle(.white)
-        .background(.red, in: RoundedRectangle(cornerRadius: 12))
+        .background(worstSeverity == .warning ? .red : .orange, in: RoundedRectangle(cornerRadius: 12))
         .padding(.horizontal)
         .padding(.top, 4)
     }

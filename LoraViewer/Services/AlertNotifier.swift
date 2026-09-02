@@ -18,10 +18,12 @@ final class AlertNotifier: NSObject, ObservableObject {
         }
     }
 
-    func notify(gliderName: String, reasons: [String]) {
+    func notify(gliderName: String, reasons: [GliderAlertReason]) {
+        guard let severity = reasons.overallSeverity else { return }
+
         let content = UNMutableNotificationContent()
-        content.title = "高度不足の可能性"
-        content.body = "\(gliderName): \(reasons.joined(separator: "・"))"
+        content.title = "高度不足の可能性(\(severity.label))"
+        content.body = "\(gliderName): \(reasons.map(\.label).joined(separator: "・"))"
         content.sound = .default
 
         let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
