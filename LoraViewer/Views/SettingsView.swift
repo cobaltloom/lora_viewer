@@ -62,7 +62,7 @@ struct SettingsView: View {
 
                     if alertSettings.mode == .steps {
                         ForEach($alertSettings.steps) { $step in
-                            Group {
+                            VStack(alignment: .leading, spacing: 14) {
                                 Stepper(value: $step.distanceKm, in: 0.5...50, step: 0.5) {
                                     Text("基準地点から \(step.distanceKm, specifier: "%.1f") km 以上")
                                 }
@@ -70,6 +70,7 @@ struct SettingsView: View {
                                     Text("高度 \(Int(step.minimumAltitudeM)) m 未満で警告")
                                 }
                             }
+                            .padding(.vertical, 2)
                         }
                         .onDelete { indices in
                             alertSettings.steps.remove(atOffsets: indices)
