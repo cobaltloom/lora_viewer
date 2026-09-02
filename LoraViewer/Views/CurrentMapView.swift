@@ -24,13 +24,16 @@ struct CurrentMapView: View {
         return favorites.isEmpty ? viewModel.positions : favorites
     }
 
-    /// The site's own configured map center, normally the airfield itself —
-    /// used as the safety-altitude reference point unless a custom one is set.
-    private var defaultReferenceCoordinate: CLLocationCoordinate2D? {
-        guard let siteSettings = viewModel.config?.settings, siteSettings.lat != 0, siteSettings.lon != 0 else {
-            return nil
+    /// The safety-altitude reference point used when no custom one is set:
+    /// the site's own configured map center if it actually provides one
+    /// (in practice it usually doesn't), otherwise the airfield coordinate
+    /// from JSAL's own guideline document — never MapKit's undefined
+    /// fallback region.
+    private var defaultReferenceCoordinate: CLLocationCoordinate2D {
+        if let siteSettings = viewModel.config?.settings, siteSettings.lat != 0, siteSettings.lon != 0 {
+            return CLLocationCoordinate2D(latitude: siteSettings.lat, longitude: siteSettings.lon)
         }
-        return CLLocationCoordinate2D(latitude: siteSettings.lat, longitude: siteSettings.lon)
+        return CompetitionAltitudeGuideline.referenceCoordinate
     }
 
     private var alertReferenceCoordinate: CLLocationCoordinate2D? {
