@@ -8,6 +8,14 @@ struct SettingsView: View {
     @EnvironmentObject private var alertSettings: AlertSettings
     @EnvironmentObject private var competitionGuideline: CompetitionAltitudeGuideline
     @Environment(\.dismiss) private var dismiss
+    @State private var showReferencePointPicker = false
+
+    private var referencePointPickerInitialCoordinate: CLLocationCoordinate2D? {
+        if alertSettings.customLatitude != 0 || alertSettings.customLongitude != 0 {
+            return CLLocationCoordinate2D(latitude: alertSettings.customLatitude, longitude: alertSettings.customLongitude)
+        }
+        return defaultReferenceCoordinate
+    }
 
     var body: some View {
         NavigationStack {
@@ -56,10 +64,20 @@ struct SettingsView: View {
                     Toggle("基準地点を自分で指定する", isOn: $alertSettings.useCustomReference)
 
                     if alertSettings.useCustomReference {
-                        TextField("緯度", value: $alertSettings.customLatitude, format: .number)
-                            .keyboardType(.numbersAndPunctuation)
-                        TextField("経度", value: $alertSettings.customLongitude, format: .number)
-                            .keyboardType(.numbersAndPunctuation)
+                        LabeledContent("基準地点") {
+                            if alertSettings.customLatitude != 0 || alertSettings.customLongitude != 0 {
+                                Text(String(format: "%.5f, %.5f", alertSettings.customLatitude, alertSettings.customLongitude))
+                                    .foregroundStyle(.secondary)
+                            } else {
+                                Text("未設定")
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        Button {
+                            showReferencePointPicker = true
+                        } label: {
+                            Label("地図で選ぶ", systemImage: "mappin.and.ellipse")
+                        }
                     } else if let defaultReferenceCoordinate {
                         LabeledContent("基準地点(サイトの初期座標)") {
                             Text(String(format: "%.5f, %.5f", defaultReferenceCoordinate.latitude, defaultReferenceCoordinate.longitude))
@@ -89,6 +107,13 @@ struct SettingsView: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("閉じる") { dismiss() }
                 }
+            }
+            .sheet(isPresented: $showReferencePointPicker) {
+                ReferencePointPickerView(
+                    latitude: $alertSettings.customLatitude,
+                    longitude: $alertSettings.customLongitude,
+                    initialCoordinate: referencePointPickerInitialCoordinate
+                )
             }
         }
     }
