@@ -6,6 +6,7 @@ struct CurrentMapView: View {
     @EnvironmentObject private var favoritesStore: FavoritesStore
     @EnvironmentObject private var alertSettings: AlertSettings
     @EnvironmentObject private var competitionGuideline: CompetitionAltitudeGuideline
+    @EnvironmentObject private var upperAltitudeGuideline: UpperAltitudeGuideline
     @StateObject private var viewModel: GliderTrackerViewModel
     @StateObject private var locationManager = LocationManager()
     @StateObject private var alertNotifier = AlertNotifier()
@@ -50,6 +51,9 @@ struct CurrentMapView: View {
         if competitionGuideline.isBelowGuideline(glider, minimumFlyingAltitudeM: alertSettings.minimumFlyingAltitudeM) {
             reasons.append(GliderAlertReason(label: "競技会ガイドライン", severity: .warning))
         }
+        if upperAltitudeGuideline.exceedsCeiling(glider) {
+            reasons.append(GliderAlertReason(label: "上限高度超過", severity: .warning))
+        }
         return reasons
     }
 
@@ -70,6 +74,9 @@ struct CurrentMapView: View {
         }
         if competitionGuideline.isEnabled {
             labels.append("競技会ガイドライン")
+        }
+        if upperAltitudeGuideline.isEnabled {
+            labels.append("上限高度")
         }
         return labels
     }
@@ -112,6 +119,14 @@ struct CurrentMapView: View {
                                 .padding(6)
                                 .background(Circle().fill(.white))
                         }
+                    }
+                    if upperAltitudeGuideline.isEnabled {
+                        MapPolygon(coordinates: UpperAltitudeGuideline.zoneA.boundary)
+                            .foregroundStyle(.blue.opacity(0.03))
+                            .stroke(.blue.opacity(0.5), lineWidth: 1)
+                        MapPolygon(coordinates: UpperAltitudeGuideline.zoneB.boundary)
+                            .foregroundStyle(.cyan.opacity(0.06))
+                            .stroke(.cyan.opacity(0.6), lineWidth: 1.5)
                     }
                     ForEach(displayedPositions) { glider in
                         Annotation(viewModel.nameFor(index: glider.index), coordinate: glider.coordinate) {
@@ -285,9 +300,15 @@ struct CurrentMapView: View {
 
     private var alertBanner: some View {
         let worstSeverity = alertingGliders.compactMap { alertReasons(for: $0).overallSeverity }.max() ?? .caution
+        // Reasons can now mean "too low" or "too high" depending on which
+        // rule fired, so each glider lists its own reason labels rather
+        // than sharing one blanket "high altitude" or "low altitude" title.
+        let lines = alertingGliders.map { glider in
+            "\(viewModel.nameFor(index: glider.index)): " + alertReasons(for: glider).map(\.label).joined(separator: "・")
+        }
         return HStack(alignment: .top, spacing: 6) {
             Image(systemName: "exclamationmark.triangle.fill")
-            Text("高度不足の可能性(\(worstSeverity.label)): " + alertingGliders.map { viewModel.nameFor(index: $0.index) }.joined(separator: "、"))
+            Text("高度アラート(\(worstSeverity.label)) " + lines.joined(separator: "、"))
                 .font(.caption)
                 .fixedSize(horizontal: false, vertical: true)
         }

@@ -7,6 +7,7 @@ struct LoraViewerApp: App {
     @StateObject private var favoritesStore = FavoritesStore()
     @StateObject private var alertSettings = AlertSettings()
     @StateObject private var competitionGuideline = CompetitionAltitudeGuideline()
+    @StateObject private var upperAltitudeGuideline = UpperAltitudeGuideline()
 
     var body: some Scene {
         WindowGroup {
@@ -16,6 +17,7 @@ struct LoraViewerApp: App {
                 .environmentObject(favoritesStore)
                 .environmentObject(alertSettings)
                 .environmentObject(competitionGuideline)
+                .environmentObject(upperAltitudeGuideline)
         }
     }
 }

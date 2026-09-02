@@ -9,7 +9,7 @@ struct GliderDetailCard: View {
         VStack(alignment: .leading, spacing: 6) {
             if let severity = alertReasons.overallSeverity {
                 let labels = alertReasons.map { "\($0.severity.label): \($0.label)" }.joined(separator: "・")
-                Label("基準地点から離れているのに高度が低いです(\(labels))", systemImage: "exclamationmark.triangle.fill")
+                Label("高度アラート(\(labels))", systemImage: "exclamationmark.triangle.fill")
                     .font(.caption.bold())
                     .foregroundStyle(.white)
                     .padding(.horizontal, 8)

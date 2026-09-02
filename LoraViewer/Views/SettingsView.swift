@@ -7,6 +7,7 @@ struct SettingsView: View {
     @EnvironmentObject var settings: APISettings
     @EnvironmentObject private var alertSettings: AlertSettings
     @EnvironmentObject private var competitionGuideline: CompetitionAltitudeGuideline
+    @EnvironmentObject private var upperAltitudeGuideline: UpperAltitudeGuideline
     @Environment(\.dismiss) private var dismiss
     @State private var showReferencePointPicker = false
     @State private var showDeleteAllStepsConfirmation = false
@@ -141,6 +142,37 @@ struct SettingsView: View {
                     Text("競技会ガイドライン(妻沼滑空場)")
                 } footer: {
                     Text("日本学生航空連盟(JSAL)妻沼滑空場の公式ガイドライン(Ver.2026-01-26)を使用します。滑空場中心(N36°12'41\", E139°25'08\")から2.5km未満は制限なし、2.5〜3kmでMSL350m以上、以降1kmごとに70mずつ増加し、10km以上でMSL910m以上が必要です。公式資料に基づく固定値のため、数値はここでは変更できません(上のカスタム設定とは別に、両方同時に有効化できます)。")
+                }
+
+                Section {
+                    Toggle("有効にする", isOn: $upperAltitudeGuideline.isEnabled)
+
+                    Picker("B区域の上限の決め方", selection: $upperAltitudeGuideline.mode) {
+                        Text("自動(平日/土日祝)").tag(UpperCeilingMode.auto)
+                        Text("競技会中(手動指定)").tag(UpperCeilingMode.competition)
+                    }
+                    .pickerStyle(.segmented)
+
+                    if upperAltitudeGuideline.mode == .auto {
+                        Toggle("今日を祝日として扱う", isOn: $upperAltitudeGuideline.treatTodayAsHoliday)
+                    } else {
+                        Stepper(value: $upperAltitudeGuideline.competitionCeilingFt, in: 500...10000, step: 100) {
+                            Text("競技会中の上限 \(Int(upperAltitudeGuideline.competitionCeilingFt)) ft MSL")
+                        }
+                    }
+
+                    LabeledContent("A区域の上限") {
+                        Text("\(Int(UpperAltitudeGuideline.zoneACeilingFt)) ft MSL")
+                            .foregroundStyle(.secondary)
+                    }
+                    LabeledContent("B区域の上限(本日)") {
+                        Text("\(Int(upperAltitudeGuideline.bZoneCeilingFt)) ft MSL")
+                            .foregroundStyle(.secondary)
+                    }
+                } header: {
+                    Text("上限高度アラート(妻沼滑空場)")
+                } footer: {
+                    Text("公式資料のA区域・B区域の境界に基づき、区域内でその上限高度を超えるとアラートを出します。A区域は常に4,500ft MSL。B区域は平日2,500ft、土日祝日3,500ftで、「今日を祝日として扱う」で土日以外の祝日にも対応できます。競技会など別の上限が許可されている期間は「競技会中」を選び、許可された値を入力してください。区域の境界(緯度経度)は公式資料に基づく固定値のため、ここでは変更できません。あくまで目安であり、実際の判断の根拠にはしないでください。")
                 }
             }
             .navigationTitle("設定")

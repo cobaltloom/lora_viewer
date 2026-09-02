@@ -22,7 +22,7 @@ final class AlertNotifier: NSObject, ObservableObject {
         guard let severity = reasons.overallSeverity else { return }
 
         let content = UNMutableNotificationContent()
-        content.title = "高度不足の可能性(\(severity.label))"
+        content.title = "高度アラート(\(severity.label))"
         content.body = "\(gliderName): \(reasons.map(\.label).joined(separator: "・"))"
         content.sound = .default
 
