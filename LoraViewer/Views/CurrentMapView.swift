@@ -8,11 +8,13 @@ struct CurrentMapView: View {
     @EnvironmentObject private var competitionGuideline: CompetitionAltitudeGuideline
     @StateObject private var viewModel: GliderTrackerViewModel
     @StateObject private var locationManager = LocationManager()
+    @StateObject private var alertNotifier = AlertNotifier()
     @State private var cameraPosition: MapCameraPosition = .automatic
     @State private var selectedGlider: GliderPosition?
     @State private var showSettings = false
     @State private var didCenterInitially = false
     @State private var showFavoritesOnly = false
+    @State private var previouslyAlertingIMEIs: Set<String> = []
 
     init(settings: APISettings) {
         _viewModel = StateObject(wrappedValue: GliderTrackerViewModel(settings: settings))
@@ -182,12 +184,14 @@ struct CurrentMapView: View {
             .task {
                 viewModel.startPolling()
                 locationManager.requestAuthorizationIfNeeded()
+                alertNotifier.requestAuthorizationIfNeeded()
             }
             .onDisappear {
                 viewModel.stopPolling()
             }
             .onChange(of: viewModel.positions) { _, newPositions in
                 centerMapIfNeeded(on: newPositions)
+                notifyNewAlerts(in: newPositions)
             }
         }
     }
@@ -197,6 +201,23 @@ struct CurrentMapView: View {
         didCenterInitially = true
         let coordinates = positions.map(\.coordinate)
         cameraPosition = .region(MKCoordinateRegion(coordinates: coordinates))
+    }
+
+    /// Notifies once per glider each time it newly enters an alerting state
+    /// (not on every poll while it stays alerting), and lets it notify again
+    /// if it later clears and re-triggers. Checked against all known
+    /// positions, not just the ones currently shown by the favorites filter.
+    private func notifyNewAlerts(in positions: [GliderPosition]) {
+        var currentlyAlertingIMEIs: Set<String> = []
+        for glider in positions {
+            let reasons = alertReasons(for: glider)
+            guard !reasons.isEmpty else { continue }
+            currentlyAlertingIMEIs.insert(glider.imei)
+            if !previouslyAlertingIMEIs.contains(glider.imei) {
+                alertNotifier.notify(gliderName: viewModel.nameFor(index: glider.index), reasons: reasons)
+            }
+        }
+        previouslyAlertingIMEIs = currentlyAlertingIMEIs
     }
 
     private func toggleFavoritesOnly() {
