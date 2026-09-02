@@ -52,7 +52,7 @@ struct CurrentMapView: View {
             reasons.append(GliderAlertReason(label: "競技会ガイドライン", severity: .warning))
         }
         if upperAltitudeGuideline.exceedsCeiling(glider), let zone = upperAltitudeGuideline.applicableZone(for: glider) {
-            reasons.append(GliderAlertReason(label: "\(zone.name)上限\(Int(zone.ceilingM))m超過", severity: .warning))
+            reasons.append(GliderAlertReason(label: "\(zone.name)上限超過", severity: .warning))
         }
         return reasons
     }
