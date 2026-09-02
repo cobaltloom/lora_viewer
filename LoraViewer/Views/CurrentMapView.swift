@@ -172,7 +172,7 @@ struct CurrentMapView: View {
                         }
                 }
             }
-            .navigationTitle(viewModel.config?.settings.siteTitle ?? "グライダー位置")
+            .navigationTitle(viewModel.config?.settings.siteTitle ?? "妻沼LoRa")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
