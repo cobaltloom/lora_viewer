@@ -9,6 +9,7 @@ struct SettingsView: View {
     @EnvironmentObject private var competitionGuideline: CompetitionAltitudeGuideline
     @Environment(\.dismiss) private var dismiss
     @State private var showReferencePointPicker = false
+    @State private var showDeleteAllStepsConfirmation = false
 
     private var referencePointPickerInitialCoordinate: CLLocationCoordinate2D? {
         if alertSettings.customLatitude != 0 || alertSettings.customLongitude != 0 {
@@ -81,6 +82,14 @@ struct SettingsView: View {
                         } label: {
                             Label("段階を追加", systemImage: "plus.circle")
                         }
+
+                        if !alertSettings.steps.isEmpty {
+                            Button(role: .destructive) {
+                                showDeleteAllStepsConfirmation = true
+                            } label: {
+                                Label("段階をすべて削除", systemImage: "trash")
+                            }
+                        }
                     } else {
                         Stepper(value: $alertSettings.arrivalAltitudeM, in: 50...3000, step: 10) {
                             Text("基準地点での必要高度 \(Int(alertSettings.arrivalAltitudeM)) m")
@@ -139,6 +148,18 @@ struct SettingsView: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("閉じる") { dismiss() }
                 }
+            }
+            .confirmationDialog(
+                "段階をすべて削除しますか?",
+                isPresented: $showDeleteAllStepsConfirmation,
+                titleVisibility: .visible
+            ) {
+                Button("すべて削除", role: .destructive) {
+                    alertSettings.steps.removeAll()
+                }
+                Button("キャンセル", role: .cancel) {}
+            } message: {
+                Text("追加した段階がすべて削除されます。この操作は取り消せません。")
             }
             .sheet(isPresented: $showReferencePointPicker) {
                 ReferencePointPickerView(
