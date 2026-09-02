@@ -57,6 +57,23 @@ struct CurrentMapView: View {
         displayedPositions.filter { !alertReasons(for: $0).isEmpty }
     }
 
+    /// Short labels for whichever altitude alerts are currently turned on,
+    /// so it's visible at a glance without opening Settings. Empty when
+    /// neither alert is enabled.
+    private var activeAlertLabels: [String] {
+        var labels: [String] = []
+        if alertSettings.isEnabled {
+            switch alertSettings.mode {
+            case .steps: labels.append("カスタム:距離段階")
+            case .glideRatio: labels.append("カスタム:L/D")
+            }
+        }
+        if competitionGuideline.isEnabled {
+            labels.append("競技会ガイドライン")
+        }
+        return labels
+    }
+
     var body: some View {
         NavigationStack {
             ZStack(alignment: .bottom) {
@@ -167,6 +184,11 @@ struct CurrentMapView: View {
                     if let lastUpdated = viewModel.lastUpdated {
                         Text("更新: \(lastUpdated, style: .time)")
                             .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    if !activeAlertLabels.isEmpty {
+                        Text(activeAlertLabels.joined(separator: "・"))
+                            .font(.caption2)
                             .foregroundStyle(.secondary)
                     }
                     Spacer()
