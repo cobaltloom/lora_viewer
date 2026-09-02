@@ -28,15 +28,14 @@ struct CurrentMapView: View {
     }
 
     /// The safety-altitude reference point used when no custom one is set:
-    /// the site's own configured map center if it actually provides one
-    /// (in practice it usually doesn't), otherwise the airfield coordinate
-    /// from JSAL's own guideline document — never MapKit's undefined
-    /// fallback region.
+    /// the airfield coordinate from JSAL's own guideline document. The
+    /// site's own "settings.lat/lon" turned out unreliable for this — it's
+    /// sometimes 0 (Tokyo Station in MapKit's fallback region) and
+    /// sometimes some other value far from the actual field, so circles
+    /// drawn around it could end up off-screen. This coordinate is the one
+    /// value known to actually be the airfield.
     private var defaultReferenceCoordinate: CLLocationCoordinate2D {
-        if let siteSettings = viewModel.config?.settings, siteSettings.lat != 0, siteSettings.lon != 0 {
-            return CLLocationCoordinate2D(latitude: siteSettings.lat, longitude: siteSettings.lon)
-        }
-        return CompetitionAltitudeGuideline.referenceCoordinate
+        CompetitionAltitudeGuideline.referenceCoordinate
     }
 
     private var alertReferenceCoordinate: CLLocationCoordinate2D? {
