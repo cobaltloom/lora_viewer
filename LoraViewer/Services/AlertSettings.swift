@@ -196,11 +196,14 @@ final class AlertSettings: ObservableObject {
     /// starting point if there are none yet), then keeps the list sorted by
     /// distance so `requiredAltitudeM` and the settings UI stay consistent.
     func addStep() {
-        let last = steps.max { $0.distanceKm < $1.distanceKm }
-        let newStep = AltitudeStep(
-            distanceKm: (last?.distanceKm ?? 2.0) + 1.0,
-            minimumAltitudeM: (last?.minimumAltitudeM ?? 230) + 70
-        )
+        guard let last = steps.max(by: { $0.distanceKm < $1.distanceKm }) else {
+            // Nothing yet — start from the competition guideline's own
+            // first bracket (2.5km / 350m) so the default matches it.
+            steps.append(AltitudeStep(distanceKm: CompetitionAltitudeGuideline.innerRadiusKm, minimumAltitudeM: 350))
+            return
+        }
+        // Keep growing the same way the guideline does after that: +1km, +70m.
+        let newStep = AltitudeStep(distanceKm: last.distanceKm + 1.0, minimumAltitudeM: last.minimumAltitudeM + 70)
         steps.append(newStep)
         steps.sort { $0.distanceKm < $1.distanceKm }
     }
