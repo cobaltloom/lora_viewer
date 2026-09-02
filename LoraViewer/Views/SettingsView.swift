@@ -54,11 +54,24 @@ struct SettingsView: View {
                 Section {
                     Toggle("高度不足アラートを有効にする", isOn: $alertSettings.isEnabled)
 
-                    Stepper(value: $alertSettings.distanceThresholdKm, in: 0.5...50, step: 0.5) {
-                        Text("基準地点から \(alertSettings.distanceThresholdKm, specifier: "%.1f") km 以上")
+                    ForEach($alertSettings.steps) { $step in
+                        VStack(alignment: .leading, spacing: 4) {
+                            Stepper(value: $step.distanceKm, in: 0.5...50, step: 0.5) {
+                                Text("基準地点から \(step.distanceKm, specifier: "%.1f") km 以上")
+                            }
+                            Stepper(value: $step.minimumAltitudeM, in: 50...3000, step: 10) {
+                                Text("高度 \(Int(step.minimumAltitudeM)) m 未満で警告")
+                            }
+                        }
                     }
-                    Stepper(value: $alertSettings.minimumAltitudeM, in: 50...3000, step: 10) {
-                        Text("高度 \(Int(alertSettings.minimumAltitudeM)) m 未満で警告")
+                    .onDelete { indices in
+                        alertSettings.steps.remove(atOffsets: indices)
+                    }
+
+                    Button {
+                        alertSettings.addStep()
+                    } label: {
+                        Label("段階を追加", systemImage: "plus.circle")
                     }
 
                     Toggle("基準地点を自分で指定する", isOn: $alertSettings.useCustomReference)
@@ -91,7 +104,7 @@ struct SettingsView: View {
                 } header: {
                     Text("高度不足アラート(カスタム設定)")
                 } footer: {
-                    Text("グライダーはエンジンがないため、基準地点から一定距離以上離れているのに高度が低いと戻れない可能性があります。ここで設定した条件に当てはまる機体は、地図上で赤く警告表示されます。あくまで目安であり、実際の判断の根拠にはしないでください。高度は本サイトが提供する値(海抜高)をそのまま使っています。")
+                    Text("グライダーはエンジンがないため、基準地点から離れるほど、戻るためにより高い高度が必要になります。段階を複数追加して、距離ごとに必要な高度を設定できます(競技会ガイドラインのように、遠いほど高い高度を要求する設定も可能)。各機体には、その時点の距離以下となる段階のうち、最も距離が大きいものが適用されます。地図上には各段階の距離を半径とした円が表示されます。あくまで目安であり、実際の判断の根拠にはしないでください。高度は本サイトが提供する値(海抜高)をそのまま使っています。")
                 }
 
                 Section {

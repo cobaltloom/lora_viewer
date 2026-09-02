@@ -63,9 +63,11 @@ struct CurrentMapView: View {
             ZStack(alignment: .bottom) {
                 Map(position: $cameraPosition) {
                     if alertSettings.isEnabled, let alertReferenceCoordinate {
-                        MapCircle(center: alertReferenceCoordinate, radius: alertSettings.distanceThresholdKm * 1000)
-                            .foregroundStyle(.red.opacity(0.08))
-                            .stroke(.red.opacity(0.4), lineWidth: 1)
+                        ForEach(alertSettings.steps) { step in
+                            MapCircle(center: alertReferenceCoordinate, radius: step.distanceKm * 1000)
+                                .foregroundStyle(.red.opacity(0.04))
+                                .stroke(.red.opacity(0.4), lineWidth: 1)
+                        }
                         Annotation("基準地点", coordinate: alertReferenceCoordinate) {
                             Image(systemName: "flag.circle.fill")
                                 .font(.title2)

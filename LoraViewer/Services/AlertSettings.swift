@@ -1,11 +1,21 @@
 import Foundation
 import CoreLocation
 
-/// Configurable "minimum altitude beyond a distance" safety rule: gliders
-/// have no engine, so past a certain distance from the field they need
-/// enough altitude (MSL, matching the site's own altitude data) to glide
-/// back. This flags any current position more than `distanceThresholdKm`
-/// from the reference point and below `minimumAltitudeM`.
+/// One step of the custom rule: past `distanceKm` from the reference point,
+/// at least `minimumAltitudeM` (MSL) is required. Mirrors how
+/// `CompetitionAltitudeGuideline`'s official table is structured, but here
+/// the steps are whatever the person configuring this decides.
+struct AltitudeStep: Identifiable, Codable, Equatable {
+    var id = UUID()
+    var distanceKm: Double
+    var minimumAltitudeM: Double
+}
+
+/// Configurable "minimum altitude beyond a distance" safety rule, as a list
+/// of distance/altitude steps: gliders have no engine, so past a given
+/// distance from the field they need enough altitude (MSL, matching the
+/// site's own altitude data) to glide back, and that required altitude can
+/// increase in steps the further out they go.
 ///
 /// This is an advisory aid only, not a certified instrument — the threshold
 /// values are whatever the person configuring this decides are safe.
@@ -14,8 +24,7 @@ final class AlertSettings: ObservableObject {
     @Published var useCustomReference: Bool { didSet { persist() } }
     @Published var customLatitude: Double { didSet { persist() } }
     @Published var customLongitude: Double { didSet { persist() } }
-    @Published var distanceThresholdKm: Double { didSet { persist() } }
-    @Published var minimumAltitudeM: Double { didSet { persist() } }
+    @Published var steps: [AltitudeStep] { didSet { persist() } }
     /// Altitude (MSL) at or below which a position is treated as "on the
     /// ground, not actually flying" and never alerted on, regardless of
     /// distance — otherwise a glider parked at the field or landed out
@@ -29,9 +38,11 @@ final class AlertSettings: ObservableObject {
         static let useCustomReference = "altUseCustomReference"
         static let customLat = "altCustomLat"
         static let customLon = "altCustomLon"
-        static let distanceKm = "altDistanceThresholdKm"
-        static let minAltM = "altMinimumAltitudeM"
+        static let steps = "altSteps"
         static let minFlyingAltM = "altMinimumFlyingAltitudeM"
+        // Superseded by `steps`, kept only to migrate existing values once.
+        static let legacyDistanceKm = "altDistanceThresholdKm"
+        static let legacyMinAltM = "altMinimumAltitudeM"
     }
 
     init() {
@@ -40,10 +51,21 @@ final class AlertSettings: ObservableObject {
         useCustomReference = d.bool(forKey: Keys.useCustomReference)
         customLatitude = d.double(forKey: Keys.customLat)
         customLongitude = d.double(forKey: Keys.customLon)
-        let storedDistance = d.double(forKey: Keys.distanceKm)
-        distanceThresholdKm = storedDistance > 0 ? storedDistance : 3.0
-        let storedAlt = d.double(forKey: Keys.minAltM)
-        minimumAltitudeM = storedAlt > 0 ? storedAlt : 300
+
+        if let data = d.data(forKey: Keys.steps),
+           let decoded = try? JSONDecoder().decode([AltitudeStep].self, from: data) {
+            steps = decoded
+        } else {
+            let legacyDistance = d.double(forKey: Keys.legacyDistanceKm)
+            let legacyAltitude = d.double(forKey: Keys.legacyMinAltM)
+            if legacyDistance > 0, legacyAltitude > 0 {
+                // Carry over a single-threshold setup from before this was a list.
+                steps = [AltitudeStep(distanceKm: legacyDistance, minimumAltitudeM: legacyAltitude)]
+            } else {
+                steps = [AltitudeStep(distanceKm: 3.0, minimumAltitudeM: 300)]
+            }
+        }
+
         let storedFlyingAlt = d.double(forKey: Keys.minFlyingAltM)
         minimumFlyingAltitudeM = storedFlyingAlt > 0 ? storedFlyingAlt : 60
     }
@@ -58,6 +80,17 @@ final class AlertSettings: ObservableObject {
         return defaultCoordinate
     }
 
+    /// The minimum MSL altitude (meters) required at this distance, or nil
+    /// if it's closer than every configured step (no restriction applies).
+    /// Picks the step with the largest `distanceKm` that's still <= the
+    /// given distance, same logic as the official competition table.
+    func requiredAltitudeM(atDistanceKm distanceKm: Double) -> Double? {
+        steps
+            .filter { $0.distanceKm <= distanceKm }
+            .max { $0.distanceKm < $1.distanceKm }?
+            .minimumAltitudeM
+    }
+
     func isBelowSafeAltitude(_ glider: GliderPosition, defaultReference: CLLocationCoordinate2D?) -> Bool {
         guard isEnabled, let alt = glider.alt, alt > minimumFlyingAltitudeM else { return false }
         guard let reference = referenceCoordinate(default: defaultReference) else { return false }
@@ -66,8 +99,21 @@ final class AlertSettings: ObservableObject {
         let gliderLocation = CLLocation(latitude: glider.lat, longitude: glider.lon)
         let distanceKm = referenceLocation.distance(from: gliderLocation) / 1000.0
 
-        guard distanceKm > distanceThresholdKm else { return false }
-        return alt < minimumAltitudeM
+        guard let required = requiredAltitudeM(atDistanceKm: distanceKm) else { return false }
+        return alt < required
+    }
+
+    /// Appends a new step continuing the existing pattern (or a sensible
+    /// starting point if there are none yet), then keeps the list sorted by
+    /// distance so `requiredAltitudeM` and the settings UI stay consistent.
+    func addStep() {
+        let last = steps.max { $0.distanceKm < $1.distanceKm }
+        let newStep = AltitudeStep(
+            distanceKm: (last?.distanceKm ?? 2.0) + 1.0,
+            minimumAltitudeM: (last?.minimumAltitudeM ?? 230) + 70
+        )
+        steps.append(newStep)
+        steps.sort { $0.distanceKm < $1.distanceKm }
     }
 
     private func persist() {
@@ -76,8 +122,9 @@ final class AlertSettings: ObservableObject {
         d.set(useCustomReference, forKey: Keys.useCustomReference)
         d.set(customLatitude, forKey: Keys.customLat)
         d.set(customLongitude, forKey: Keys.customLon)
-        d.set(distanceThresholdKm, forKey: Keys.distanceKm)
-        d.set(minimumAltitudeM, forKey: Keys.minAltM)
+        if let data = try? JSONEncoder().encode(steps) {
+            d.set(data, forKey: Keys.steps)
+        }
         d.set(minimumFlyingAltitudeM, forKey: Keys.minFlyingAltM)
     }
 }
