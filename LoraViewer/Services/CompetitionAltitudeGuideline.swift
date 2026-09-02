@@ -24,6 +24,11 @@ final class CompetitionAltitudeGuideline: ObservableObject {
     /// Below this distance the guideline sets no minimum altitude at all.
     static let innerRadiusKm = 2.5
 
+    /// Every distance the table's required altitude changes at, including
+    /// the inner "no restriction" radius — drawn as rings on the map so the
+    /// guideline's zones are visible at a glance, not just its innermost one.
+    static let boundaryDistancesKm: [Double] = [2.5, 3, 4, 5, 6, 7, 8, 9, 10]
+
     init() {
         isEnabled = UserDefaults.standard.bool(forKey: Self.storageKey)
     }

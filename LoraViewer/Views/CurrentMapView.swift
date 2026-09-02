@@ -81,7 +81,12 @@ struct CurrentMapView: View {
                             radius: CompetitionAltitudeGuideline.innerRadiusKm * 1000
                         )
                             .foregroundStyle(.purple.opacity(0.06))
-                            .stroke(.purple.opacity(0.4), lineWidth: 1)
+                            .stroke(.purple.opacity(0.5), lineWidth: 1)
+                        ForEach(CompetitionAltitudeGuideline.boundaryDistancesKm.filter { $0 > CompetitionAltitudeGuideline.innerRadiusKm }, id: \.self) { km in
+                            MapCircle(center: CompetitionAltitudeGuideline.referenceCoordinate, radius: km * 1000)
+                                .foregroundStyle(.clear)
+                                .stroke(.purple.opacity(0.35), lineWidth: 1)
+                        }
                         Annotation("競技会基準地点", coordinate: CompetitionAltitudeGuideline.referenceCoordinate) {
                             Image(systemName: "flag.checkered")
                                 .font(.subheadline.bold())
