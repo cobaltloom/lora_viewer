@@ -31,7 +31,7 @@ struct EditableGliderName: View {
         }
         .buttonStyle(.plain)
         .alert("名前を編集", isPresented: $isEditing) {
-            TextField("例: 太郎号", text: $draft)
+            TextField("例: 学連21", text: $draft)
             Button("保存") {
                 nicknameStore.setNickname(draft, forIMEI: imei)
             }
