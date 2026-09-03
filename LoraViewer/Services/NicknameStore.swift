@@ -32,6 +32,7 @@ final class NicknameStore: ObservableObject {
     private let storageKey = "gliderNicknames"
     private let syncModeKey = "gliderNicknameSyncMode"
     private let collectionName = "nicknames"
+    private let scheduleDocPath = ("meta", "nicknameClearSchedule")
     private lazy var db = Firestore.firestore()
     private var listener: ListenerRegistration?
 
@@ -82,10 +83,62 @@ final class NicknameStore: ObservableObject {
         switch syncMode {
         case .synced:
             listenForRemoteChanges()
+            checkAndPerformScheduledClearIfNeeded()
         case .manual:
             listener?.remove()
             listener = nil
         }
+    }
+
+    /// The shared list has no server to run a timer on its own, so instead
+    /// every synced device checks — on launch, and whenever it (re)joins
+    /// sync — whether the most recent weekly boundary has already passed
+    /// without being cleared, and if so clears it itself. This keeps the
+    /// reset entirely within Firestore's free tier (no scheduled Cloud
+    /// Function), at the cost of not firing at the exact minute: it takes
+    /// effect the next time anyone opens the app after Wed 23:00 JST,
+    /// which for an app people open before/during flying is normally soon
+    /// after. Any client can safely perform this — if two both do, the
+    /// second is a harmless no-op over an already-empty collection.
+    private func checkAndPerformScheduledClearIfNeeded() {
+        let boundary = Self.mostRecentClearBoundary()
+        let scheduleRef = db.collection(scheduleDocPath.0).document(scheduleDocPath.1)
+        scheduleRef.getDocument { [weak self] snapshot, _ in
+            guard let self else { return }
+            let lastCleared = (snapshot?.data()?["lastClearedAt"] as? Timestamp)?.dateValue()
+            guard lastCleared == nil || lastCleared! < boundary else { return }
+            self.performScheduledClear(boundary: boundary, scheduleRef: scheduleRef)
+        }
+    }
+
+    private func performScheduledClear(boundary: Date, scheduleRef: DocumentReference) {
+        db.collection(collectionName).getDocuments { [weak self] snapshot, _ in
+            guard let self, let snapshot else { return }
+            let batch = self.db.batch()
+            for document in snapshot.documents {
+                batch.deleteDocument(document.reference)
+            }
+            batch.setData(["lastClearedAt": Timestamp(date: boundary)], forDocument: scheduleRef)
+            batch.commit()
+        }
+    }
+
+    /// The most recent Wednesday 23:00 JST that has already passed (or now,
+    /// if it's exactly that moment) — the shared list resets weekly at this
+    /// time so old names don't linger indefinitely; anyone still using a
+    /// name just re-enters it and it's back until the following week.
+    private static func mostRecentClearBoundary(from now: Date = Date()) -> Date {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "Asia/Tokyo")!
+        let weekday = calendar.component(.weekday, from: now) // 1 = Sunday ... 4 = Wednesday
+        var daysSinceWednesday = weekday - 4
+        if daysSinceWednesday < 0 { daysSinceWednesday += 7 }
+        let candidateDay = calendar.date(byAdding: .day, value: -daysSinceWednesday, to: now)!
+        var candidate = calendar.date(bySettingHour: 23, minute: 0, second: 0, of: candidateDay)!
+        if candidate > now {
+            candidate = calendar.date(byAdding: .day, value: -7, to: candidate)!
+        }
+        return candidate
     }
 
     /// Keeps every synced device in near-real-time agreement: when anyone
