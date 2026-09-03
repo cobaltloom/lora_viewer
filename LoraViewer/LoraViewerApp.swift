@@ -9,6 +9,7 @@ struct LoraViewerApp: App {
     @StateObject private var alertSettings = AlertSettings()
     @StateObject private var competitionGuideline = CompetitionAltitudeGuideline()
     @StateObject private var upperAltitudeGuideline = UpperAltitudeGuideline()
+    @StateObject private var subscriptionManager = SubscriptionManager()
 
     init() {
         FirebaseApp.configure()
@@ -16,13 +17,20 @@ struct LoraViewerApp: App {
 
     var body: some Scene {
         WindowGroup {
-            CurrentMapView(settings: settings)
+            Group {
+                if subscriptionManager.isSubscribed {
+                    CurrentMapView(settings: settings)
+                } else {
+                    PaywallView()
+                }
+            }
                 .environmentObject(settings)
                 .environmentObject(nicknameStore)
                 .environmentObject(favoritesStore)
                 .environmentObject(alertSettings)
                 .environmentObject(competitionGuideline)
                 .environmentObject(upperAltitudeGuideline)
+                .environmentObject(subscriptionManager)
         }
     }
 }
