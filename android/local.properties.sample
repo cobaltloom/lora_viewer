@@ -1,0 +1,6 @@
+# Copy this file to local.properties (gitignored, per-machine) and fill in:
+sdk.dir=/path/to/Android/sdk
+
+# Maps SDK for Android key for the "loramenuma" GCP project:
+# https://console.cloud.google.com/google/maps-apis/credentials
+MAPS_API_KEY=

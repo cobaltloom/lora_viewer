@@ -1,0 +1,20 @@
+# macOS
+.DS_Store
+
+# Xcode / iOS (LoraViewer/)
+xcuserdata/
+*.xcworkspace/xcuserdata/
+DerivedData/
+*.moved-aside
+*.xccheckout
+*.xcscmblueprint
+
+# Android (android/)
+android/local.properties
+android/.gradle/
+android/**/build/
+android/.idea/
+android/*.iml
+android/.kotlin/
+android/captures/
+android/.cxx/
