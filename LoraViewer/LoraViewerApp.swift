@@ -1,4 +1,5 @@
 import SwiftUI
+import FirebaseCore
 
 @main
 struct LoraViewerApp: App {
@@ -8,6 +9,10 @@ struct LoraViewerApp: App {
     @StateObject private var alertSettings = AlertSettings()
     @StateObject private var competitionGuideline = CompetitionAltitudeGuideline()
     @StateObject private var upperAltitudeGuideline = UpperAltitudeGuideline()
+
+    init() {
+        FirebaseApp.configure()
+    }
 
     var body: some Scene {
         WindowGroup {
