@@ -15,4 +15,6 @@ object TrailRouteDateFormatter {
         } catch (e: Exception) {
             null
         }
+
+    fun format(instant: Instant): String = formatter.format(instant)
 }
