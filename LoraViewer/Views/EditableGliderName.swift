@@ -16,10 +16,7 @@ struct EditableGliderName: View {
     @State private var draft = ""
 
     private var displayName: String {
-        if let nickname = nicknameStore.nickname(forIMEI: imei) {
-            return "\(baseName) \(nickname)"
-        }
-        return baseName
+        nicknameStore.displayName(baseName: baseName, imei: imei)
     }
 
     var body: some View {

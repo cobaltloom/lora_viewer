@@ -4,6 +4,7 @@ import CoreLocation
 
 struct CurrentMapView: View {
     @EnvironmentObject var settings: APISettings
+    @EnvironmentObject private var nicknameStore: NicknameStore
     @EnvironmentObject private var favoritesStore: FavoritesStore
     @EnvironmentObject private var alertSettings: AlertSettings
     @EnvironmentObject private var competitionGuideline: CompetitionAltitudeGuideline
@@ -430,7 +431,7 @@ struct CurrentMapView: View {
     /// trail, so multiple simultaneous flights can be told apart at a
     /// glance instead of only by memorizing trail colors.
     private func gliderNameLabel(for glider: GliderPosition) -> some View {
-        Text(viewModel.nameFor(index: glider.index))
+        Text(nicknameStore.displayName(baseName: viewModel.nameFor(index: glider.index), imei: glider.imei))
             .font(.system(size: 10, weight: .semibold))
             .foregroundStyle(colorFor(imei: glider.imei))
             .padding(.horizontal, 6)

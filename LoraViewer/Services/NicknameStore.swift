@@ -56,6 +56,14 @@ final class NicknameStore: ObservableObject {
         nicknames[imei]
     }
 
+    /// The server's base name plus a user-assigned nickname, if one is set
+    /// (e.g. "7. 学連21") — the canonical way to show a glider's name
+    /// anywhere a nickname should be reflected.
+    func displayName(baseName: String, imei: String) -> String {
+        guard let nickname = nickname(forIMEI: imei) else { return baseName }
+        return "\(baseName) \(nickname)"
+    }
+
     func setNickname(_ name: String, forIMEI imei: String) {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed.isEmpty {
