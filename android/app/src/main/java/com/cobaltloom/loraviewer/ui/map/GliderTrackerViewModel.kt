@@ -8,9 +8,16 @@ import com.cobaltloom.loraviewer.data.alert.AlertSeverity
 import com.cobaltloom.loraviewer.data.alert.AltitudeCalculationMode
 import com.cobaltloom.loraviewer.data.alert.CompetitionAltitudeGuideline
 import com.cobaltloom.loraviewer.data.alert.CompetitionGuidelineRepository
+import com.cobaltloom.loraviewer.data.alert.CompetitionGuidelineSettings
+import com.cobaltloom.loraviewer.data.alert.CompetitionTaskCourseData
+import com.cobaltloom.loraviewer.data.alert.Coordinate
 import com.cobaltloom.loraviewer.data.alert.GliderAlertReason
+import com.cobaltloom.loraviewer.data.alert.TurnpointPassageLogRepository
+import com.cobaltloom.loraviewer.data.alert.TurnpointPassageRecord
 import com.cobaltloom.loraviewer.data.alert.UpperAltitudeGuidelineRepository
 import com.cobaltloom.loraviewer.data.alert.UpperAltitudeSettings
+import com.cobaltloom.loraviewer.data.alert.bearingDegrees
+import com.cobaltloom.loraviewer.data.alert.distanceMeters
 import com.cobaltloom.loraviewer.data.favorites.FavoritesRepository
 import com.cobaltloom.loraviewer.data.model.AppConfig
 import com.cobaltloom.loraviewer.data.model.GliderPosition
@@ -18,6 +25,8 @@ import com.cobaltloom.loraviewer.data.nickname.NicknameRepository
 import com.cobaltloom.loraviewer.data.nickname.NicknameSyncMode
 import com.cobaltloom.loraviewer.data.notification.AlertNotifier
 import com.cobaltloom.loraviewer.data.repository.GliderRepository
+import com.cobaltloom.loraviewer.data.trail.GliderTrailRepository
+import com.cobaltloom.loraviewer.data.trail.MapDisplaySettingsRepository
 import java.time.Instant
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -39,20 +48,32 @@ data class GliderTrackerUiState(
     val nicknameSyncMode: NicknameSyncMode = NicknameSyncMode.SYNCED,
     val favorites: Set<String> = emptySet(),
     val alertSettings: AlertSettings = AlertSettings(),
-    val competitionGuidelineEnabled: Boolean = false,
+    val competitionGuidelineSettings: CompetitionGuidelineSettings = CompetitionGuidelineSettings(),
     val upperAltitudeSettings: UpperAltitudeSettings = UpperAltitudeSettings(),
+    val turnpointPassageRecords: List<TurnpointPassageRecord> = emptyList(),
+    /** Each glider's positions for its current flight, keyed by imei - drawn on the map as a trail. */
+    val trails: Map<String, List<Coordinate>> = emptyMap(),
+    /** Whether trails are drawn on the map at all - a free, device-local display preference. */
+    val showGliderTrails: Boolean = true,
     val showFavoritesOnly: Boolean = false,
     val lastUpdated: Instant? = null,
     val errorMessage: String? = null,
     val isLoading: Boolean = false,
+    /** Whether an active subscription is present. The map itself is free; everything else in this
+     * state that derives from it (favorites, nicknames, altitude alerts, guidelines) is gated on
+     * this flag so a lapsed subscription stops applying those features immediately, even if their
+     * underlying settings are still stored as enabled. */
+    val isSubscribed: Boolean = false,
 ) {
-    /** Prefers the pilot-assigned nickname (by IMEI), falling back to the site's own board-position name. */
-    fun nameFor(glider: GliderPosition): String =
-        nicknames[glider.imei]
-            ?: config?.nameMasterDisplayed?.get(glider.index)
-            ?: "#${glider.index}"
+    /** The site's own board-position name (e.g. "7."), ignoring any nickname. */
+    fun baseNameFor(glider: GliderPosition): String =
+        config?.nameMasterDisplayed?.get(glider.index) ?: "#${glider.index}"
 
-    fun isFavorite(imei: String): Boolean = imei in favorites
+    /** Prefers the pilot-assigned nickname (by IMEI), falling back to [baseNameFor]. */
+    fun nameFor(glider: GliderPosition): String =
+        (if (isSubscribed) nicknames[glider.imei] else null) ?: baseNameFor(glider)
+
+    fun isFavorite(imei: String): Boolean = isSubscribed && imei in favorites
 
     /** All positions, or just favorites when the filter is on - falling back to all if none are favorited. */
     val displayedPositions: List<GliderPosition>
@@ -62,13 +83,15 @@ data class GliderTrackerUiState(
             return favoritePositions.ifEmpty { positions }
         }
 
-    /** Every alert rule currently triggered for [glider], each with its own severity. */
+    /** Every alert rule currently triggered for [glider], each with its own severity. All altitude
+     * alerts are a subscription feature, so nothing is reported while unsubscribed. */
     fun alertReasons(glider: GliderPosition): List<GliderAlertReason> {
+        if (!isSubscribed) return emptyList()
         val reasons = mutableListOf<GliderAlertReason>()
         alertSettings.alertSeverity(glider, DefaultAlertReferenceCoordinate)?.let {
             reasons.add(GliderAlertReason("カスタム設定", it))
         }
-        if (CompetitionAltitudeGuideline.isBelowGuideline(glider, competitionGuidelineEnabled, alertSettings.minimumFlyingAltitudeM)) {
+        if (CompetitionAltitudeGuideline.isBelowGuideline(glider, competitionGuidelineSettings.isEnabled, alertSettings.minimumFlyingAltitudeM)) {
             reasons.add(GliderAlertReason("競技会ガイドライン", AlertSeverity.WARNING))
         }
         if (upperAltitudeSettings.exceedsCeiling(glider)) {
@@ -84,6 +107,7 @@ data class GliderTrackerUiState(
     /** Short labels for whichever altitude alerts are currently turned on. */
     val activeAlertLabels: List<String>
         get() {
+            if (!isSubscribed) return emptyList()
             val labels = mutableListOf<String>()
             if (alertSettings.isEnabled) {
                 labels.add(
@@ -93,7 +117,7 @@ data class GliderTrackerUiState(
                     },
                 )
             }
-            if (competitionGuidelineEnabled) labels.add("競技会ガイドライン")
+            if (competitionGuidelineSettings.isEnabled) labels.add("競技会ガイドライン")
             if (upperAltitudeSettings.isEnabled) labels.add("上限高度")
             return labels
         }
@@ -106,6 +130,9 @@ class GliderTrackerViewModel(
     private val alertSettingsRepository: AlertSettingsRepository,
     private val competitionGuidelineRepository: CompetitionGuidelineRepository,
     private val upperAltitudeGuidelineRepository: UpperAltitudeGuidelineRepository,
+    private val turnpointPassageLogRepository: TurnpointPassageLogRepository,
+    private val gliderTrailRepository: GliderTrailRepository,
+    private val mapDisplaySettingsRepository: MapDisplaySettingsRepository,
     private val alertNotifier: AlertNotifier,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(GliderTrackerUiState())
@@ -115,6 +142,12 @@ class GliderTrackerViewModel(
 
     /** IMEIs alerting as of the last refresh, so notifications fire only when a glider newly enters an alert. */
     private var previouslyAlertingImeis: Set<String> = emptySet()
+
+    /**
+     * "imei|turnpoint name" keys for gliders currently inside a turnpoint's sector, so passage
+     * notifications fire once on entry rather than repeatedly while a glider lingers inside.
+     */
+    private var previouslyInsideTurnpoints: Set<String> = emptySet()
 
     init {
         viewModelScope.launch {
@@ -132,13 +165,26 @@ class GliderTrackerViewModel(
             alertSettingsRepository.settings.collect { settings -> _uiState.update { it.copy(alertSettings = settings) } }
         }
         viewModelScope.launch {
-            competitionGuidelineRepository.isEnabled.collect { enabled ->
-                _uiState.update { it.copy(competitionGuidelineEnabled = enabled) }
+            competitionGuidelineRepository.settings.collect { settings ->
+                _uiState.update { it.copy(competitionGuidelineSettings = settings) }
             }
         }
         viewModelScope.launch {
             upperAltitudeGuidelineRepository.settings.collect { settings ->
                 _uiState.update { it.copy(upperAltitudeSettings = settings) }
+            }
+        }
+        viewModelScope.launch {
+            turnpointPassageLogRepository.records.collect { records ->
+                _uiState.update { it.copy(turnpointPassageRecords = records) }
+            }
+        }
+        viewModelScope.launch {
+            gliderTrailRepository.trails.collect { trails -> _uiState.update { it.copy(trails = trails) } }
+        }
+        viewModelScope.launch {
+            mapDisplaySettingsRepository.showGliderTrails.collect { show ->
+                _uiState.update { it.copy(showGliderTrails = show) }
             }
         }
     }
@@ -168,6 +214,10 @@ class GliderTrackerViewModel(
         _uiState.update { it.copy(errorMessage = null) }
     }
 
+    fun updateSubscriptionStatus(isSubscribed: Boolean) {
+        _uiState.update { it.copy(isSubscribed = isSubscribed) }
+    }
+
     fun setNickname(imei: String, name: String) {
         nicknameRepository.setNickname(imei, name)
     }
@@ -188,19 +238,30 @@ class GliderTrackerViewModel(
         viewModelScope.launch { alertSettingsRepository.save(settings) }
     }
 
-    fun setCompetitionGuidelineEnabled(enabled: Boolean) {
-        viewModelScope.launch { competitionGuidelineRepository.setEnabled(enabled) }
+    fun updateCompetitionGuidelineSettings(settings: CompetitionGuidelineSettings) {
+        viewModelScope.launch { competitionGuidelineRepository.save(settings) }
     }
 
     fun updateUpperAltitudeSettings(settings: UpperAltitudeSettings) {
         viewModelScope.launch { upperAltitudeGuidelineRepository.save(settings) }
     }
 
+    fun clearTodaysTurnpointPassages() {
+        viewModelScope.launch { turnpointPassageLogRepository.clearToday() }
+    }
+
+    fun setShowGliderTrails(show: Boolean) {
+        viewModelScope.launch { mapDisplaySettingsRepository.setShowGliderTrails(show) }
+    }
+
     suspend fun refreshOnce() {
         _uiState.update { it.copy(isLoading = true) }
         try {
             val positions = repository.fetchCurrentPositions()
-            notifyNewAlerts(_uiState.value.copy(positions = positions))
+            val stateWithNewPositions = _uiState.value.copy(positions = positions)
+            notifyNewAlerts(stateWithNewPositions)
+            notifyTurnpointPassages(stateWithNewPositions)
+            gliderTrailRepository.recordPositions(positions, stateWithNewPositions.alertSettings.minimumFlyingAltitudeM)
             _uiState.update {
                 it.copy(positions = positions, lastUpdated = Instant.now(), errorMessage = null, isLoading = false)
             }
@@ -234,5 +295,42 @@ class GliderTrackerViewModel(
             }
         }
         previouslyAlertingImeis = currentlyAlerting
+    }
+
+    /**
+     * Notifies once per glider each time it newly enters a turnpoint's sector (excluding
+     * 管理ポイント - see [CompetitionTaskCourseData.notifiableTurnpointNames]), and lets it notify
+     * again on a later lap once it leaves and re-enters. Also records the event to
+     * [turnpointPassageLogRepository] so it can be reviewed in-app if the notification is missed.
+     * The sector is the true 90° wedge from JSAL rule 43 (bisecting the selected task course's
+     * incoming and outgoing legs at that turnpoint), so this requires a task course to be
+     * selected: with no course selected ("旋回点のみ") there's no leg geometry to derive a sector
+     * from, and nothing is notified/recorded. A subscriber-only feature.
+     */
+    private suspend fun notifyTurnpointPassages(state: GliderTrackerUiState) {
+        if (!state.isSubscribed || !state.competitionGuidelineSettings.showTaskCourse) return
+        val selectedCourseIndex = state.competitionGuidelineSettings.selectedCourseIndex ?: return
+        val course = CompetitionTaskCourseData.courses.getOrNull(selectedCourseIndex) ?: return
+
+        val currentlyInside = mutableSetOf<String>()
+        for (glider in state.positions) {
+            for (name in CompetitionTaskCourseData.notifiableTurnpointNames) {
+                val point = CompetitionTaskCourseData.turnpoints[name] ?: continue
+                val distanceKm = distanceMeters(point.latitude, point.longitude, glider.lat, glider.lon) / 1000.0
+                if (distanceKm > CompetitionTaskCourseData.TURNPOINT_RADIUS_KM) continue
+                val bisector = CompetitionTaskCourseData.sectorBearing(course, name) ?: continue
+                val bearingToGlider = bearingDegrees(point.latitude, point.longitude, glider.lat, glider.lon)
+                if (!CompetitionTaskCourseData.isBearing(bearingToGlider, bisector)) continue
+
+                val key = "${glider.imei}|$name"
+                currentlyInside += key
+                if (key !in previouslyInsideTurnpoints) {
+                    val gliderName = state.nameFor(glider)
+                    alertNotifier.notifyTurnpointPassage(gliderName, name, glider.alt)
+                    turnpointPassageLogRepository.record(gliderName, name, glider.alt)
+                }
+            }
+        }
+        previouslyInsideTurnpoints = currentlyInside
     }
 }

@@ -31,9 +31,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.cobaltloom.loraviewer.data.model.TrackPoint
+import com.cobaltloom.loraviewer.ui.common.colorForGlider
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.LatLngBounds
@@ -47,13 +47,6 @@ import java.time.LocalTime
 import java.time.ZoneId
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
-
-private val trackColors = listOf(
-    Color(0xFF00BCD4), Color(0xFFE91E63), Color(0xFF4CAF50), Color(0xFFFF9800),
-    Color(0xFF2196F3), Color(0xFF9C27B0), Color(0xFFF44336), Color(0xFFFFEB3B),
-)
-
-private fun colorFor(imei: String): Color = trackColors[Math.floorMod(imei.hashCode(), trackColors.size)]
 
 private val displayFormatter = DateTimeFormatter.ofPattern("MM/dd HH:mm").withZone(ZoneId.systemDefault())
 
@@ -102,7 +95,7 @@ fun TrackHistoryScreen(viewModel: TrackHistoryViewModel, onBack: () -> Unit) {
 
             GoogleMap(modifier = Modifier.weight(1f).fillMaxWidth(), cameraPositionState = cameraPositionState) {
                 uiState.trackData.forEach { (imei, device) ->
-                    val color = colorFor(imei)
+                    val color = colorForGlider(imei)
                     val points = device.positionLog.map { LatLng(it.lat, it.lon) }
                     if (points.size >= 2) {
                         Polyline(points = points, color = color, width = 6f)

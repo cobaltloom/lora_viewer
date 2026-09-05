@@ -1,5 +1,7 @@
 package com.cobaltloom.loraviewer.ui.settings
 
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -9,10 +11,13 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
@@ -21,6 +26,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -38,6 +44,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.cobaltloom.loraviewer.data.alert.AltitudeCalculationMode
 import com.cobaltloom.loraviewer.data.alert.AltitudeStep
+import com.cobaltloom.loraviewer.data.alert.CompetitionTaskCourseData
 import com.cobaltloom.loraviewer.data.alert.UpperAltitudeGuideline
 import com.cobaltloom.loraviewer.data.alert.UpperCeilingMode
 import com.cobaltloom.loraviewer.data.settings.ApiSettings
@@ -53,6 +60,7 @@ fun SettingsScreen(
     apiSettingsRepository: ApiSettingsRepository,
     onBack: () -> Unit,
     onOpenReferencePointPicker: () -> Unit,
+    onRequireSubscription: () -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val scope = rememberCoroutineScope()
@@ -63,6 +71,7 @@ fun SettingsScreen(
 
     val alertSettings = uiState.alertSettings
     val upperAltitudeSettings = uiState.upperAltitudeSettings
+    val competitionGuidelineSettings = uiState.competitionGuidelineSettings
 
     Scaffold(
         topBar = {
@@ -107,6 +116,19 @@ fun SettingsScreen(
                 )
                 HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
 
+                SettingsSectionHeader("地図表示")
+                SwitchRow(
+                    label = "軌跡を表示",
+                    checked = uiState.showGliderTrails,
+                    onCheckedChange = { viewModel.setShowGliderTrails(it) },
+                )
+                Text(
+                    "機体の飛行軌跡をアプリ起動中の地図に表示します。着陸すると軌跡は消去されます。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
+
                 SettingsSectionHeader("地上判定(共通)")
                 Text(
                     "この高度以下は駐機中・着陸後とみなし、距離に関わらずアラートを出しません。",
@@ -128,11 +150,13 @@ fun SettingsScreen(
                 )
                 HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
 
-                SettingsSectionHeader("高度不足アラート(カスタム設定)")
+                ProSectionHeader("高度不足アラート(カスタム設定)", uiState.isSubscribed, onRequireSubscription)
                 SwitchRow(
                     label = "有効にする",
                     checked = alertSettings.isEnabled,
-                    onCheckedChange = { viewModel.updateAlertSettings(alertSettings.copy(isEnabled = it)) },
+                    onCheckedChange = {
+                        if (uiState.isSubscribed) viewModel.updateAlertSettings(alertSettings.copy(isEnabled = it)) else onRequireSubscription()
+                    },
                 )
                 Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
                     FilterChip(
@@ -249,24 +273,55 @@ fun SettingsScreen(
                 )
                 HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
 
-                SettingsSectionHeader("競技会ガイドライン(妻沼滑空場)")
+                ProSectionHeader("競技会ガイドライン(妻沼滑空場)", uiState.isSubscribed, onRequireSubscription)
                 SwitchRow(
                     label = "有効にする",
-                    checked = uiState.competitionGuidelineEnabled,
-                    onCheckedChange = { viewModel.setCompetitionGuidelineEnabled(it) },
+                    checked = competitionGuidelineSettings.isEnabled,
+                    onCheckedChange = {
+                        if (uiState.isSubscribed) {
+                            viewModel.updateCompetitionGuidelineSettings(competitionGuidelineSettings.copy(isEnabled = it))
+                        } else {
+                            onRequireSubscription()
+                        }
+                    },
                 )
+                SwitchRow(
+                    label = "旋回点・タスクコースを表示",
+                    checked = competitionGuidelineSettings.showTaskCourse,
+                    onCheckedChange = {
+                        if (uiState.isSubscribed) {
+                            viewModel.updateCompetitionGuidelineSettings(competitionGuidelineSettings.copy(showTaskCourse = it))
+                        } else {
+                            onRequireSubscription()
+                        }
+                    },
+                )
+                if (competitionGuidelineSettings.showTaskCourse) {
+                    TaskCoursePicker(
+                        selectedCourseIndex = competitionGuidelineSettings.selectedCourseIndex,
+                        onSelect = { index ->
+                            viewModel.updateCompetitionGuidelineSettings(competitionGuidelineSettings.copy(selectedCourseIndex = index))
+                        },
+                    )
+                }
                 Text(
-                    "日本学生航空連盟(JSAL)妻沼滑空場の公式ガイドライン(Ver.2026-01-26)。滑空場中心から2.5km未満は制限なし、2.5〜3kmでMSL350m以上、以降1kmごとに70mずつ増加し、10km以上でMSL910m以上が必要です。公式資料に基づく固定値のため、数値はここでは変更できません。",
+                    "日本学生航空連盟(JSAL)妻沼滑空場の公式ガイドライン(Ver.2026-01-26)。滑空場中心から2.5km未満は制限なし、2.5〜3kmでMSL350m以上、以降1kmごとに70mずつ増加し、10km以上でMSL910m以上が必要です。公式資料に基づく固定値のため、数値はここでは変更できません。旋回点・タスクコースは同資料に掲載された固定の座標・コースを地図上に表示するもので、実際のタスクファイル(スタート/ゴールラインの向きなど)を再現するものではありません。",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
 
-                SettingsSectionHeader("上限高度アラート(妻沼滑空場)")
+                ProSectionHeader("上限高度アラート(妻沼滑空場)", uiState.isSubscribed, onRequireSubscription)
                 SwitchRow(
                     label = "有効にする",
                     checked = upperAltitudeSettings.isEnabled,
-                    onCheckedChange = { viewModel.updateUpperAltitudeSettings(upperAltitudeSettings.copy(isEnabled = it)) },
+                    onCheckedChange = {
+                        if (uiState.isSubscribed) {
+                            viewModel.updateUpperAltitudeSettings(upperAltitudeSettings.copy(isEnabled = it))
+                        } else {
+                            onRequireSubscription()
+                        }
+                    },
                 )
                 Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
                     FilterChip(
@@ -355,6 +410,36 @@ private fun SettingsSectionHeader(title: String) {
     )
 }
 
+/** A section header for a subscription-gated feature; shows a "会員限定" badge when unsubscribed. */
+@Composable
+private fun ProSectionHeader(title: String, isSubscribed: Boolean, onRequireSubscription: () -> Unit) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 4.dp),
+    ) {
+        Text(
+            title,
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.weight(1f),
+        )
+        if (!isSubscribed) {
+            Surface(
+                color = MaterialTheme.colorScheme.primaryContainer,
+                shape = MaterialTheme.shapes.small,
+                onClick = onRequireSubscription,
+            ) {
+                Text(
+                    "会員限定",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                )
+            }
+        }
+    }
+}
+
 @Composable
 private fun SwitchRow(label: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
     Row(
@@ -363,6 +448,45 @@ private fun SwitchRow(label: String, checked: Boolean, onCheckedChange: (Boolean
     ) {
         Text(label, modifier = Modifier.weight(1f))
         Switch(checked = checked, onCheckedChange = onCheckedChange)
+    }
+}
+
+/** Picks which published turnpoint course (or none, just the turnpoints) to draw on the map. */
+@Composable
+private fun TaskCoursePicker(selectedCourseIndex: Int?, onSelect: (Int?) -> Unit) {
+    var expanded by remember { mutableStateOf(false) }
+    val selectedLabel = selectedCourseIndex
+        ?.let { CompetitionTaskCourseData.courses.getOrNull(it) }
+        ?.let { "${it.name}(%.1fkm)".format(it.distanceKm) }
+        ?: "旋回点のみ"
+
+    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+        Text(
+            "表示するコース",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Box {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth().clickable { expanded = true }.padding(vertical = 8.dp),
+            ) {
+                Text(selectedLabel, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                Icon(Icons.Filled.ArrowDropDown, contentDescription = null)
+            }
+            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                DropdownMenuItem(
+                    text = { Text("旋回点のみ") },
+                    onClick = { onSelect(null); expanded = false },
+                )
+                CompetitionTaskCourseData.courses.forEachIndexed { index, course ->
+                    DropdownMenuItem(
+                        text = { Text("${course.name}(%.1fkm)".format(course.distanceKm)) },
+                        onClick = { onSelect(index); expanded = false },
+                    )
+                }
+            }
+        }
     }
 }
 

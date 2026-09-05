@@ -109,3 +109,21 @@ fun GliderMarkerContent(
         }
     }
 }
+
+/**
+ * A small name tag next to a glider's marker, colored to match its trail, so multiple
+ * simultaneous flights can be told apart at a glance instead of only by memorizing trail colors.
+ */
+@Composable
+fun GliderNameLabel(name: String, color: Color, modifier: Modifier = Modifier) {
+    Text(
+        text = name,
+        color = color,
+        fontSize = 10.sp,
+        fontWeight = FontWeight.SemiBold,
+        modifier = modifier
+            .background(Color.White.copy(alpha = 0.9f), RoundedCornerShape(50))
+            .border(1.dp, color, RoundedCornerShape(50))
+            .padding(horizontal = 6.dp, vertical = 2.dp),
+    )
+}

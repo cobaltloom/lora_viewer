@@ -5,6 +5,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -18,22 +19,28 @@ import androidx.navigation.compose.rememberNavController
 import com.cobaltloom.loraviewer.data.alert.AlertSettingsRepository
 import com.cobaltloom.loraviewer.data.alert.CompetitionGuidelineRepository
 import com.cobaltloom.loraviewer.data.alert.Coordinate
+import com.cobaltloom.loraviewer.data.alert.TurnpointPassageLogRepository
 import com.cobaltloom.loraviewer.data.alert.UpperAltitudeGuidelineRepository
+import com.cobaltloom.loraviewer.data.billing.BillingRepository
 import com.cobaltloom.loraviewer.data.favorites.FavoritesRepository
 import com.cobaltloom.loraviewer.data.nickname.NicknameRepository
 import com.cobaltloom.loraviewer.data.notification.AlertNotifier
 import com.cobaltloom.loraviewer.data.remote.TrailRouteApiClient
 import com.cobaltloom.loraviewer.data.repository.GliderRepository
 import com.cobaltloom.loraviewer.data.settings.ApiSettingsRepository
+import com.cobaltloom.loraviewer.data.trail.GliderTrailRepository
+import com.cobaltloom.loraviewer.data.trail.MapDisplaySettingsRepository
 import com.cobaltloom.loraviewer.ui.boardscan.BoardScanScreen
 import com.cobaltloom.loraviewer.ui.list.GliderListScreen
 import com.cobaltloom.loraviewer.ui.map.GliderTrackerViewModel
 import com.cobaltloom.loraviewer.ui.map.MapScreen
+import com.cobaltloom.loraviewer.ui.paywall.PaywallScreen
 import com.cobaltloom.loraviewer.ui.settings.ReferencePointPickerScreen
 import com.cobaltloom.loraviewer.ui.settings.SettingsScreen
 import com.cobaltloom.loraviewer.ui.theme.LoraViewerTheme
 import com.cobaltloom.loraviewer.ui.track.TrackHistoryScreen
 import com.cobaltloom.loraviewer.ui.track.TrackHistoryViewModel
+import com.cobaltloom.loraviewer.ui.turnpoint.TurnpointHistoryScreen
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -54,11 +61,26 @@ private object Routes {
     const val TRACK_HISTORY = "trackHistory"
     const val BOARD_SCAN = "boardScan"
     const val REFERENCE_POINT_PICKER = "referencePointPicker"
+    const val PAYWALL = "paywall"
+    const val TURNPOINT_HISTORY = "turnpointHistory"
 }
 
 @Composable
 private fun LoraViewerApp() {
     val context = LocalContext.current
+    val billingRepository = remember { BillingRepository(context) }
+    LoraViewerNavHost(billingRepository)
+}
+
+/**
+ * The map is free to open; favorites, nicknames, and altitude alerts/guidelines require an
+ * active subscription. Gated screens navigate to [Routes.PAYWALL] instead of performing the
+ * action when there's no active subscription.
+ */
+@Composable
+private fun LoraViewerNavHost(billingRepository: BillingRepository) {
+    val context = LocalContext.current
+    val isSubscribed by billingRepository.isSubscribed.collectAsState()
     val apiSettingsRepository = remember { ApiSettingsRepository(context) }
     val gliderRepository = remember {
         GliderRepository(TrailRouteApiClient(), apiSettingsRepository)
@@ -70,6 +92,9 @@ private fun LoraViewerApp() {
         val alertSettingsRepository = AlertSettingsRepository(context)
         val competitionGuidelineRepository = CompetitionGuidelineRepository(context)
         val upperAltitudeGuidelineRepository = UpperAltitudeGuidelineRepository(context)
+        val turnpointPassageLogRepository = TurnpointPassageLogRepository(context)
+        val gliderTrailRepository = GliderTrailRepository(context)
+        val mapDisplaySettingsRepository = MapDisplaySettingsRepository(context)
         val alertNotifier = AlertNotifier(context)
         viewModelFactory {
             initializer {
@@ -80,12 +105,16 @@ private fun LoraViewerApp() {
                     alertSettingsRepository = alertSettingsRepository,
                     competitionGuidelineRepository = competitionGuidelineRepository,
                     upperAltitudeGuidelineRepository = upperAltitudeGuidelineRepository,
+                    turnpointPassageLogRepository = turnpointPassageLogRepository,
+                    gliderTrailRepository = gliderTrailRepository,
+                    mapDisplaySettingsRepository = mapDisplaySettingsRepository,
                     alertNotifier = alertNotifier,
                 )
             }
         }
     }
     val viewModel: GliderTrackerViewModel = viewModel(factory = trackerFactory)
+    LaunchedEffect(isSubscribed) { viewModel.updateSubscriptionStatus(isSubscribed) }
 
     val trackHistoryFactory = remember {
         viewModelFactory { initializer { TrackHistoryViewModel(gliderRepository) } }
@@ -93,6 +122,7 @@ private fun LoraViewerApp() {
     val trackHistoryViewModel: TrackHistoryViewModel = viewModel(factory = trackHistoryFactory)
 
     val navController = rememberNavController()
+    val onRequireSubscription: () -> Unit = { navController.navigate(Routes.PAYWALL) }
 
     NavHost(navController = navController, startDestination = Routes.MAP) {
         composable(Routes.MAP) {
@@ -101,6 +131,8 @@ private fun LoraViewerApp() {
                 onOpenList = { navController.navigate(Routes.LIST) },
                 onOpenSettings = { navController.navigate(Routes.SETTINGS) },
                 onOpenTrackHistory = { navController.navigate(Routes.TRACK_HISTORY) },
+                onOpenTurnpointHistory = { navController.navigate(Routes.TURNPOINT_HISTORY) },
+                onRequireSubscription = onRequireSubscription,
             )
         }
         composable(Routes.LIST) {
@@ -108,6 +140,7 @@ private fun LoraViewerApp() {
                 viewModel = viewModel,
                 onBack = { navController.popBackStack() },
                 onOpenBoardScan = { navController.navigate(Routes.BOARD_SCAN) },
+                onRequireSubscription = onRequireSubscription,
             )
         }
         composable(Routes.SETTINGS) {
@@ -116,10 +149,17 @@ private fun LoraViewerApp() {
                 apiSettingsRepository = apiSettingsRepository,
                 onBack = { navController.popBackStack() },
                 onOpenReferencePointPicker = { navController.navigate(Routes.REFERENCE_POINT_PICKER) },
+                onRequireSubscription = onRequireSubscription,
             )
+        }
+        composable(Routes.PAYWALL) {
+            PaywallScreen(billingRepository, onBack = { navController.popBackStack() })
         }
         composable(Routes.TRACK_HISTORY) {
             TrackHistoryScreen(viewModel = trackHistoryViewModel, onBack = { navController.popBackStack() })
+        }
+        composable(Routes.TURNPOINT_HISTORY) {
+            TurnpointHistoryScreen(viewModel = viewModel, onBack = { navController.popBackStack() })
         }
         composable(Routes.BOARD_SCAN) {
             BoardScanScreen(viewModel = viewModel, onDone = { navController.popBackStack() })

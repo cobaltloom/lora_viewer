@@ -46,6 +46,7 @@ fun GliderListScreen(
     viewModel: GliderTrackerViewModel,
     onBack: () -> Unit,
     onOpenBoardScan: () -> Unit,
+    onRequireSubscription: () -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var editingGlider by remember { mutableStateOf<GliderPosition?>(null) }
@@ -112,7 +113,11 @@ fun GliderListScreen(
                         .fillMaxWidth()
                         .padding(horizontal = 12.dp, vertical = 8.dp),
                 ) {
-                    IconButton(onClick = { viewModel.toggleFavorite(glider.imei) }) {
+                    IconButton(
+                        onClick = {
+                            if (uiState.isSubscribed) viewModel.toggleFavorite(glider.imei) else onRequireSubscription()
+                        },
+                    ) {
                         val isFavorite = uiState.isFavorite(glider.imei)
                         Icon(
                             imageVector = if (isFavorite) Icons.Filled.Star else Icons.Outlined.Star,
@@ -123,9 +128,16 @@ fun GliderListScreen(
                     Column(
                         modifier = Modifier
                             .weight(1f)
-                            .clickable { editingGlider = glider },
+                            .clickable {
+                                if (uiState.isSubscribed) editingGlider = glider else onRequireSubscription()
+                            },
                     ) {
-                        Text(uiState.nameFor(glider), style = MaterialTheme.typography.titleMedium)
+                        val baseName = uiState.baseNameFor(glider)
+                        val nickname = if (uiState.isSubscribed) uiState.nicknames[glider.imei] else null
+                        Text(
+                            if (nickname != null) "$baseName $nickname" else baseName,
+                            style = MaterialTheme.typography.titleMedium,
+                        )
                         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                             glider.alt?.let { Text("高度 ${it.toInt()} m", style = MaterialTheme.typography.bodySmall) }
                             if (glider.isDisconnected) {

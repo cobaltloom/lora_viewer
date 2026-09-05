@@ -3,13 +3,32 @@ package com.cobaltloom.loraviewer.data.alert
 import android.content.Context
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.cobaltloom.loraviewer.data.model.GliderPosition
 import kotlin.math.floor
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 
 private val Context.competitionGuidelineDataStore by preferencesDataStore(name = "competition_guideline")
+
+/**
+ * [isEnabled] turns the published altitude guideline on/off. [showTaskCourse] draws the published
+ * turnpoints and a selected task course on the map - a separate toggle from the guideline itself,
+ * since someone might want one without the other. [selectedCourseIndex] indexes into
+ * [CompetitionTaskCourseData.courses], or is null to show just the turnpoints without connecting
+ * them into a course line.
+ */
+@Serializable
+data class CompetitionGuidelineSettings(
+    val isEnabled: Boolean = false,
+    val showTaskCourse: Boolean = false,
+    val selectedCourseIndex: Int? = null,
+)
 
 /**
  * The official JSAL 妻沼滑空場 competition altitude guideline (Ver. 2026-01-26): a minimum MSL
@@ -62,11 +81,17 @@ object CompetitionAltitudeGuideline {
 }
 
 class CompetitionGuidelineRepository(private val context: Context) {
-    private val key = booleanPreferencesKey("competitionGuidelineEnabled")
+    /** Pre-dates [settingsKey]; read as a fallback so upgrading doesn't reset an existing toggle. */
+    private val legacyEnabledKey = booleanPreferencesKey("competitionGuidelineEnabled")
+    private val settingsKey = stringPreferencesKey("competitionGuidelineSettingsJson")
+    private val json = Json { ignoreUnknownKeys = true }
 
-    val isEnabled: Flow<Boolean> = context.competitionGuidelineDataStore.data.map { it[key] ?: false }
+    val settings: Flow<CompetitionGuidelineSettings> = context.competitionGuidelineDataStore.data.map { prefs ->
+        prefs[settingsKey]?.let { runCatching { json.decodeFromString<CompetitionGuidelineSettings>(it) }.getOrNull() }
+            ?: CompetitionGuidelineSettings(isEnabled = prefs[legacyEnabledKey] ?: false)
+    }
 
-    suspend fun setEnabled(value: Boolean) {
-        context.competitionGuidelineDataStore.edit { it[key] = value }
+    suspend fun save(settings: CompetitionGuidelineSettings) {
+        context.competitionGuidelineDataStore.edit { it[settingsKey] = json.encodeToString(settings) }
     }
 }
