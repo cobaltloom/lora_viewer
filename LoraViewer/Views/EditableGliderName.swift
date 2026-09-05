@@ -1,10 +1,9 @@
 import SwiftUI
 
 /// Shows a glider's server label ("7.") plus its user-assigned nickname, if
-/// any, and lets the user tap to edit that nickname. Editing is a
-/// subscriber-only feature — without one, tapping shows the paywall
-/// instead of the edit prompt (the name itself, if someone else set one,
-/// still displays either way).
+/// any, and lets the user tap to edit that nickname. Both viewing and
+/// editing nicknames are subscriber-only — without one, this shows just the
+/// server label, and tapping shows the paywall instead of the edit prompt.
 struct EditableGliderName: View {
     let imei: String
     let baseName: String
@@ -16,7 +15,8 @@ struct EditableGliderName: View {
     @State private var draft = ""
 
     private var displayName: String {
-        nicknameStore.displayName(baseName: baseName, imei: imei)
+        guard subscriptionManager.isSubscribed else { return baseName }
+        return nicknameStore.displayName(baseName: baseName, imei: imei)
     }
 
     var body: some View {
