@@ -43,12 +43,10 @@ enum CompetitionTaskCourseData {
     /// scored turn, so passing through it isn't worth notifying about.
     static let notifiableTurnpointNames = turnpointDisplayOrder.filter { $0 != "管理ポイント" }
 
-    /// Radius of a turnpoint's sector, per JSAL rule 43 (and the same value
-    /// for 管理ポイント's own transit sector): a real sector is a
-    /// directional 90° wedge, simplified here to a full circle for both
-    /// map visualization and turnpoint-passage detection.
+    /// Radius of a turnpoint's sector, per JSAL rule 43: a real sector is a
+    /// directional 90° wedge, simplified here to a full circle for
+    /// turnpoint-passage detection.
     static let turnpointRadiusKm = 2.0
-    static let managementPointRadiusKm = turnpointRadiusKm
 
     static let courses: [CompetitionTaskCourse] = [
         CompetitionTaskCourse(name: "① 妻沼-高林給水塔-千代田-(管理ポイント)-妻沼", distanceKm: 24.0, turnpointNames: ["妻沼", "高林給水塔", "千代田", "管理ポイント", "妻沼"]),

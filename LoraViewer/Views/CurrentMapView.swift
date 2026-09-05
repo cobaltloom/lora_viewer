@@ -172,12 +172,6 @@ struct CurrentMapView: View {
                                 }
                             }
                         }
-                        MapCircle(
-                            center: CompetitionTaskCourseData.turnpoints["管理ポイント"] ?? CompetitionAltitudeGuideline.referenceCoordinate,
-                            radius: CompetitionTaskCourseData.managementPointRadiusKm * 1000
-                        )
-                            .foregroundStyle(.orange.opacity(0.05))
-                            .stroke(.orange.opacity(0.4), lineWidth: 1)
                         if let selectedCourseIndex = competitionGuideline.selectedCourseIndex,
                            CompetitionTaskCourseData.courses.indices.contains(selectedCourseIndex) {
                             MapPolyline(coordinates: CompetitionTaskCourseData.coordinates(for: CompetitionTaskCourseData.courses[selectedCourseIndex]))
