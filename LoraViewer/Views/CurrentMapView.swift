@@ -182,6 +182,12 @@ struct CurrentMapView: View {
                             .stroke(.cyan.opacity(0.6), lineWidth: 1.5)
                     }
                     ForEach(displayedPositions) { glider in
+                        if let trail = viewModel.trails[glider.imei], trail.count > 1 {
+                            MapPolyline(coordinates: trail)
+                                .stroke(colorFor(imei: glider.imei), lineWidth: 2)
+                        }
+                    }
+                    ForEach(displayedPositions) { glider in
                         Annotation(viewModel.nameFor(index: glider.index), coordinate: glider.coordinate) {
                             GliderMarkerView(
                                 glider: glider,
@@ -398,6 +404,13 @@ struct CurrentMapView: View {
             .padding(.horizontal, 4)
             .padding(.vertical, 1)
             .background(.white.opacity(0.85), in: Capsule())
+    }
+
+    /// A consistent-per-glider color so multiple trails can be told apart.
+    private func colorFor(imei: String) -> Color {
+        let palette: [Color] = [.cyan, .pink, .green, .orange, .blue, .purple, .red, .yellow]
+        let index = abs(imei.hashValue) % palette.count
+        return palette[index]
     }
 
     private func toggleFavoritesOnly() {
