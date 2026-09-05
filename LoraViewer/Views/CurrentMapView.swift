@@ -427,11 +427,12 @@ struct CurrentMapView: View {
         return palette[index]
     }
 
-    /// The server's base name plus the pilot's nickname, if any — used
+    /// The pilot's nickname, if any, otherwise the server's base name — used
     /// anywhere a glider's name is shown or spoken (map labels, alerts,
-    /// notifications), so those all agree with the glider list.
+    /// notifications), kept compact rather than combining both like the
+    /// glider list does.
     private func displayName(for glider: GliderPosition) -> String {
-        nicknameStore.displayName(baseName: viewModel.nameFor(index: glider.index), imei: glider.imei)
+        nicknameStore.compactDisplayName(baseName: viewModel.nameFor(index: glider.index), imei: glider.imei)
     }
 
     /// A small name tag next to a glider's marker, colored to match its

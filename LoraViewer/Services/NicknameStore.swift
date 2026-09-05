@@ -57,11 +57,18 @@ final class NicknameStore: ObservableObject {
     }
 
     /// The server's base name plus a user-assigned nickname, if one is set
-    /// (e.g. "7. 学連21") — the canonical way to show a glider's name
-    /// anywhere a nickname should be reflected.
+    /// (e.g. "7. 学連21") — used where seeing the server's own numbering
+    /// alongside the nickname is useful, like the glider list.
     func displayName(baseName: String, imei: String) -> String {
         guard let nickname = nickname(forIMEI: imei) else { return baseName }
         return "\(baseName) \(nickname)"
+    }
+
+    /// The nickname alone if one is set, otherwise the server's base name —
+    /// used where names are shown compactly (map labels, alerts,
+    /// notifications) and the server's numbering would just be clutter.
+    func compactDisplayName(baseName: String, imei: String) -> String {
+        nickname(forIMEI: imei) ?? baseName
     }
 
     func setNickname(_ name: String, forIMEI imei: String) {
