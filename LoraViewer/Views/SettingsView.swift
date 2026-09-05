@@ -10,6 +10,7 @@ struct SettingsView: View {
     @EnvironmentObject private var upperAltitudeGuideline: UpperAltitudeGuideline
     @EnvironmentObject private var subscriptionManager: SubscriptionManager
     @Environment(\.dismiss) private var dismiss
+    @AppStorage("showGliderTrails") private var showGliderTrails = true
     @State private var showReferencePointPicker = false
     @State private var showDeleteAllStepsConfirmation = false
     @State private var showPaywall = false
@@ -43,6 +44,14 @@ struct SettingsView: View {
                     }
                 } header: {
                     Text("更新間隔")
+                }
+
+                Section {
+                    Toggle("軌跡を表示", isOn: $showGliderTrails)
+                } header: {
+                    Text("地図表示")
+                } footer: {
+                    Text("機体の飛行軌跡をアプリ起動中の地図に表示します。着陸すると軌跡は消去されます。")
                 }
 
                 Section {

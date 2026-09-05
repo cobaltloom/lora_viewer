@@ -13,6 +13,7 @@ struct CurrentMapView: View {
     @StateObject private var locationManager = LocationManager()
     @StateObject private var alertNotifier = AlertNotifier()
     @StateObject private var turnpointPassageLog = TurnpointPassageLog()
+    @AppStorage("showGliderTrails") private var showGliderTrails = true
     @State private var cameraPosition: MapCameraPosition = .automatic
     @State private var selectedGlider: GliderPosition?
     @State private var showSettings = false
@@ -181,10 +182,12 @@ struct CurrentMapView: View {
                             .foregroundStyle(.cyan.opacity(0.06))
                             .stroke(.cyan.opacity(0.6), lineWidth: 1.5)
                     }
-                    ForEach(displayedPositions) { glider in
-                        if let trail = viewModel.trails[glider.imei], trail.count > 1 {
-                            MapPolyline(coordinates: trail)
-                                .stroke(colorFor(imei: glider.imei), lineWidth: 2)
+                    if showGliderTrails {
+                        ForEach(displayedPositions) { glider in
+                            if let trail = viewModel.trails[glider.imei], trail.count > 1 {
+                                MapPolyline(coordinates: trail)
+                                    .stroke(colorFor(imei: glider.imei), lineWidth: 2)
+                            }
                         }
                     }
                     ForEach(displayedPositions) { glider in
