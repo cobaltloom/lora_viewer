@@ -315,12 +315,16 @@ struct CurrentMapView: View {
                 Text(viewModel.errorMessage ?? "")
             }
             .task {
+                viewModel.groundAltitudeThresholdM = alertSettings.minimumFlyingAltitudeM
                 viewModel.startPolling()
                 locationManager.requestAuthorizationIfNeeded()
                 alertNotifier.requestAuthorizationIfNeeded()
             }
             .onDisappear {
                 viewModel.stopPolling()
+            }
+            .onChange(of: alertSettings.minimumFlyingAltitudeM) { _, newValue in
+                viewModel.groundAltitudeThresholdM = newValue
             }
             .onChange(of: viewModel.positions) { _, newPositions in
                 centerMapIfNeeded(on: newPositions)
