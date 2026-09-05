@@ -349,11 +349,13 @@ struct CurrentMapView: View {
     }
 
     /// Notifies once per glider each time it newly enters a turnpoint's
-    /// sector, and lets it notify again on a later lap once it leaves and
-    /// re-enters. Also records the event to `turnpointPassageLog` so it can
-    /// be reviewed in-app if the push notification is missed. The sector is
-    /// the true 90° wedge from JSAL rule 43 (bisecting the selected task
-    /// course's incoming and outgoing legs at that turnpoint — see
+    /// sector (excluding 管理ポイント — see
+    /// `CompetitionTaskCourseData.notifiableTurnpointNames`), and lets it
+    /// notify again on a later lap once it leaves and re-enters. Also
+    /// records the event to `turnpointPassageLog` so it can be reviewed
+    /// in-app if the push notification is missed. The sector is the true
+    /// 90° wedge from JSAL rule 43 (bisecting the selected task course's
+    /// incoming and outgoing legs at that turnpoint — see
     /// `CompetitionTaskCourseData.sectorBearing`), so this requires a task
     /// course to be selected: with no course selected ("旋回点のみ") there's
     /// no leg geometry to derive a sector from, and nothing is
@@ -368,7 +370,7 @@ struct CurrentMapView: View {
         for glider in positions {
             let gliderCoordinate = CLLocationCoordinate2D(latitude: glider.lat, longitude: glider.lon)
             let gliderLocation = CLLocation(latitude: glider.lat, longitude: glider.lon)
-            for name in CompetitionTaskCourseData.turnpointDisplayOrder {
+            for name in CompetitionTaskCourseData.notifiableTurnpointNames {
                 guard let coordinate = CompetitionTaskCourseData.turnpoints[name] else { continue }
                 let turnpointLocation = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
                 let distanceKm = turnpointLocation.distance(from: gliderLocation) / 1000.0

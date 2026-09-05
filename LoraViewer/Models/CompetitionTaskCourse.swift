@@ -38,6 +38,11 @@ enum CompetitionTaskCourseData {
     /// as the airfield/reference marker elsewhere).
     static let turnpointDisplayOrder = ["高林給水塔", "千代田", "邑楽タワー", "管理ポイント"]
 
+    /// Turnpoints eligible for passage notifications/history — excludes
+    /// "管理ポイント", which is a transit checkpoint rather than an actual
+    /// scored turn, so passing through it isn't worth notifying about.
+    static let notifiableTurnpointNames = turnpointDisplayOrder.filter { $0 != "管理ポイント" }
+
     /// Radius of a turnpoint's sector, per JSAL rule 43 (and the same value
     /// for 管理ポイント's own transit sector): a real sector is a
     /// directional 90° wedge, simplified here to a full circle for both
