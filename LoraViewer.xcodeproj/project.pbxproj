@@ -37,12 +37,13 @@
 		CADE1B63BE22D19830730C53 /* CurrentMapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B4AD25B5485886B1C3031B9 /* CurrentMapView.swift */; };
 		EE1262773F384461E389C024 /* EditableGliderName.swift in Sources */ = {isa = PBXBuildFile; fileRef = C85E47AC083982255F34D332 /* EditableGliderName.swift */; };
 		DD235365F5C8606E423E14DC /* BoardScanView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F677C4DE9AA6546F0461251 /* BoardScanView.swift */; };
-		0E7CFC80389ADDEF8F034544 /* FavoriteButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E7935A3ECC99329E0E8F3C7 /* FavoriteButton.swift */; };
-		46B93CFD327A7996335299A1 /* ReferencePointPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CF8198BB2EDD173DAF37FC8 /* ReferencePointPickerView.swift */; };
-		0687915D56CED728DF214A24 /* PaywallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63F55FC4471D4A45785AAB31 /* PaywallView.swift */; };
-		75F708BD2753B15899575CF8 /* TurnpointPassageHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92E1891877987AE6599E0843 /* TurnpointPassageHistoryView.swift */; };
-		6F581E73291585E91801831D /* MKCoordinateRegion+Fit.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F657E9276227E1AF81E46A7 /* MKCoordinateRegion+Fit.swift */; };
-		194A10C88CB7D4F5EE0D4E37 /* CLLocationCoordinate2D+Geometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 668DD2D9A12BB87244F76BED /* CLLocationCoordinate2D+Geometry.swift */; };
+		B182BFB3EC798FA1B7C68255 /* CameraCaptureView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF1A36CF7168CEDE46A27F2A /* CameraCaptureView.swift */; };
+		686B49A645BCA31E6D18D285 /* FavoriteButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3ABB1BF8ED27ACAB7B85C9E /* FavoriteButton.swift */; };
+		C9031C74779A4F295997A871 /* ReferencePointPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D690ECE8CD2FAF6216D994F /* ReferencePointPickerView.swift */; };
+		AA9E2FFBAFD60F361C8F1CBA /* PaywallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A75AED8491BD26B2C0D45BEE /* PaywallView.swift */; };
+		05BE20A7F18C9C0C59ADFFCE /* TurnpointPassageHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB69C7F7FDE4C764867406C8 /* TurnpointPassageHistoryView.swift */; };
+		B9EC5659C2058EEAAC75005F /* MKCoordinateRegion+Fit.swift in Sources */ = {isa = PBXBuildFile; fileRef = E97F72B19468412DB30C9285 /* MKCoordinateRegion+Fit.swift */; };
+		B22F3CDB86B1783D3CCFFAFA /* CLLocationCoordinate2D+Geometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F7F3029BCB7D6C832E3AE9C /* CLLocationCoordinate2D+Geometry.swift */; };
 		45B13990ADAFB8366DA6DC33 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = E57D97F88D9220B6A495EF00 /* Assets.xcassets */; };
 		81BEF3A474DBBEFADE4F4952 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AD0A3C648792354BFDB982CC /* Preview Assets.xcassets */; };
 		10CDEB7E7BCE0DA83EBA0CFE /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = A76F1A7F4B331ADB5BFC5A68 /* GoogleService-Info.plist */; };
@@ -81,12 +82,13 @@
 		2B4AD25B5485886B1C3031B9 /* CurrentMapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CurrentMapView.swift"; sourceTree = "<group>"; };
 		C85E47AC083982255F34D332 /* EditableGliderName.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EditableGliderName.swift"; sourceTree = "<group>"; };
 		5F677C4DE9AA6546F0461251 /* BoardScanView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "BoardScanView.swift"; sourceTree = "<group>"; };
-		7E7935A3ECC99329E0E8F3C7 /* FavoriteButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "FavoriteButton.swift"; sourceTree = "<group>"; };
-		6CF8198BB2EDD173DAF37FC8 /* ReferencePointPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ReferencePointPickerView.swift"; sourceTree = "<group>"; };
-		63F55FC4471D4A45785AAB31 /* PaywallView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PaywallView.swift"; sourceTree = "<group>"; };
-		92E1891877987AE6599E0843 /* TurnpointPassageHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TurnpointPassageHistoryView.swift"; sourceTree = "<group>"; };
-		2F657E9276227E1AF81E46A7 /* MKCoordinateRegion+Fit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MKCoordinateRegion+Fit.swift"; sourceTree = "<group>"; };
-		668DD2D9A12BB87244F76BED /* CLLocationCoordinate2D+Geometry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CLLocationCoordinate2D+Geometry.swift"; sourceTree = "<group>"; };
+		AF1A36CF7168CEDE46A27F2A /* CameraCaptureView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CameraCaptureView.swift"; sourceTree = "<group>"; };
+		D3ABB1BF8ED27ACAB7B85C9E /* FavoriteButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "FavoriteButton.swift"; sourceTree = "<group>"; };
+		9D690ECE8CD2FAF6216D994F /* ReferencePointPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ReferencePointPickerView.swift"; sourceTree = "<group>"; };
+		A75AED8491BD26B2C0D45BEE /* PaywallView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PaywallView.swift"; sourceTree = "<group>"; };
+		BB69C7F7FDE4C764867406C8 /* TurnpointPassageHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TurnpointPassageHistoryView.swift"; sourceTree = "<group>"; };
+		E97F72B19468412DB30C9285 /* MKCoordinateRegion+Fit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MKCoordinateRegion+Fit.swift"; sourceTree = "<group>"; };
+		4F7F3029BCB7D6C832E3AE9C /* CLLocationCoordinate2D+Geometry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CLLocationCoordinate2D+Geometry.swift"; sourceTree = "<group>"; };
 		E89172D281EBCA2A34EE5097 /* LoraViewer.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = LoraViewer.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E57D97F88D9220B6A495EF00 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		AD0A3C648792354BFDB982CC /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
@@ -185,10 +187,11 @@
 				2B4AD25B5485886B1C3031B9 /* CurrentMapView.swift */,
 				C85E47AC083982255F34D332 /* EditableGliderName.swift */,
 				5F677C4DE9AA6546F0461251 /* BoardScanView.swift */,
-				7E7935A3ECC99329E0E8F3C7 /* FavoriteButton.swift */,
-				6CF8198BB2EDD173DAF37FC8 /* ReferencePointPickerView.swift */,
-				63F55FC4471D4A45785AAB31 /* PaywallView.swift */,
-				92E1891877987AE6599E0843 /* TurnpointPassageHistoryView.swift */,
+				AF1A36CF7168CEDE46A27F2A /* CameraCaptureView.swift */,
+				D3ABB1BF8ED27ACAB7B85C9E /* FavoriteButton.swift */,
+				9D690ECE8CD2FAF6216D994F /* ReferencePointPickerView.swift */,
+				A75AED8491BD26B2C0D45BEE /* PaywallView.swift */,
+				BB69C7F7FDE4C764867406C8 /* TurnpointPassageHistoryView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -196,8 +199,8 @@
 		6A3AA93937C8724920FC941C /* Utilities */ = {
 			isa = PBXGroup;
 			children = (
-				2F657E9276227E1AF81E46A7 /* MKCoordinateRegion+Fit.swift */,
-				668DD2D9A12BB87244F76BED /* CLLocationCoordinate2D+Geometry.swift */,
+				E97F72B19468412DB30C9285 /* MKCoordinateRegion+Fit.swift */,
+				4F7F3029BCB7D6C832E3AE9C /* CLLocationCoordinate2D+Geometry.swift */,
 			);
 			path = Utilities;
 			sourceTree = "<group>";
@@ -318,12 +321,13 @@
 				CADE1B63BE22D19830730C53 /* CurrentMapView.swift in Sources */,
 				EE1262773F384461E389C024 /* EditableGliderName.swift in Sources */,
 				DD235365F5C8606E423E14DC /* BoardScanView.swift in Sources */,
-				0E7CFC80389ADDEF8F034544 /* FavoriteButton.swift in Sources */,
-				46B93CFD327A7996335299A1 /* ReferencePointPickerView.swift in Sources */,
-				0687915D56CED728DF214A24 /* PaywallView.swift in Sources */,
-				75F708BD2753B15899575CF8 /* TurnpointPassageHistoryView.swift in Sources */,
-				6F581E73291585E91801831D /* MKCoordinateRegion+Fit.swift in Sources */,
-				194A10C88CB7D4F5EE0D4E37 /* CLLocationCoordinate2D+Geometry.swift in Sources */,
+				B182BFB3EC798FA1B7C68255 /* CameraCaptureView.swift in Sources */,
+				686B49A645BCA31E6D18D285 /* FavoriteButton.swift in Sources */,
+				C9031C74779A4F295997A871 /* ReferencePointPickerView.swift in Sources */,
+				AA9E2FFBAFD60F361C8F1CBA /* PaywallView.swift in Sources */,
+				05BE20A7F18C9C0C59ADFFCE /* TurnpointPassageHistoryView.swift in Sources */,
+				B9EC5659C2058EEAAC75005F /* MKCoordinateRegion+Fit.swift in Sources */,
+				B22F3CDB86B1783D3CCFFAFA /* CLLocationCoordinate2D+Geometry.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -455,13 +459,14 @@
 			ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 			ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 			CODE_SIGN_STYLE = Automatic;
-			CURRENT_PROJECT_VERSION = 7;
+			CURRENT_PROJECT_VERSION = 8;
 			DEVELOPMENT_ASSET_PATHS = "\"LoraViewer/Preview Content\"";
 			DEVELOPMENT_TEAM = 563XHL5ZLR;
 			ENABLE_PREVIEWS = YES;
 			GENERATE_INFOPLIST_FILE = YES;
 			INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 			INFOPLIST_KEY_CFBundleDisplayName = "LoRa妻沼";
+			INFOPLIST_KEY_NSCameraUsageDescription = "ホワイトボードの名簿を撮影して読み取るために使用します。";
 			INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "現在地を地図の中心に表示するために使用します。";
 			INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 			INFOPLIST_KEY_UIApplicationSupportsIndoorNavigation = NO;
@@ -488,13 +493,14 @@
 			ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 			ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 			CODE_SIGN_STYLE = Automatic;
-			CURRENT_PROJECT_VERSION = 7;
+			CURRENT_PROJECT_VERSION = 8;
 			DEVELOPMENT_ASSET_PATHS = "\"LoraViewer/Preview Content\"";
 			DEVELOPMENT_TEAM = 563XHL5ZLR;
 			ENABLE_PREVIEWS = YES;
 			GENERATE_INFOPLIST_FILE = YES;
 			INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 			INFOPLIST_KEY_CFBundleDisplayName = "LoRa妻沼";
+			INFOPLIST_KEY_NSCameraUsageDescription = "ホワイトボードの名簿を撮影して読み取るために使用します。";
 			INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "現在地を地図の中心に表示するために使用します。";
 			INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 			INFOPLIST_KEY_UIApplicationSupportsIndoorNavigation = NO;

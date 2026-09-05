@@ -1,5 +1,6 @@
 import SwiftUI
 import PhotosUI
+import UIKit
 
 /// Lets the user photograph (or pick a photo of) the club's whiteboard
 /// roster, auto-fills a name for each board position via OCR, and saves the
@@ -10,9 +11,14 @@ struct BoardScanView: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var photoItem: PhotosPickerItem?
+    @State private var showCamera = false
     @State private var draftNames: [Int: String] = [:]
     @State private var isRecognizing = false
     @State private var errorMessage: String?
+
+    private var isCameraAvailable: Bool {
+        UIImagePickerController.isSourceTypeAvailable(.camera)
+    }
 
     private let indices = Array(1...15)
 
@@ -20,6 +26,9 @@ struct BoardScanView: View {
         NavigationStack {
             Form {
                 Section {
+                    if isCameraAvailable {
+                        Button("カメラで撮影") { showCamera = true }
+                    }
                     PhotosPicker("ボードの写真を選ぶ", selection: $photoItem, matching: .images)
                     if isRecognizing {
                         HStack {
@@ -55,6 +64,16 @@ struct BoardScanView: View {
             .onChange(of: photoItem) { _, newItem in
                 Task { await loadAndRecognize(newItem) }
             }
+            .fullScreenCover(isPresented: $showCamera) {
+                CameraCaptureView(
+                    onCapture: { image in
+                        showCamera = false
+                        Task { await recognize(image: image) }
+                    },
+                    onCancel: { showCamera = false }
+                )
+                .ignoresSafeArea()
+            }
             .alert("エラー", isPresented: Binding(
                 get: { errorMessage != nil },
                 set: { if !$0 { errorMessage = nil } }
@@ -75,14 +94,22 @@ struct BoardScanView: View {
 
     private func loadAndRecognize(_ item: PhotosPickerItem?) async {
         guard let item else { return }
-        isRecognizing = true
-        defer { isRecognizing = false }
         do {
             guard let data = try await item.loadTransferable(type: Data.self),
                   let image = UIImage(data: data) else {
                 errorMessage = "写真を読み込めませんでした。"
                 return
             }
+            await recognize(image: image)
+        } catch {
+            errorMessage = "写真を読み込めませんでした: \(error.localizedDescription)"
+        }
+    }
+
+    private func recognize(image: UIImage) async {
+        isRecognizing = true
+        defer { isRecognizing = false }
+        do {
             let recognized = try await Task.detached(priority: .userInitiated) {
                 try BoardOCR.recognizeNames(in: image)
             }.value
