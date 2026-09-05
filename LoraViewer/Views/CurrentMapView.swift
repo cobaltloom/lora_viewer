@@ -17,6 +17,11 @@ struct CurrentMapView: View {
     @State private var showPaywall = false
     @State private var didCenterInitially = false
     @State private var showFavoritesOnly = false
+    /// The visible map region's center, kept up to date so distance labels
+    /// on the alert circles can be placed on whichever side of the circle
+    /// faces the visible area, instead of a fixed compass point that can
+    /// pan or zoom out of view.
+    @State private var visibleRegionCenter: CLLocationCoordinate2D = CompetitionAltitudeGuideline.referenceCoordinate
     @State private var previouslyAlertingIMEIs: Set<String> = []
 
     init(settings: APISettings) {
@@ -99,6 +104,9 @@ struct CurrentMapView: View {
                                 MapCircle(center: alertReferenceCoordinate, radius: step.distanceKm * 1000)
                                     .foregroundStyle(.red.opacity(0.04))
                                     .stroke(.red.opacity(0.4), lineWidth: 1)
+                                Annotation("", coordinate: alertReferenceCoordinate.pointOnCircle(radiusMeters: step.distanceKm * 1000, towards: visibleRegionCenter)) {
+                                    distanceLabel(step.distanceKm)
+                                }
                             }
                         }
                         Annotation("基準地点", coordinate: alertReferenceCoordinate) {
@@ -115,10 +123,16 @@ struct CurrentMapView: View {
                         )
                             .foregroundStyle(.purple.opacity(0.06))
                             .stroke(.purple.opacity(0.5), lineWidth: 1)
+                        Annotation("", coordinate: CompetitionAltitudeGuideline.referenceCoordinate.pointOnCircle(radiusMeters: CompetitionAltitudeGuideline.innerRadiusKm * 1000, towards: visibleRegionCenter)) {
+                            distanceLabel(CompetitionAltitudeGuideline.innerRadiusKm)
+                        }
                         ForEach(CompetitionAltitudeGuideline.boundaryDistancesKm.filter { $0 > CompetitionAltitudeGuideline.innerRadiusKm }, id: \.self) { km in
                             MapCircle(center: CompetitionAltitudeGuideline.referenceCoordinate, radius: km * 1000)
                                 .foregroundStyle(.clear)
                                 .stroke(.purple.opacity(0.35), lineWidth: 1)
+                            Annotation("", coordinate: CompetitionAltitudeGuideline.referenceCoordinate.pointOnCircle(radiusMeters: km * 1000, towards: visibleRegionCenter)) {
+                                distanceLabel(km)
+                            }
                         }
                         Annotation("競技会基準地点", coordinate: CompetitionAltitudeGuideline.referenceCoordinate) {
                             Image(systemName: "flag.checkered")
@@ -179,6 +193,9 @@ struct CurrentMapView: View {
                     MapCompass()
                     MapScaleView()
                     MapUserLocationButton()
+                }
+                .onMapCameraChange(frequency: .continuous) { context in
+                    visibleRegionCenter = context.region.center
                 }
                 .safeAreaInset(edge: .top) {
                     VStack(spacing: 6) {
@@ -302,6 +319,16 @@ struct CurrentMapView: View {
             }
         }
         previouslyAlertingIMEIs = currentlyAlertingIMEIs
+    }
+
+    /// Small distance-in-km label used on the alert circles, e.g. "3.0km".
+    private func distanceLabel(_ km: Double) -> some View {
+        Text("\(km, specifier: "%.1f")km")
+            .font(.system(size: 9, weight: .semibold))
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 4)
+            .padding(.vertical, 1)
+            .background(.white.opacity(0.85), in: Capsule())
     }
 
     private func toggleFavoritesOnly() {

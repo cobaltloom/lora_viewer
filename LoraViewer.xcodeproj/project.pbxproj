@@ -39,6 +39,7 @@
 		394313AB2A7BD9A24383599B /* ReferencePointPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB0A5D94612A7B6736A4E6A6 /* ReferencePointPickerView.swift */; };
 		302B53A3BF89741568BF99B5 /* PaywallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F40FCD1AD2632D837E08E0C /* PaywallView.swift */; };
 		28059AC730B7CAFBFE925A85 /* MKCoordinateRegion+Fit.swift in Sources */ = {isa = PBXBuildFile; fileRef = 571E61E8453590CE4E80269B /* MKCoordinateRegion+Fit.swift */; };
+		71A01F47B4F08BC272AF8E5F /* CLLocationCoordinate2D+Geometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE140FA1B0639C2EE6E5AFE0 /* CLLocationCoordinate2D+Geometry.swift */; };
 		45B13990ADAFB8366DA6DC33 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = E57D97F88D9220B6A495EF00 /* Assets.xcassets */; };
 		81BEF3A474DBBEFADE4F4952 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AD0A3C648792354BFDB982CC /* Preview Assets.xcassets */; };
 		10CDEB7E7BCE0DA83EBA0CFE /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = A76F1A7F4B331ADB5BFC5A68 /* GoogleService-Info.plist */; };
@@ -79,6 +80,7 @@
 		AB0A5D94612A7B6736A4E6A6 /* ReferencePointPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ReferencePointPickerView.swift"; sourceTree = "<group>"; };
 		4F40FCD1AD2632D837E08E0C /* PaywallView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PaywallView.swift"; sourceTree = "<group>"; };
 		571E61E8453590CE4E80269B /* MKCoordinateRegion+Fit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MKCoordinateRegion+Fit.swift"; sourceTree = "<group>"; };
+		CE140FA1B0639C2EE6E5AFE0 /* CLLocationCoordinate2D+Geometry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CLLocationCoordinate2D+Geometry.swift"; sourceTree = "<group>"; };
 		E89172D281EBCA2A34EE5097 /* LoraViewer.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = LoraViewer.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E57D97F88D9220B6A495EF00 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		AD0A3C648792354BFDB982CC /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
@@ -186,6 +188,7 @@
 			isa = PBXGroup;
 			children = (
 				571E61E8453590CE4E80269B /* MKCoordinateRegion+Fit.swift */,
+				CE140FA1B0639C2EE6E5AFE0 /* CLLocationCoordinate2D+Geometry.swift */,
 			);
 			path = Utilities;
 			sourceTree = "<group>";
@@ -308,6 +311,7 @@
 				394313AB2A7BD9A24383599B /* ReferencePointPickerView.swift in Sources */,
 				302B53A3BF89741568BF99B5 /* PaywallView.swift in Sources */,
 				28059AC730B7CAFBFE925A85 /* MKCoordinateRegion+Fit.swift in Sources */,
+				71A01F47B4F08BC272AF8E5F /* CLLocationCoordinate2D+Geometry.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
