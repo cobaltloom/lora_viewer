@@ -5,6 +5,11 @@ struct GliderMarkerView: View {
     let isSelected: Bool
     let isFavorite: Bool
     let alertSeverity: AlertSeverity?
+    /// Whether the custom low-altitude rule is on, this glider is currently
+    /// flying, and it isn't triggering any alert right now — shown as a
+    /// green ring so a comfortable margin is visible before it ever gets
+    /// close to the alert thresholds, not just once it crosses them.
+    let isReturnGlideSafe: Bool
 
     var body: some View {
         VStack(spacing: 2) {
@@ -54,7 +59,9 @@ struct GliderMarkerView: View {
         switch alertSeverity {
         case .warning: return .red
         case .caution: return .orange
-        case nil: return isFavorite ? .yellow : .white
+        case nil:
+            if isFavorite { return .yellow }
+            return isReturnGlideSafe ? .green : .white
         }
     }
 

@@ -82,6 +82,15 @@ struct CurrentMapView: View {
         displayedPositions.filter { !alertReasons(for: $0).isEmpty }
     }
 
+    /// Whether to show the marker's "safe margin" ring: the custom
+    /// low-altitude rule is on, this glider is currently flying, and it
+    /// isn't triggering that rule (or any other alert) right now.
+    private func isReturnGlideSafe(_ glider: GliderPosition) -> Bool {
+        guard subscriptionManager.isSubscribed, alertSettings.isEnabled else { return false }
+        guard let alt = glider.alt, alt > alertSettings.minimumFlyingAltitudeM else { return false }
+        return alertReasons(for: glider).isEmpty
+    }
+
     /// Short labels for whichever altitude alerts are currently turned on,
     /// so it's visible at a glance without opening Settings. Empty when
     /// neither alert is enabled.
@@ -197,7 +206,8 @@ struct CurrentMapView: View {
                                 glider: glider,
                                 isSelected: selectedGlider?.id == glider.id,
                                 isFavorite: favoritesStore.isFavorite(glider.imei),
-                                alertSeverity: alertReasons(for: glider).overallSeverity
+                                alertSeverity: alertReasons(for: glider).overallSeverity,
+                                isReturnGlideSafe: isReturnGlideSafe(glider)
                             )
                                 .overlay(alignment: .top) {
                                     if showGliderTrails, let trail = viewModel.trails[glider.imei], trail.count > 1 {
