@@ -12,10 +12,12 @@ struct CurrentMapView: View {
     @StateObject private var viewModel: GliderTrackerViewModel
     @StateObject private var locationManager = LocationManager()
     @StateObject private var alertNotifier = AlertNotifier()
+    @StateObject private var turnpointPassageLog = TurnpointPassageLog()
     @State private var cameraPosition: MapCameraPosition = .automatic
     @State private var selectedGlider: GliderPosition?
     @State private var showSettings = false
     @State private var showPaywall = false
+    @State private var showTurnpointHistory = false
     @State private var didCenterInitially = false
     @State private var showFavoritesOnly = false
     /// The visible map region's center, kept up to date so distance labels
@@ -265,6 +267,15 @@ struct CurrentMapView: View {
                             .foregroundStyle(.secondary)
                     }
                     Spacer()
+                    Button {
+                        if subscriptionManager.isSubscribed {
+                            showTurnpointHistory = true
+                        } else {
+                            showPaywall = true
+                        }
+                    } label: {
+                        Label("通過履歴", systemImage: "list.bullet.clipboard")
+                    }
                     NavigationLink {
                         TrackHistoryView(settings: settings)
                     } label: {
@@ -278,6 +289,16 @@ struct CurrentMapView: View {
             }
             .sheet(isPresented: $showPaywall) {
                 PaywallView()
+            }
+            .sheet(isPresented: $showTurnpointHistory) {
+                NavigationStack {
+                    TurnpointPassageHistoryView(log: turnpointPassageLog)
+                        .toolbar {
+                            ToolbarItem(placement: .topBarLeading) {
+                                Button("閉じる") { showTurnpointHistory = false }
+                            }
+                        }
+                }
             }
             .alert("エラー", isPresented: Binding(
                 get: { viewModel.errorMessage != nil },
@@ -329,12 +350,14 @@ struct CurrentMapView: View {
 
     /// Notifies once per glider each time it newly enters a turnpoint's
     /// sector, and lets it notify again on a later lap once it leaves and
-    /// re-enters. The sector is the true 90° wedge from JSAL rule 43
-    /// (bisecting the selected task course's incoming and outgoing legs at
-    /// that turnpoint — see `CompetitionTaskCourseData.sectorBearing`), so
-    /// this requires a task course to be selected: with no course selected
-    /// ("旋回点のみ") there's no leg geometry to derive a sector from, and
-    /// no notifications are sent. A subscriber-only feature.
+    /// re-enters. Also records the event to `turnpointPassageLog` so it can
+    /// be reviewed in-app if the push notification is missed. The sector is
+    /// the true 90° wedge from JSAL rule 43 (bisecting the selected task
+    /// course's incoming and outgoing legs at that turnpoint — see
+    /// `CompetitionTaskCourseData.sectorBearing`), so this requires a task
+    /// course to be selected: with no course selected ("旋回点のみ") there's
+    /// no leg geometry to derive a sector from, and nothing is
+    /// notified/recorded. A subscriber-only feature.
     private func notifyTurnpointPassages(in positions: [GliderPosition]) {
         guard subscriptionManager.isSubscribed, competitionGuideline.showTaskCourse,
               let selectedCourseIndex = competitionGuideline.selectedCourseIndex,
@@ -356,11 +379,9 @@ struct CurrentMapView: View {
                 let key = "\(glider.imei)|\(name)"
                 currentlyInside.insert(key)
                 if !glidersInsideTurnpoints.contains(key) {
-                    alertNotifier.notifyTurnpointPassage(
-                        gliderName: viewModel.nameFor(index: glider.index),
-                        turnpointName: name,
-                        altitudeM: glider.alt
-                    )
+                    let gliderName = viewModel.nameFor(index: glider.index)
+                    alertNotifier.notifyTurnpointPassage(gliderName: gliderName, turnpointName: name, altitudeM: glider.alt)
+                    turnpointPassageLog.record(gliderName: gliderName, turnpointName: name, altitudeM: glider.alt)
                 }
             }
         }
