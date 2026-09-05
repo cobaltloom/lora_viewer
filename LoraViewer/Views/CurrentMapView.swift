@@ -192,7 +192,7 @@ struct CurrentMapView: View {
                         }
                     }
                     ForEach(displayedPositions) { glider in
-                        Annotation(viewModel.nameFor(index: glider.index), coordinate: glider.coordinate) {
+                        Annotation(displayName(for: glider), coordinate: glider.coordinate) {
                             GliderMarkerView(
                                 glider: glider,
                                 isSelected: selectedGlider?.id == glider.id,
@@ -362,7 +362,7 @@ struct CurrentMapView: View {
             guard !reasons.isEmpty else { continue }
             currentlyAlertingIMEIs.insert(glider.imei)
             if !previouslyAlertingIMEIs.contains(glider.imei) {
-                alertNotifier.notify(gliderName: viewModel.nameFor(index: glider.index), reasons: reasons)
+                alertNotifier.notify(gliderName: displayName(for: glider), reasons: reasons)
             }
         }
         previouslyAlertingIMEIs = currentlyAlertingIMEIs
@@ -401,7 +401,7 @@ struct CurrentMapView: View {
                 let key = "\(glider.imei)|\(name)"
                 currentlyInside.insert(key)
                 if !glidersInsideTurnpoints.contains(key) {
-                    let gliderName = viewModel.nameFor(index: glider.index)
+                    let gliderName = displayName(for: glider)
                     alertNotifier.notifyTurnpointPassage(gliderName: gliderName, turnpointName: name, altitudeM: glider.alt)
                     turnpointPassageLog.record(gliderName: gliderName, turnpointName: name, altitudeM: glider.alt)
                 }
@@ -427,11 +427,18 @@ struct CurrentMapView: View {
         return palette[index]
     }
 
+    /// The server's base name plus the pilot's nickname, if any — used
+    /// anywhere a glider's name is shown or spoken (map labels, alerts,
+    /// notifications), so those all agree with the glider list.
+    private func displayName(for glider: GliderPosition) -> String {
+        nicknameStore.displayName(baseName: viewModel.nameFor(index: glider.index), imei: glider.imei)
+    }
+
     /// A small name tag next to a glider's marker, colored to match its
     /// trail, so multiple simultaneous flights can be told apart at a
     /// glance instead of only by memorizing trail colors.
     private func gliderNameLabel(for glider: GliderPosition) -> some View {
-        Text(nicknameStore.displayName(baseName: viewModel.nameFor(index: glider.index), imei: glider.imei))
+        Text(displayName(for: glider))
             .font(.system(size: 10, weight: .semibold))
             .foregroundStyle(colorFor(imei: glider.imei))
             .padding(.horizontal, 6)
@@ -479,7 +486,7 @@ struct CurrentMapView: View {
         // rule fired, so each glider lists its own reason labels rather
         // than sharing one blanket "high altitude" or "low altitude" title.
         let lines = alertingGliders.map { glider in
-            "\(viewModel.nameFor(index: glider.index)): " + alertReasons(for: glider).map(\.label).joined(separator: "・")
+            "\(displayName(for: glider)): " + alertReasons(for: glider).map(\.label).joined(separator: "・")
         }
         return HStack(alignment: .top, spacing: 6) {
             Image(systemName: "exclamationmark.triangle.fill")
