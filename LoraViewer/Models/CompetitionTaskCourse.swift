@@ -64,4 +64,40 @@ enum CompetitionTaskCourseData {
     static func coordinates(for course: CompetitionTaskCourse) -> [CLLocationCoordinate2D] {
         course.turnpointNames.compactMap { turnpoints[$0] }
     }
+
+    /// The bisector heading (degrees, 0 = north, clockwise) of the 90°
+    /// turnpoint sector at `turnpointName` within `course`, per JSAL rule
+    /// 43: the bisector of the incoming leg's direction (from the previous
+    /// point to the turnpoint) and the outgoing leg's direction (from the
+    /// turnpoint to the next point), each as a ray from the turnpoint.
+    /// `nil` if `turnpointName` isn't an interior point of `course` (not
+    /// part of it, or it's the course's start/finish point), in which case
+    /// no course-specific sector orientation is defined.
+    static func sectorBearing(in course: CompetitionTaskCourse, turnpointName: String) -> Double? {
+        guard let index = course.turnpointNames.firstIndex(of: turnpointName),
+              index > 0, index < course.turnpointNames.count - 1,
+              let previous = turnpoints[course.turnpointNames[index - 1]],
+              let current = turnpoints[turnpointName],
+              let next = turnpoints[course.turnpointNames[index + 1]]
+        else { return nil }
+        let bearingIn = previous.bearingDegrees(to: current)
+        let bearingOut = current.bearingDegrees(to: next)
+        return normalizedDegrees(bearingIn + shortestAngleDifference(from: bearingIn, to: bearingOut) / 2)
+    }
+
+    /// Whether `bearingDegrees` (measured from the turnpoint) falls within
+    /// the 90° sector centered on `bisectorDegrees` (45° either side).
+    static func isBearing(_ bearingDegrees: Double, withinSectorCenteredOn bisectorDegrees: Double) -> Bool {
+        abs(shortestAngleDifference(from: bisectorDegrees, to: bearingDegrees)) <= 45
+    }
+}
+
+private func normalizedDegrees(_ degrees: Double) -> Double {
+    let mod = degrees.truncatingRemainder(dividingBy: 360)
+    return mod < 0 ? mod + 360 : mod
+}
+
+private func shortestAngleDifference(from a: Double, to b: Double) -> Double {
+    let diff = normalizedDegrees(b - a)
+    return diff > 180 ? diff - 360 : diff
 }

@@ -328,20 +328,32 @@ struct CurrentMapView: View {
     }
 
     /// Notifies once per glider each time it newly enters a turnpoint's
-    /// sector (simplified to "within 2km", per JSAL rule 43 — see
-    /// `CompetitionTaskCourseData.turnpointRadiusKm`), and lets it notify
-    /// again on a later lap once it leaves and re-enters. A subscriber-only
-    /// feature, and only relevant when turnpoints are actually shown.
+    /// sector, and lets it notify again on a later lap once it leaves and
+    /// re-enters. When a task course is selected, the sector is the true
+    /// 90° wedge from JSAL rule 43 (bisecting the course's incoming and
+    /// outgoing legs at that turnpoint — see
+    /// `CompetitionTaskCourseData.sectorBearing`); with no course selected
+    /// there's no leg geometry to derive that from, so this falls back to
+    /// "within 2km" in any direction. A subscriber-only feature, and only
+    /// relevant when turnpoints are actually shown.
     private func notifyTurnpointPassages(in positions: [GliderPosition]) {
         guard subscriptionManager.isSubscribed, competitionGuideline.showTaskCourse else { return }
+        let selectedCourse: CompetitionTaskCourse? = competitionGuideline.selectedCourseIndex.flatMap { index in
+            CompetitionTaskCourseData.courses.indices.contains(index) ? CompetitionTaskCourseData.courses[index] : nil
+        }
         var currentlyInside: Set<String> = []
         for glider in positions {
+            let gliderCoordinate = CLLocationCoordinate2D(latitude: glider.lat, longitude: glider.lon)
             let gliderLocation = CLLocation(latitude: glider.lat, longitude: glider.lon)
             for name in CompetitionTaskCourseData.turnpointDisplayOrder {
                 guard let coordinate = CompetitionTaskCourseData.turnpoints[name] else { continue }
                 let turnpointLocation = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
                 let distanceKm = turnpointLocation.distance(from: gliderLocation) / 1000.0
                 guard distanceKm <= CompetitionTaskCourseData.turnpointRadiusKm else { continue }
+                if let selectedCourse, let bisector = CompetitionTaskCourseData.sectorBearing(in: selectedCourse, turnpointName: name) {
+                    let bearingToGlider = coordinate.bearingDegrees(to: gliderCoordinate)
+                    guard CompetitionTaskCourseData.isBearing(bearingToGlider, withinSectorCenteredOn: bisector) else { continue }
+                }
                 let key = "\(glider.imei)|\(name)"
                 currentlyInside.insert(key)
                 if !glidersInsideTurnpoints.contains(key) {
