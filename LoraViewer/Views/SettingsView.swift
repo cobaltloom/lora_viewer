@@ -156,12 +156,28 @@ struct SettingsView: View {
                             Label("購読して有効化", systemImage: "lock.fill")
                         }
                     }
+                    Group {
                     Toggle("有効にする", isOn: $competitionGuideline.isEnabled)
-                        .disabled(!subscriptionManager.isSubscribed)
+
+                    Toggle("旋回点・タスクコースを表示", isOn: $competitionGuideline.showTaskCourse)
+
+                    if competitionGuideline.showTaskCourse {
+                        Picker("表示するコース", selection: Binding(
+                            get: { competitionGuideline.selectedCourseIndex ?? -1 },
+                            set: { competitionGuideline.selectedCourseIndex = $0 == -1 ? nil : $0 }
+                        )) {
+                            Text("旋回点のみ").tag(-1)
+                            ForEach(Array(CompetitionTaskCourseData.courses.enumerated()), id: \.offset) { index, course in
+                                Text("\(course.name)(\(course.distanceKm, specifier: "%.1f")km)").tag(index)
+                            }
+                        }
+                    }
+                    }
+                    .disabled(!subscriptionManager.isSubscribed)
                 } header: {
                     Text("競技会ガイドライン(妻沼滑空場)")
                 } footer: {
-                    Text("日本学生航空連盟(JSAL)妻沼滑空場の公式ガイドライン(Ver.2026-01-26)を使用します。滑空場中心(N36°12'41\", E139°25'08\")から2.5km未満は制限なし、2.5〜3kmでMSL350m以上、以降1kmごとに70mずつ増加し、10km以上でMSL910m以上が必要です。公式資料に基づく固定値のため、数値はここでは変更できません(上のカスタム設定とは別に、両方同時に有効化できます)。")
+                    Text("日本学生航空連盟(JSAL)妻沼滑空場の公式ガイドライン(Ver.2026-01-26)を使用します。滑空場中心(N36°12'41\", E139°25'08\")から2.5km未満は制限なし、2.5〜3kmでMSL350m以上、以降1kmごとに70mずつ増加し、10km以上でMSL910m以上が必要です。公式資料に基づく固定値のため、数値はここでは変更できません(上のカスタム設定とは別に、両方同時に有効化できます)。旋回点・タスクコースは同資料に掲載された固定の座標・コースを地図上に表示するもので、実際のタスクファイル(スタート/ゴールラインの向きなど)を再現するものではありません。")
                 }
 
                 Section {

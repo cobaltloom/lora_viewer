@@ -128,6 +128,30 @@ struct CurrentMapView: View {
                                 .background(Circle().fill(.white))
                         }
                     }
+                    if subscriptionManager.isSubscribed, competitionGuideline.showTaskCourse {
+                        ForEach(CompetitionTaskCourseData.turnpointDisplayOrder, id: \.self) { name in
+                            if let coordinate = CompetitionTaskCourseData.turnpoints[name] {
+                                Annotation(name, coordinate: coordinate) {
+                                    Image(systemName: "arrowshape.turn.up.right.circle.fill")
+                                        .font(.subheadline.bold())
+                                        .foregroundStyle(.orange)
+                                        .padding(4)
+                                        .background(Circle().fill(.white))
+                                }
+                            }
+                        }
+                        MapCircle(
+                            center: CompetitionTaskCourseData.turnpoints["管理ポイント"] ?? CompetitionAltitudeGuideline.referenceCoordinate,
+                            radius: CompetitionTaskCourseData.managementPointRadiusKm * 1000
+                        )
+                            .foregroundStyle(.orange.opacity(0.05))
+                            .stroke(.orange.opacity(0.4), lineWidth: 1)
+                        if let selectedCourseIndex = competitionGuideline.selectedCourseIndex,
+                           CompetitionTaskCourseData.courses.indices.contains(selectedCourseIndex) {
+                            MapPolyline(coordinates: CompetitionTaskCourseData.coordinates(for: CompetitionTaskCourseData.courses[selectedCourseIndex]))
+                                .stroke(.orange, lineWidth: 2)
+                        }
+                    }
                     if subscriptionManager.isSubscribed, upperAltitudeGuideline.isEnabled {
                         MapPolygon(coordinates: UpperAltitudeGuideline.zoneA.boundary)
                             .foregroundStyle(.blue.opacity(0.03))

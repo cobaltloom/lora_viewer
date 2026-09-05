@@ -12,8 +12,27 @@ final class CompetitionAltitudeGuideline: ObservableObject {
     @Published var isEnabled: Bool {
         didSet { UserDefaults.standard.set(isEnabled, forKey: Self.storageKey) }
     }
+    /// Whether to draw the published turnpoints and a selected task course
+    /// on the map — a separate toggle from the altitude guideline itself,
+    /// since someone might want one without the other.
+    @Published var showTaskCourse: Bool {
+        didSet { UserDefaults.standard.set(showTaskCourse, forKey: Self.showTaskCourseKey) }
+    }
+    /// Index into `CompetitionTaskCourseData.courses`, or nil to show just
+    /// the turnpoints without connecting them into a course line.
+    @Published var selectedCourseIndex: Int? {
+        didSet {
+            if let selectedCourseIndex {
+                UserDefaults.standard.set(selectedCourseIndex, forKey: Self.selectedCourseIndexKey)
+            } else {
+                UserDefaults.standard.removeObject(forKey: Self.selectedCourseIndexKey)
+            }
+        }
+    }
 
     private static let storageKey = "competitionGuidelineEnabled"
+    private static let showTaskCourseKey = "competitionShowTaskCourse"
+    private static let selectedCourseIndexKey = "competitionSelectedCourseIndex"
 
     /// 妻沼滑空場中心: N36°12'41", E139°25'08" per the guideline document.
     static let referenceCoordinate = CLLocationCoordinate2D(
@@ -31,6 +50,12 @@ final class CompetitionAltitudeGuideline: ObservableObject {
 
     init() {
         isEnabled = UserDefaults.standard.bool(forKey: Self.storageKey)
+        showTaskCourse = UserDefaults.standard.bool(forKey: Self.showTaskCourseKey)
+        if UserDefaults.standard.object(forKey: Self.selectedCourseIndexKey) != nil {
+            selectedCourseIndex = UserDefaults.standard.integer(forKey: Self.selectedCourseIndexKey)
+        } else {
+            selectedCourseIndex = nil
+        }
     }
 
     /// The minimum MSL altitude (meters) required at this distance, or nil
