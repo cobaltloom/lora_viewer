@@ -1,13 +1,18 @@
 import SwiftUI
 
 /// Shows a glider's server label ("7.") plus its user-assigned nickname, if
-/// any, and lets the user tap to edit that nickname.
+/// any, and lets the user tap to edit that nickname. Editing is a
+/// subscriber-only feature — without one, tapping shows the paywall
+/// instead of the edit prompt (the name itself, if someone else set one,
+/// still displays either way).
 struct EditableGliderName: View {
     let imei: String
     let baseName: String
 
     @EnvironmentObject private var nicknameStore: NicknameStore
+    @EnvironmentObject private var subscriptionManager: SubscriptionManager
     @State private var isEditing = false
+    @State private var showPaywall = false
     @State private var draft = ""
 
     private var displayName: String {
@@ -19,8 +24,12 @@ struct EditableGliderName: View {
 
     var body: some View {
         Button {
-            draft = nicknameStore.nickname(forIMEI: imei) ?? ""
-            isEditing = true
+            if subscriptionManager.isSubscribed {
+                draft = nicknameStore.nickname(forIMEI: imei) ?? ""
+                isEditing = true
+            } else {
+                showPaywall = true
+            }
         } label: {
             HStack(spacing: 4) {
                 Text(displayName)
@@ -38,6 +47,9 @@ struct EditableGliderName: View {
             Button("キャンセル", role: .cancel) {}
         } message: {
             Text("「\(baseName)」の後ろに表示する名前を入力してください。空欄にすると削除されます。")
+        }
+        .sheet(isPresented: $showPaywall) {
+            PaywallView()
         }
     }
 }

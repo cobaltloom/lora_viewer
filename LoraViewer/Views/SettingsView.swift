@@ -8,9 +8,11 @@ struct SettingsView: View {
     @EnvironmentObject private var alertSettings: AlertSettings
     @EnvironmentObject private var competitionGuideline: CompetitionAltitudeGuideline
     @EnvironmentObject private var upperAltitudeGuideline: UpperAltitudeGuideline
+    @EnvironmentObject private var subscriptionManager: SubscriptionManager
     @Environment(\.dismiss) private var dismiss
     @State private var showReferencePointPicker = false
     @State private var showDeleteAllStepsConfirmation = false
+    @State private var showPaywall = false
 
     private var referencePointPickerInitialCoordinate: CLLocationCoordinate2D? {
         if alertSettings.customLatitude != 0 || alertSettings.customLongitude != 0 {
@@ -54,6 +56,14 @@ struct SettingsView: View {
                 }
 
                 Section {
+                    if !subscriptionManager.isSubscribed {
+                        Button {
+                            showPaywall = true
+                        } label: {
+                            Label("購読して有効化", systemImage: "lock.fill")
+                        }
+                    }
+                    Group {
                     Toggle("高度不足アラートを有効にする", isOn: $alertSettings.isEnabled)
 
                     Picker("計算方法", selection: $alertSettings.mode) {
@@ -130,6 +140,8 @@ struct SettingsView: View {
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
+                    }
+                    .disabled(!subscriptionManager.isSubscribed)
                 } header: {
                     Text("高度不足アラート(カスタム設定)")
                 } footer: {
@@ -137,7 +149,15 @@ struct SettingsView: View {
                 }
 
                 Section {
+                    if !subscriptionManager.isSubscribed {
+                        Button {
+                            showPaywall = true
+                        } label: {
+                            Label("購読して有効化", systemImage: "lock.fill")
+                        }
+                    }
                     Toggle("有効にする", isOn: $competitionGuideline.isEnabled)
+                        .disabled(!subscriptionManager.isSubscribed)
                 } header: {
                     Text("競技会ガイドライン(妻沼滑空場)")
                 } footer: {
@@ -145,6 +165,14 @@ struct SettingsView: View {
                 }
 
                 Section {
+                    if !subscriptionManager.isSubscribed {
+                        Button {
+                            showPaywall = true
+                        } label: {
+                            Label("購読して有効化", systemImage: "lock.fill")
+                        }
+                    }
+                    Group {
                     Toggle("有効にする", isOn: $upperAltitudeGuideline.isEnabled)
 
                     Picker("B区域の上限の決め方", selection: $upperAltitudeGuideline.mode) {
@@ -169,6 +197,8 @@ struct SettingsView: View {
                         Text("\(Int(upperAltitudeGuideline.bZoneCeilingFt)) ft MSL")
                             .foregroundStyle(.secondary)
                     }
+                    }
+                    .disabled(!subscriptionManager.isSubscribed)
                 } header: {
                     Text("上限高度アラート(妻沼滑空場)")
                 } footer: {
@@ -199,6 +229,9 @@ struct SettingsView: View {
                     longitude: $alertSettings.customLongitude,
                     initialCoordinate: referencePointPickerInitialCoordinate
                 )
+            }
+            .sheet(isPresented: $showPaywall) {
+                PaywallView()
             }
         }
     }

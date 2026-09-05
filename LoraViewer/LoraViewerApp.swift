@@ -17,13 +17,7 @@ struct LoraViewerApp: App {
 
     var body: some Scene {
         WindowGroup {
-            Group {
-                if subscriptionManager.isSubscribed {
-                    CurrentMapView(settings: settings)
-                } else {
-                    PaywallView()
-                }
-            }
+            CurrentMapView(settings: settings)
                 .environmentObject(settings)
                 .environmentObject(nicknameStore)
                 .environmentObject(favoritesStore)

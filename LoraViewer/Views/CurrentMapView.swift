@@ -7,12 +7,14 @@ struct CurrentMapView: View {
     @EnvironmentObject private var alertSettings: AlertSettings
     @EnvironmentObject private var competitionGuideline: CompetitionAltitudeGuideline
     @EnvironmentObject private var upperAltitudeGuideline: UpperAltitudeGuideline
+    @EnvironmentObject private var subscriptionManager: SubscriptionManager
     @StateObject private var viewModel: GliderTrackerViewModel
     @StateObject private var locationManager = LocationManager()
     @StateObject private var alertNotifier = AlertNotifier()
     @State private var cameraPosition: MapCameraPosition = .automatic
     @State private var selectedGlider: GliderPosition?
     @State private var showSettings = false
+    @State private var showPaywall = false
     @State private var didCenterInitially = false
     @State private var showFavoritesOnly = false
     @State private var previouslyAlertingIMEIs: Set<String> = []
@@ -44,6 +46,11 @@ struct CurrentMapView: View {
     }
 
     private func alertReasons(for glider: GliderPosition) -> [GliderAlertReason] {
+        // All three altitude-alert features are subscriber-only, regardless
+        // of whether their individual settings are switched on — otherwise
+        // someone could enable them during a trial and keep the alerts
+        // after lapsing.
+        guard subscriptionManager.isSubscribed else { return [] }
         var reasons: [GliderAlertReason] = []
         if let severity = alertSettings.alertSeverity(for: glider, defaultReference: defaultReferenceCoordinate) {
             reasons.append(GliderAlertReason(label: "カスタム設定", severity: severity))
@@ -65,6 +72,7 @@ struct CurrentMapView: View {
     /// so it's visible at a glance without opening Settings. Empty when
     /// neither alert is enabled.
     private var activeAlertLabels: [String] {
+        guard subscriptionManager.isSubscribed else { return [] }
         var labels: [String] = []
         if alertSettings.isEnabled {
             switch alertSettings.mode {
@@ -85,7 +93,7 @@ struct CurrentMapView: View {
         NavigationStack {
             ZStack(alignment: .bottom) {
                 Map(position: $cameraPosition) {
-                    if alertSettings.isEnabled, let alertReferenceCoordinate {
+                    if subscriptionManager.isSubscribed, alertSettings.isEnabled, let alertReferenceCoordinate {
                         if alertSettings.mode == .steps {
                             ForEach(alertSettings.steps) { step in
                                 MapCircle(center: alertReferenceCoordinate, radius: step.distanceKm * 1000)
@@ -100,7 +108,7 @@ struct CurrentMapView: View {
                                 .background(Circle().fill(.white))
                         }
                     }
-                    if competitionGuideline.isEnabled {
+                    if subscriptionManager.isSubscribed, competitionGuideline.isEnabled {
                         MapCircle(
                             center: CompetitionAltitudeGuideline.referenceCoordinate,
                             radius: CompetitionAltitudeGuideline.innerRadiusKm * 1000
@@ -120,7 +128,7 @@ struct CurrentMapView: View {
                                 .background(Circle().fill(.white))
                         }
                     }
-                    if upperAltitudeGuideline.isEnabled {
+                    if subscriptionManager.isSubscribed, upperAltitudeGuideline.isEnabled {
                         MapPolygon(coordinates: UpperAltitudeGuideline.zoneA.boundary)
                             .foregroundStyle(.blue.opacity(0.03))
                             .stroke(.blue.opacity(0.5), lineWidth: 1)
@@ -184,11 +192,15 @@ struct CurrentMapView: View {
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
-                        toggleFavoritesOnly()
+                        if subscriptionManager.isSubscribed {
+                            toggleFavoritesOnly()
+                        } else {
+                            showPaywall = true
+                        }
                     } label: {
                         Image(systemName: showFavoritesOnly ? "star.circle.fill" : "star.circle")
                     }
-                    .disabled(!viewModel.positions.contains { favoritesStore.isFavorite($0.imei) })
+                    .disabled(subscriptionManager.isSubscribed && !viewModel.positions.contains { favoritesStore.isFavorite($0.imei) })
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
@@ -217,6 +229,9 @@ struct CurrentMapView: View {
             .sheet(isPresented: $showSettings) {
                 SettingsView(defaultReferenceCoordinate: defaultReferenceCoordinate)
                     .environmentObject(settings)
+            }
+            .sheet(isPresented: $showPaywall) {
+                PaywallView()
             }
             .alert("エラー", isPresented: Binding(
                 get: { viewModel.errorMessage != nil },
