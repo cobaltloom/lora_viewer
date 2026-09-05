@@ -1,5 +1,6 @@
 import SwiftUI
 import MapKit
+import CoreLocation
 
 struct CurrentMapView: View {
     @EnvironmentObject var settings: APISettings
@@ -23,6 +24,10 @@ struct CurrentMapView: View {
     /// pan or zoom out of view.
     @State private var visibleRegionCenter: CLLocationCoordinate2D = CompetitionAltitudeGuideline.referenceCoordinate
     @State private var previouslyAlertingIMEIs: Set<String> = []
+    /// "imei|turnpoint name" keys for gliders currently inside a
+    /// turnpoint's sector, so passage notifications fire once on entry
+    /// rather than repeatedly while a glider lingers inside.
+    @State private var glidersInsideTurnpoints: Set<String> = []
 
     init(settings: APISettings) {
         _viewModel = StateObject(wrappedValue: GliderTrackerViewModel(settings: settings))
@@ -293,6 +298,7 @@ struct CurrentMapView: View {
             .onChange(of: viewModel.positions) { _, newPositions in
                 centerMapIfNeeded(on: newPositions)
                 notifyNewAlerts(in: newPositions)
+                notifyTurnpointPassages(in: newPositions)
             }
         }
     }
@@ -319,6 +325,35 @@ struct CurrentMapView: View {
             }
         }
         previouslyAlertingIMEIs = currentlyAlertingIMEIs
+    }
+
+    /// Notifies once per glider each time it newly enters a turnpoint's
+    /// sector (simplified to "within 2km", per JSAL rule 43 — see
+    /// `CompetitionTaskCourseData.turnpointRadiusKm`), and lets it notify
+    /// again on a later lap once it leaves and re-enters. A subscriber-only
+    /// feature, and only relevant when turnpoints are actually shown.
+    private func notifyTurnpointPassages(in positions: [GliderPosition]) {
+        guard subscriptionManager.isSubscribed, competitionGuideline.showTaskCourse else { return }
+        var currentlyInside: Set<String> = []
+        for glider in positions {
+            let gliderLocation = CLLocation(latitude: glider.lat, longitude: glider.lon)
+            for name in CompetitionTaskCourseData.turnpointDisplayOrder {
+                guard let coordinate = CompetitionTaskCourseData.turnpoints[name] else { continue }
+                let turnpointLocation = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
+                let distanceKm = turnpointLocation.distance(from: gliderLocation) / 1000.0
+                guard distanceKm <= CompetitionTaskCourseData.turnpointRadiusKm else { continue }
+                let key = "\(glider.imei)|\(name)"
+                currentlyInside.insert(key)
+                if !glidersInsideTurnpoints.contains(key) {
+                    alertNotifier.notifyTurnpointPassage(
+                        gliderName: viewModel.nameFor(index: glider.index),
+                        turnpointName: name,
+                        altitudeM: glider.alt
+                    )
+                }
+            }
+        }
+        glidersInsideTurnpoints = currentlyInside
     }
 
     /// Small distance-in-km label used on the alert circles, e.g. "3.0km".

@@ -29,6 +29,21 @@ final class AlertNotifier: NSObject, ObservableObject {
         let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
         UNUserNotificationCenter.current().add(request)
     }
+
+    /// Fired once each time a glider newly enters a competition turnpoint's
+    /// (or the management point's) sector, per JSAL's rule 43/管理ポイント
+    /// definition — simplified here to "within its 2,000m radius" rather
+    /// than the exact 90° wedge, matching how the sector is drawn on the map.
+    func notifyTurnpointPassage(gliderName: String, turnpointName: String, altitudeM: Double?) {
+        let content = UNMutableNotificationContent()
+        content.title = "旋回点通過"
+        let altitudeText = altitudeM.map { "\(Int($0))m" } ?? "高度不明"
+        content.body = "\(gliderName): \(turnpointName)(\(altitudeText))"
+        content.sound = .default
+
+        let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
+        UNUserNotificationCenter.current().add(request)
+    }
 }
 
 extension AlertNotifier: UNUserNotificationCenterDelegate {
