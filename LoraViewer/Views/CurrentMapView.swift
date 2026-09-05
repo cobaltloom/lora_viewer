@@ -198,6 +198,12 @@ struct CurrentMapView: View {
                                 isFavorite: favoritesStore.isFavorite(glider.imei),
                                 alertSeverity: alertReasons(for: glider).overallSeverity
                             )
+                                .overlay(alignment: .top) {
+                                    if showGliderTrails, let trail = viewModel.trails[glider.imei], trail.count > 1 {
+                                        gliderNameLabel(for: glider)
+                                            .offset(x: 34, y: -4)
+                                    }
+                                }
                                 .onTapGesture {
                                     withAnimation { selectedGlider = glider }
                                 }
@@ -418,6 +424,19 @@ struct CurrentMapView: View {
         let palette: [Color] = [.cyan, .pink, .green, .orange, .blue, .purple, .red, .yellow]
         let index = abs(imei.hashValue) % palette.count
         return palette[index]
+    }
+
+    /// A small name tag next to a glider's marker, colored to match its
+    /// trail, so multiple simultaneous flights can be told apart at a
+    /// glance instead of only by memorizing trail colors.
+    private func gliderNameLabel(for glider: GliderPosition) -> some View {
+        Text(viewModel.nameFor(index: glider.index))
+            .font(.system(size: 10, weight: .semibold))
+            .foregroundStyle(colorFor(imei: glider.imei))
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .background(.white.opacity(0.9), in: Capsule())
+            .overlay(Capsule().stroke(colorFor(imei: glider.imei), lineWidth: 1))
     }
 
     private func toggleFavoritesOnly() {
