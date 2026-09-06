@@ -1,0 +1,57 @@
+import Foundation
+
+/// Configurable "gliders getting close to each other" safety aid. Two
+/// severities, mirroring `AlertSettings`: `.caution` is a quiet map-only
+/// indicator (just "nearby, watch out"), while `.warning` — which also
+/// pushes a notification — additionally requires the pair to be actively
+/// closing distance, not just near each other, since gliders sharing a
+/// thermal are commonly close together without being on a collision
+/// course. Alerting fatigue on the noisy channel (notifications) was the
+/// specific concern this guards against; the quiet channel (the map ring)
+/// doesn't need that same restraint.
+///
+/// This is an advisory aid only, not a collision-avoidance system: position
+/// data comes from periodic polling (several seconds apart at best), not
+/// continuous real-time GPS.
+final class ProximityAlertSettings: ObservableObject {
+    @Published var isEnabled: Bool { didSet { persist() } }
+    /// Horizontal distance (meters) at/below which two gliders are flagged
+    /// as "nearby" on the map — no closing-trend requirement.
+    @Published var cautionDistanceM: Double { didSet { persist() } }
+    /// Horizontal distance (meters) at/below which — if also closing and
+    /// within `maxAltitudeDifferenceM` of each other — a push notification
+    /// fires.
+    @Published var warningDistanceM: Double { didSet { persist() } }
+    /// Vertical separation (meters) beyond which two gliders are never
+    /// considered a proximity risk, regardless of horizontal distance.
+    @Published var maxAltitudeDifferenceM: Double { didSet { persist() } }
+
+    private enum Keys {
+        static let isEnabled = "proximityIsEnabled"
+        static let cautionDistanceM = "proximityCautionDistanceM"
+        static let warningDistanceM = "proximityWarningDistanceM"
+        static let maxAltitudeDifferenceM = "proximityMaxAltitudeDifferenceM"
+    }
+
+    init() {
+        let d = UserDefaults.standard
+        isEnabled = d.bool(forKey: Keys.isEnabled)
+
+        let storedCaution = d.double(forKey: Keys.cautionDistanceM)
+        cautionDistanceM = storedCaution > 0 ? storedCaution : 500
+
+        let storedWarning = d.double(forKey: Keys.warningDistanceM)
+        warningDistanceM = storedWarning > 0 ? storedWarning : 150
+
+        let storedMaxAltDiff = d.double(forKey: Keys.maxAltitudeDifferenceM)
+        maxAltitudeDifferenceM = storedMaxAltDiff > 0 ? storedMaxAltDiff : 100
+    }
+
+    private func persist() {
+        let d = UserDefaults.standard
+        d.set(isEnabled, forKey: Keys.isEnabled)
+        d.set(cautionDistanceM, forKey: Keys.cautionDistanceM)
+        d.set(warningDistanceM, forKey: Keys.warningDistanceM)
+        d.set(maxAltitudeDifferenceM, forKey: Keys.maxAltitudeDifferenceM)
+    }
+}

@@ -2,8 +2,8 @@ import SwiftUI
 import StoreKit
 
 /// Presented as a sheet wherever a subscriber-only feature is tapped
-/// without an active subscription (favorites, nickname editing, and the
-/// three altitude-alert features). Apple requires the subscription's
+/// without an active subscription (favorites, nicknames, and the four
+/// altitude/proximity alert features). Apple requires the subscription's
 /// price/duration/renewal terms and links to the terms of use and privacy
 /// policy to be visible here.
 struct PaywallView: View {
@@ -16,9 +16,10 @@ struct PaywallView: View {
 
     private let subscriberFeatures = [
         "お気に入り機体の登録・絞り込み表示",
-        "機体ニックネームの登録・編集(ホワイトボード名簿の一括登録を含む)",
+        "機体ニックネームの閲覧・登録・編集(ホワイトボード名簿の一括登録を含む)",
         "高度不足アラート(距離ごとの段階・帰投高度とL/D比)",
         "上限高度アラート(A区域・B区域)",
+        "機体接近アラート",
         "JSAL公式の競技会高度ガイドライン",
     ]
 

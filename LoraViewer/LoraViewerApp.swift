@@ -9,6 +9,7 @@ struct LoraViewerApp: App {
     @StateObject private var alertSettings = AlertSettings()
     @StateObject private var competitionGuideline = CompetitionAltitudeGuideline()
     @StateObject private var upperAltitudeGuideline = UpperAltitudeGuideline()
+    @StateObject private var proximityAlertSettings = ProximityAlertSettings()
     @StateObject private var subscriptionManager = SubscriptionManager()
 
     init() {
@@ -24,6 +25,7 @@ struct LoraViewerApp: App {
                 .environmentObject(alertSettings)
                 .environmentObject(competitionGuideline)
                 .environmentObject(upperAltitudeGuideline)
+                .environmentObject(proximityAlertSettings)
                 .environmentObject(subscriptionManager)
         }
     }

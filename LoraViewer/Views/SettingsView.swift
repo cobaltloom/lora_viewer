@@ -8,6 +8,7 @@ struct SettingsView: View {
     @EnvironmentObject private var alertSettings: AlertSettings
     @EnvironmentObject private var competitionGuideline: CompetitionAltitudeGuideline
     @EnvironmentObject private var upperAltitudeGuideline: UpperAltitudeGuideline
+    @EnvironmentObject private var proximityAlertSettings: ProximityAlertSettings
     @EnvironmentObject private var subscriptionManager: SubscriptionManager
     @Environment(\.dismiss) private var dismiss
     @AppStorage("showGliderTrails") private var showGliderTrails = true
@@ -228,6 +229,34 @@ struct SettingsView: View {
                     Text("上限高度アラート(妻沼滑空場)")
                 } footer: {
                     Text("公式資料のA区域・B区域の境界に基づき、区域内でその上限高度を超えるとアラートを出します。A区域は常に4,500ft MSL。B区域は平日2,500ft、土日祝日3,500ftで、「今日を祝日として扱う」で土日以外の祝日にも対応できます。競技会など別の上限が許可されている期間は「競技会中」を選び、許可された値を入力してください。区域の境界(緯度経度)は公式資料に基づく固定値のため、ここでは変更できません。あくまで目安であり、実際の判断の根拠にはしないでください。")
+                }
+
+                Section {
+                    if !subscriptionManager.isSubscribed {
+                        Button {
+                            showPaywall = true
+                        } label: {
+                            Label("購読して有効化", systemImage: "lock.fill")
+                        }
+                    }
+                    Group {
+                    Toggle("有効にする", isOn: $proximityAlertSettings.isEnabled)
+
+                    Stepper(value: $proximityAlertSettings.cautionDistanceM, in: 50...2000, step: 50) {
+                        Text("注意(地図表示のみ): \(Int(proximityAlertSettings.cautionDistanceM)) m 以内")
+                    }
+                    Stepper(value: $proximityAlertSettings.warningDistanceM, in: 30...1000, step: 10) {
+                        Text("警告(通知): \(Int(proximityAlertSettings.warningDistanceM)) m 以内")
+                    }
+                    Stepper(value: $proximityAlertSettings.maxAltitudeDifferenceM, in: 10...500, step: 10) {
+                        Text("高度差 \(Int(proximityAlertSettings.maxAltitudeDifferenceM)) m 以内のみ対象")
+                    }
+                    }
+                    .disabled(!subscriptionManager.isSubscribed)
+                } header: {
+                    Text("機体接近アラート")
+                } footer: {
+                    Text("水平距離が近く、高度差も小さい機体同士を検知します。地図上の色分け(注意)は距離だけで表示しますが、プッシュ通知(警告)は距離が縮まり続けている場合のみ送ります。サーマルで複数機が近接して旋回するのは通常のことなので、離れつつある/一定の距離を保っている場合は通知しません。位置情報は数秒〜数十秒間隔のポーリングによるものであり、リアルタイムのGPSではないため、あくまで参考情報です。実際の見張り・衝突回避の代わりにはなりません。")
                 }
             }
             .navigationTitle("設定")

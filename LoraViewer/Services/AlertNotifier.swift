@@ -44,6 +44,18 @@ final class AlertNotifier: NSObject, ObservableObject {
         let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
         UNUserNotificationCenter.current().add(request)
     }
+
+    /// Fired when two gliders are closing within the proximity warning
+    /// distance — see `ProximityAlertSettings`.
+    func notifyProximity(gliderName: String, otherGliderName: String, distanceM: Double, altitudeDifferenceM: Double) {
+        let content = UNMutableNotificationContent()
+        content.title = "機体接近"
+        content.body = "\(gliderName) と \(otherGliderName): 水平\(Int(distanceM))m・高度差\(Int(altitudeDifferenceM))m"
+        content.sound = .default
+
+        let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
+        UNUserNotificationCenter.current().add(request)
+    }
 }
 
 extension AlertNotifier: UNUserNotificationCenterDelegate {

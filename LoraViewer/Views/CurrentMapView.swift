@@ -9,6 +9,7 @@ struct CurrentMapView: View {
     @EnvironmentObject private var alertSettings: AlertSettings
     @EnvironmentObject private var competitionGuideline: CompetitionAltitudeGuideline
     @EnvironmentObject private var upperAltitudeGuideline: UpperAltitudeGuideline
+    @EnvironmentObject private var proximityAlertSettings: ProximityAlertSettings
     @EnvironmentObject private var subscriptionManager: SubscriptionManager
     @StateObject private var viewModel: GliderTrackerViewModel
     @StateObject private var locationManager = LocationManager()
@@ -32,6 +33,17 @@ struct CurrentMapView: View {
     /// turnpoint's sector, so passage notifications fire once on entry
     /// rather than repeatedly while a glider lingers inside.
     @State private var glidersInsideTurnpoints: Set<String> = []
+    /// Proximity reasons (see `ProximityAlertSettings`) for the most recent
+    /// position update, keyed by glider imei, merged into `alertReasons(for:)`.
+    @State private var proximityReasonsByIMEI: [String: [GliderAlertReason]] = [:]
+    /// Each glider pair's horizontal distance (meters) as of the previous
+    /// position update, keyed by a sorted "imei1|imei2", so a new update can
+    /// tell whether a pair is closing rather than just currently near.
+    @State private var previousProximityDistancesM: [String: Double] = [:]
+    /// Pair keys currently past the proximity warning threshold and
+    /// closing, so the push notification fires once per approach rather
+    /// than every update while the pair remains close.
+    @State private var proximityWarningPairs: Set<String> = []
 
     init(settings: APISettings) {
         _viewModel = StateObject(wrappedValue: GliderTrackerViewModel(settings: settings))
@@ -59,7 +71,11 @@ struct CurrentMapView: View {
         alertSettings.referenceCoordinate(default: defaultReferenceCoordinate)
     }
 
-    private func alertReasons(for glider: GliderPosition) -> [GliderAlertReason] {
+    /// The three altitude-based alert reasons only (not proximity) — kept
+    /// separate so `notifyNewAlerts` can debounce and word its notification
+    /// around altitude specifically, independent of the proximity feature's
+    /// own dedicated notification/debounce.
+    private func altitudeAlertReasons(for glider: GliderPosition) -> [GliderAlertReason] {
         // All three altitude-alert features are subscriber-only, regardless
         // of whether their individual settings are switched on — otherwise
         // someone could enable them during a trial and keep the alerts
@@ -76,6 +92,15 @@ struct CurrentMapView: View {
             reasons.append(GliderAlertReason(label: "\(zone.name)上限超過", severity: .warning))
         }
         return reasons
+    }
+
+    /// All alert reasons — altitude-based plus proximity — used for the
+    /// map's ring coloring, the active-alert banner, and the "safe" ring
+    /// state. Push notifications are handled separately per reason type
+    /// (`notifyNewAlerts`, `updateProximityAlerts`) so each keeps its own
+    /// wording and debounce.
+    private func alertReasons(for glider: GliderPosition) -> [GliderAlertReason] {
+        altitudeAlertReasons(for: glider) + (proximityReasonsByIMEI[glider.imei] ?? [])
     }
 
     private var alertingGliders: [GliderPosition] {
@@ -342,6 +367,7 @@ struct CurrentMapView: View {
             }
             .onChange(of: viewModel.positions) { _, newPositions in
                 centerMapIfNeeded(on: newPositions)
+                updateProximityAlerts(in: newPositions)
                 notifyNewAlerts(in: newPositions)
                 notifyTurnpointPassages(in: newPositions)
             }
@@ -362,7 +388,7 @@ struct CurrentMapView: View {
     private func notifyNewAlerts(in positions: [GliderPosition]) {
         var currentlyAlertingIMEIs: Set<String> = []
         for glider in positions {
-            let reasons = alertReasons(for: glider)
+            let reasons = altitudeAlertReasons(for: glider)
             guard !reasons.isEmpty else { continue }
             currentlyAlertingIMEIs.insert(glider.imei)
             if !previouslyAlertingIMEIs.contains(glider.imei) {
@@ -412,6 +438,70 @@ struct CurrentMapView: View {
             }
         }
         glidersInsideTurnpoints = currentlyInside
+    }
+
+    /// Detects gliders getting close to each other (see
+    /// `ProximityAlertSettings`) and updates `proximityReasonsByIMEI` so the
+    /// map's ring coloring picks it up like any other alert reason. A pair
+    /// within the warning distance fires a push notification too, but only
+    /// once per continuous approach, and only while actually closing —
+    /// gliders sharing a thermal are commonly close together without being
+    /// on a collision course, so "just nearby" alone only shows quietly on
+    /// the map (`.caution`), never as a notification. A subscriber-only
+    /// feature.
+    private func updateProximityAlerts(in positions: [GliderPosition]) {
+        guard subscriptionManager.isSubscribed, proximityAlertSettings.isEnabled else {
+            proximityReasonsByIMEI = [:]
+            previousProximityDistancesM = [:]
+            proximityWarningPairs = []
+            return
+        }
+        let flying = positions.filter { ($0.alt ?? 0) > alertSettings.minimumFlyingAltitudeM }
+        var reasonsByIMEI: [String: [GliderAlertReason]] = [:]
+        var currentDistancesM: [String: Double] = [:]
+        var currentWarningPairs: Set<String> = []
+
+        for i in flying.indices {
+            for j in flying.indices where j > i {
+                let gliderA = flying[i]
+                let gliderB = flying[j]
+                guard let altitudeA = gliderA.alt, let altitudeB = gliderB.alt else { continue }
+                let altitudeDifferenceM = abs(altitudeA - altitudeB)
+                guard altitudeDifferenceM <= proximityAlertSettings.maxAltitudeDifferenceM else { continue }
+
+                let locationA = CLLocation(latitude: gliderA.lat, longitude: gliderA.lon)
+                let locationB = CLLocation(latitude: gliderB.lat, longitude: gliderB.lon)
+                let distanceM = locationA.distance(from: locationB)
+                guard distanceM <= proximityAlertSettings.cautionDistanceM else { continue }
+
+                let pairKey = [gliderA.imei, gliderB.imei].sorted().joined(separator: "|")
+                currentDistancesM[pairKey] = distanceM
+
+                var severity: AlertSeverity = .caution
+                if distanceM <= proximityAlertSettings.warningDistanceM,
+                   let previousDistanceM = previousProximityDistancesM[pairKey],
+                   distanceM < previousDistanceM {
+                    severity = .warning
+                    currentWarningPairs.insert(pairKey)
+                    if !proximityWarningPairs.contains(pairKey) {
+                        alertNotifier.notifyProximity(
+                            gliderName: displayName(for: gliderA),
+                            otherGliderName: displayName(for: gliderB),
+                            distanceM: distanceM,
+                            altitudeDifferenceM: altitudeDifferenceM
+                        )
+                    }
+                }
+
+                let distanceText = "\(Int(distanceM))m"
+                reasonsByIMEI[gliderA.imei, default: []].append(GliderAlertReason(label: "\(displayName(for: gliderB))と接近(\(distanceText))", severity: severity))
+                reasonsByIMEI[gliderB.imei, default: []].append(GliderAlertReason(label: "\(displayName(for: gliderA))と接近(\(distanceText))", severity: severity))
+            }
+        }
+
+        proximityReasonsByIMEI = reasonsByIMEI
+        previousProximityDistancesM = currentDistancesM
+        proximityWarningPairs = currentWarningPairs
     }
 
     /// Small distance-in-km label used on the alert circles, e.g. "3.0km".
