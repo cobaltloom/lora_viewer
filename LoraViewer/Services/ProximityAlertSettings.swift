@@ -64,7 +64,7 @@ final class ProximityAlertSettings: ObservableObject {
         patternExclusionRadiusKm = storedPatternRadius > 0 ? storedPatternRadius : 1.5
 
         let storedPatternCeiling = d.double(forKey: Keys.patternExclusionCeilingM)
-        patternExclusionCeilingM = storedPatternCeiling > 0 ? storedPatternCeiling : 310
+        patternExclusionCeilingM = storedPatternCeiling > 0 ? storedPatternCeiling : 280
     }
 
     private func persist() {
