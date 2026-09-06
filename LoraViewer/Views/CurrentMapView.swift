@@ -460,7 +460,7 @@ struct CurrentMapView: View {
         let referenceLocation = alertSettings.referenceCoordinate(default: defaultReferenceCoordinate)
             .map { CLLocation(latitude: $0.latitude, longitude: $0.longitude) }
         let patternRadiusM = proximityAlertSettings.patternExclusionRadiusKm * 1000
-        let patternCeilingM = alertSettings.minimumFlyingAltitudeM + proximityAlertSettings.patternExclusionAltitudeMarginM
+        let patternCeilingM = proximityAlertSettings.patternExclusionCeilingM
         var reasonsByIMEI: [String: [GliderAlertReason]] = [:]
         var currentDistancesM: [String: Double] = [:]
         var currentWarningPairs: Set<String> = []

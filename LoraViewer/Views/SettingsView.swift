@@ -254,8 +254,8 @@ struct SettingsView: View {
                     Stepper(value: $proximityAlertSettings.patternExclusionRadiusKm, in: 0.5...5, step: 0.5) {
                         Text("場周除外: 基準地点から \(proximityAlertSettings.patternExclusionRadiusKm, specifier: "%.1f") km 以内")
                     }
-                    Stepper(value: $proximityAlertSettings.patternExclusionAltitudeMarginM, in: 50...1000, step: 50) {
-                        Text("場周除外: 地上判定高度 +\(Int(proximityAlertSettings.patternExclusionAltitudeMarginM)) m 以下")
+                    Stepper(value: $proximityAlertSettings.patternExclusionCeilingM, in: 50...3000, step: 50) {
+                        Text("場周除外: 高度 \(Int(proximityAlertSettings.patternExclusionCeilingM)) m 以下")
                     }
                     }
                     .disabled(!subscriptionManager.isSubscribed)
