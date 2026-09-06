@@ -16,6 +16,7 @@ struct CurrentMapView: View {
     @StateObject private var alertNotifier = AlertNotifier()
     @StateObject private var turnpointPassageLog = TurnpointPassageLog()
     @AppStorage("showGliderTrails") private var showGliderTrails = true
+    @AppStorage("showDistanceReferencePoints") private var showDistanceReferencePoints = false
     @State private var cameraPosition: MapCameraPosition = .automatic
     @State private var selectedGlider: GliderPosition?
     @State private var showSettings = false
@@ -210,6 +211,17 @@ struct CurrentMapView: View {
                         MapPolygon(coordinates: UpperAltitudeGuideline.zoneB.boundary)
                             .foregroundStyle(.cyan.opacity(0.06))
                             .stroke(.cyan.opacity(0.6), lineWidth: 1.5)
+                        if showDistanceReferencePoints {
+                            ForEach(DistanceReferencePointData.points) { point in
+                                Annotation(point.name, coordinate: point.coordinate) {
+                                    Text(String(point.name.first ?? "?"))
+                                        .font(.system(size: 9, weight: .bold))
+                                        .foregroundStyle(.white)
+                                        .padding(5)
+                                        .background(Circle().fill(.indigo))
+                                }
+                            }
+                        }
                     }
                     if showGliderTrails {
                         ForEach(displayedPositions) { glider in

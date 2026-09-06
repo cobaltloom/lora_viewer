@@ -12,6 +12,7 @@ struct SettingsView: View {
     @EnvironmentObject private var subscriptionManager: SubscriptionManager
     @Environment(\.dismiss) private var dismiss
     @AppStorage("showGliderTrails") private var showGliderTrails = true
+    @AppStorage("showDistanceReferencePoints") private var showDistanceReferencePoints = false
     @State private var showReferencePointPicker = false
     @State private var showDeleteAllStepsConfirmation = false
     @State private var showPaywall = false
@@ -223,12 +224,14 @@ struct SettingsView: View {
                         Text("\(Int(upperAltitudeGuideline.bZoneCeilingFt)) ft MSL")
                             .foregroundStyle(.secondary)
                     }
+
+                    Toggle("距離目安地点を表示(①〜⑲)", isOn: $showDistanceReferencePoints)
                     }
                     .disabled(!subscriptionManager.isSubscribed)
                 } header: {
                     Text("上限高度アラート(妻沼滑空場)")
                 } footer: {
-                    Text("公式資料のA区域・B区域の境界に基づき、区域内でその上限高度を超えるとアラートを出します。A区域は常に4,500ft MSL。B区域は平日2,500ft、土日祝日3,500ftで、「今日を祝日として扱う」で土日以外の祝日にも対応できます。競技会など別の上限が許可されている期間は「競技会中」を選び、許可された値を入力してください。区域の境界(緯度経度)は公式資料に基づく固定値のため、ここでは変更できません。あくまで目安であり、実際の判断の根拠にはしないでください。")
+                    Text("公式資料のA区域・B区域の境界に基づき、区域内でその上限高度を超えるとアラートを出します。A区域は常に4,500ft MSL。B区域は平日2,500ft、土日祝日3,500ftで、「今日を祝日として扱う」で土日以外の祝日にも対応できます。競技会など別の上限が許可されている期間は「競技会中」を選び、許可された値を入力してください。区域の境界(緯度経度)は公式資料に基づく固定値のため、ここでは変更できません。「距離目安地点」は同資料(図3)掲載の19地点(妻沼滑空場中心点から3/5/7/9kmの目安目標)で、名称と距離のみが公開されており正確な座標は記載されていないため、方角は図から目分量で推定した近似値です。あくまで目安であり、実際の判断の根拠にはしないでください。")
                 }
 
                 Section {
