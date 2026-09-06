@@ -10,6 +10,12 @@ import Foundation
 /// specific concern this guards against; the quiet channel (the map ring)
 /// doesn't need that same restraint.
 ///
+/// Near the field, in the landing pattern, gliders are routinely close
+/// together and converging by design (following each other around the
+/// circuit) — `patternExclusionRadiusKm`/`patternExclusionAltitudeMarginM`
+/// cap a pair at `.caution` there, never escalating to a notification,
+/// since that would fire on essentially every landing.
+///
 /// This is an advisory aid only, not a collision-avoidance system: position
 /// data comes from periodic polling (several seconds apart at best), not
 /// continuous real-time GPS.
@@ -25,12 +31,21 @@ final class ProximityAlertSettings: ObservableObject {
     /// Vertical separation (meters) beyond which two gliders are never
     /// considered a proximity risk, regardless of horizontal distance.
     @Published var maxAltitudeDifferenceM: Double { didSet { persist() } }
+    /// Distance (km) from the alert reference point within which both
+    /// gliders must be for the pattern exclusion to apply.
+    @Published var patternExclusionRadiusKm: Double { didSet { persist() } }
+    /// How far above `AlertSettings.minimumFlyingAltitudeM` the pattern
+    /// exclusion's altitude ceiling sits — both gliders must be at or below
+    /// this to count as "in the pattern".
+    @Published var patternExclusionAltitudeMarginM: Double { didSet { persist() } }
 
     private enum Keys {
         static let isEnabled = "proximityIsEnabled"
         static let cautionDistanceM = "proximityCautionDistanceM"
         static let warningDistanceM = "proximityWarningDistanceM"
         static let maxAltitudeDifferenceM = "proximityMaxAltitudeDifferenceM"
+        static let patternExclusionRadiusKm = "proximityPatternExclusionRadiusKm"
+        static let patternExclusionAltitudeMarginM = "proximityPatternExclusionAltitudeMarginM"
     }
 
     init() {
@@ -45,6 +60,12 @@ final class ProximityAlertSettings: ObservableObject {
 
         let storedMaxAltDiff = d.double(forKey: Keys.maxAltitudeDifferenceM)
         maxAltitudeDifferenceM = storedMaxAltDiff > 0 ? storedMaxAltDiff : 150
+
+        let storedPatternRadius = d.double(forKey: Keys.patternExclusionRadiusKm)
+        patternExclusionRadiusKm = storedPatternRadius > 0 ? storedPatternRadius : 1.5
+
+        let storedPatternMargin = d.double(forKey: Keys.patternExclusionAltitudeMarginM)
+        patternExclusionAltitudeMarginM = storedPatternMargin > 0 ? storedPatternMargin : 250
     }
 
     private func persist() {
@@ -53,5 +74,7 @@ final class ProximityAlertSettings: ObservableObject {
         d.set(cautionDistanceM, forKey: Keys.cautionDistanceM)
         d.set(warningDistanceM, forKey: Keys.warningDistanceM)
         d.set(maxAltitudeDifferenceM, forKey: Keys.maxAltitudeDifferenceM)
+        d.set(patternExclusionRadiusKm, forKey: Keys.patternExclusionRadiusKm)
+        d.set(patternExclusionAltitudeMarginM, forKey: Keys.patternExclusionAltitudeMarginM)
     }
 }

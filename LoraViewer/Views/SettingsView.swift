@@ -251,12 +251,18 @@ struct SettingsView: View {
                     Stepper(value: $proximityAlertSettings.maxAltitudeDifferenceM, in: 10...500, step: 10) {
                         Text("高度差 \(Int(proximityAlertSettings.maxAltitudeDifferenceM)) m 以内のみ対象")
                     }
+                    Stepper(value: $proximityAlertSettings.patternExclusionRadiusKm, in: 0.5...5, step: 0.5) {
+                        Text("場周除外: 基準地点から \(proximityAlertSettings.patternExclusionRadiusKm, specifier: "%.1f") km 以内")
+                    }
+                    Stepper(value: $proximityAlertSettings.patternExclusionAltitudeMarginM, in: 50...1000, step: 50) {
+                        Text("場周除外: 地上判定高度 +\(Int(proximityAlertSettings.patternExclusionAltitudeMarginM)) m 以下")
+                    }
                     }
                     .disabled(!subscriptionManager.isSubscribed)
                 } header: {
                     Text("機体接近アラート")
                 } footer: {
-                    Text("水平距離が近く、高度差も小さい機体同士を検知します。地図上の色分け(注意)は距離だけで表示しますが、プッシュ通知(警告)は距離が縮まり続けている場合のみ送ります。サーマルで複数機が近接して旋回するのは通常のことなので、離れつつある/一定の距離を保っている場合は通知しません。位置情報は数秒〜数十秒間隔のポーリングによるものであり、リアルタイムのGPSではないため、あくまで参考情報です。実際の見張り・衝突回避の代わりにはなりません。")
+                    Text("水平距離が近く、高度差も小さい機体同士を検知します。地図上の色分け(注意)は距離だけで表示しますが、プッシュ通知(警告)は距離が縮まり続けている場合のみ送ります。サーマルで複数機が近接して旋回するのは通常のことなので、離れつつある/一定の距離を保っている場合は通知しません。「場周除外」は、基準地点付近かつ低高度(場周経路)にいる機体同士を注意表示のみにとどめ、通知を出さないようにする設定です。着陸のたびに追従・近接するのは正常な状態のため、そこを検知対象から外します。位置情報は数秒〜数十秒間隔のポーリングによるものであり、リアルタイムのGPSではないため、あくまで参考情報です。実際の見張り・衝突回避の代わりにはなりません。")
                 }
             }
             .navigationTitle("設定")

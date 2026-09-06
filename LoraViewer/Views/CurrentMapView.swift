@@ -457,6 +457,10 @@ struct CurrentMapView: View {
             return
         }
         let flying = positions.filter { ($0.alt ?? 0) > alertSettings.minimumFlyingAltitudeM }
+        let referenceLocation = alertSettings.referenceCoordinate(default: defaultReferenceCoordinate)
+            .map { CLLocation(latitude: $0.latitude, longitude: $0.longitude) }
+        let patternRadiusM = proximityAlertSettings.patternExclusionRadiusKm * 1000
+        let patternCeilingM = alertSettings.minimumFlyingAltitudeM + proximityAlertSettings.patternExclusionAltitudeMarginM
         var reasonsByIMEI: [String: [GliderAlertReason]] = [:]
         var currentDistancesM: [String: Double] = [:]
         var currentWarningPairs: Set<String> = []
@@ -474,11 +478,22 @@ struct CurrentMapView: View {
                 let distanceM = locationA.distance(from: locationB)
                 guard distanceM <= proximityAlertSettings.cautionDistanceM else { continue }
 
+                // Near the field and low, gliders are routinely close and
+                // converging by design (following each other around the
+                // landing pattern) — cap at .caution there so a notification
+                // doesn't fire on essentially every landing.
+                let isInPattern: Bool = {
+                    guard let referenceLocation, altitudeA <= patternCeilingM, altitudeB <= patternCeilingM else { return false }
+                    return referenceLocation.distance(from: locationA) <= patternRadiusM
+                        && referenceLocation.distance(from: locationB) <= patternRadiusM
+                }()
+
                 let pairKey = [gliderA.imei, gliderB.imei].sorted().joined(separator: "|")
                 currentDistancesM[pairKey] = distanceM
 
                 var severity: AlertSeverity = .caution
-                if distanceM <= proximityAlertSettings.warningDistanceM,
+                if !isInPattern,
+                   distanceM <= proximityAlertSettings.warningDistanceM,
                    let previousDistanceM = previousProximityDistancesM[pairKey],
                    distanceM < previousDistanceM {
                     severity = .warning
