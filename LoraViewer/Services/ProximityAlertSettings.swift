@@ -44,7 +44,7 @@ final class ProximityAlertSettings: ObservableObject {
         warningDistanceM = storedWarning > 0 ? storedWarning : 150
 
         let storedMaxAltDiff = d.double(forKey: Keys.maxAltitudeDifferenceM)
-        maxAltitudeDifferenceM = storedMaxAltDiff > 0 ? storedMaxAltDiff : 100
+        maxAltitudeDifferenceM = storedMaxAltDiff > 0 ? storedMaxAltDiff : 150
     }
 
     private func persist() {
