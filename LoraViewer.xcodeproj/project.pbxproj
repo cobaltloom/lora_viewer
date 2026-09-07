@@ -17,35 +17,38 @@
 		91B0224D1A2F9FCEC0491F07 /* CompetitionTaskCourse.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB422A315DCABFFBDE87D5A5 /* CompetitionTaskCourse.swift */; };
 		9117CAA404CD0939B761CE3A /* TurnpointPassageRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = 624EFCBB6D0A4FC930BAF713 /* TurnpointPassageRecord.swift */; };
 		0EA080892B1619030851CF6B /* DistanceReferencePoint.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55463A2510E3E963D6AF44EA /* DistanceReferencePoint.swift */; };
-		036A22FC2513DFDDD5F34555 /* APISettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = F104A17407EB5C3C85DD2323 /* APISettings.swift */; };
-		626898A2204E44B2AD0CE779 /* TrailRouteAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12F6D16A69D735F332EAF4F3 /* TrailRouteAPI.swift */; };
-		E1ADE47F39D07EAC9B7EC466 /* NicknameStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = EBA4B6950B93045683452750 /* NicknameStore.swift */; };
-		3308790F2D756F3932BD89B3 /* BoardOCR.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEC10A5CBFEBF1B67A5E8189 /* BoardOCR.swift */; };
-		AE80CFF6643C6FDFC2078D56 /* FavoritesStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4D3AAC0177346004755139D /* FavoritesStore.swift */; };
-		444F30C01D6FDD6072546DEF /* AlertSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34AE61D44245553E9BF7A59B /* AlertSettings.swift */; };
-		4F666820FE3969ACE29D93D0 /* CompetitionAltitudeGuideline.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E0545F5FE5FFF51C887EEC1 /* CompetitionAltitudeGuideline.swift */; };
-		BE59B634D5933659EAD9F574 /* UpperAltitudeGuideline.swift in Sources */ = {isa = PBXBuildFile; fileRef = A30CABD9B38F68A2C86C6A62 /* UpperAltitudeGuideline.swift */; };
-		E6A894F9073D16605C69077A /* ProximityAlertSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 552AB2B88215C0AE83BF99B6 /* ProximityAlertSettings.swift */; };
-		D522840F7403D6074845C9AE /* LocationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9AA699F45FD6754D425FEEE /* LocationManager.swift */; };
-		B60D43F2C83B733E730F59E8 /* AlertNotifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCFA1EF702AA78AFCF8100B8 /* AlertNotifier.swift */; };
-		13F6D21CCB1010AC690D9E1B /* SubscriptionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9EBE383CA4F25DF2E74317CC /* SubscriptionManager.swift */; };
-		22985C842A899DC3495698BD /* TurnpointPassageLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F41011E4677A4C39B02E11F /* TurnpointPassageLog.swift */; };
-		30282E6EFCD8C7AC820D0056 /* GliderTrackerViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = CEFE75A9C3391D1CB6D6EBBA /* GliderTrackerViewModel.swift */; };
-		F510E22C0CA45489716B6813 /* GliderMarkerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA96EA0E0D82938C1B7D89CC /* GliderMarkerView.swift */; };
-		01890B32FD1CB17038BC81D5 /* GliderDetailCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 842522FEFA02787E78801B54 /* GliderDetailCard.swift */; };
-		39258EC3A1B1CA54BCBE4681 /* GliderListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F3B308F4531DBE6EBAAA7FE /* GliderListView.swift */; };
-		395148F985D8950B9FBB9F11 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6E0BB4E4110F4F92581B4DC /* SettingsView.swift */; };
-		1CC68D5C2ECD4227E7007162 /* TrackHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 037A8BC7F14B624CA57F17F3 /* TrackHistoryView.swift */; };
-		6D2DF5F844C224EB6454F0A8 /* CurrentMapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A46221C72D02F1F28A28144 /* CurrentMapView.swift */; };
-		DA2F8E56E3ED4D76411EAD14 /* EditableGliderName.swift in Sources */ = {isa = PBXBuildFile; fileRef = D86458EA9FBDAF375CE9EA30 /* EditableGliderName.swift */; };
-		7D209132F0A2089E1D701C49 /* BoardScanView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F44ABA38E325F086A2BD611D /* BoardScanView.swift */; };
-		5E8243610EF132237B9E653E /* CameraCaptureView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57AD36FBEB6D4FED9AEB9F5E /* CameraCaptureView.swift */; };
-		DA0478CCF855A731761569F7 /* FavoriteButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E8FDD8F728D697599CCA762 /* FavoriteButton.swift */; };
-		1687DC926DF21BC9D121B2BD /* ReferencePointPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00CCD15D52CD1E9EDF867230 /* ReferencePointPickerView.swift */; };
-		73BFF306037978B171D9BE9F /* PaywallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4800F45F3849CD845FC467C /* PaywallView.swift */; };
-		8582705BCA7D643A78EF6E0C /* TurnpointPassageHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABE953C1B0BD18F68DBA647A /* TurnpointPassageHistoryView.swift */; };
-		0CADD314987465FF89D2B066 /* MKCoordinateRegion+Fit.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03B2DBF7B29BB91324802DCB /* MKCoordinateRegion+Fit.swift */; };
-		C31FAADF92ECAAF34DF382C3 /* CLLocationCoordinate2D+Geometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = D12A3459E2B21EFC7B4ACC7B /* CLLocationCoordinate2D+Geometry.swift */; };
+		8616FEE6EB1A42288CA30803 /* PointOfInterest.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB59A87BE1D3418FECFDB720 /* PointOfInterest.swift */; };
+		721B530E305E330479A49FD7 /* APISettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED6720C2DA25E1D21F40FB2F /* APISettings.swift */; };
+		1C536BDBFBCC5B9F7B90CB58 /* TrailRouteAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3C793299BC7448D8E4E4F42 /* TrailRouteAPI.swift */; };
+		3CE25F0309930A2C1C7C7373 /* NicknameStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABC09A8539EBCCD902299D87 /* NicknameStore.swift */; };
+		3D6F8B086B9A7213E50DECAB /* BoardOCR.swift in Sources */ = {isa = PBXBuildFile; fileRef = 56BCCB3F66E9E34B053FF54B /* BoardOCR.swift */; };
+		4E37BBA59B579B9AA91C8856 /* FavoritesStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B853E9A0E8182644D8EB963 /* FavoritesStore.swift */; };
+		2916C5CA9366B3F3CAE41ECC /* AlertSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83ED5BA833CD323FE6AE7A21 /* AlertSettings.swift */; };
+		0A7D7FD6B304E4F043F3E2F1 /* CompetitionAltitudeGuideline.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A9B103149E712A259D8E752 /* CompetitionAltitudeGuideline.swift */; };
+		58028CB8A622B89D62C4D49F /* UpperAltitudeGuideline.swift in Sources */ = {isa = PBXBuildFile; fileRef = F59783A125C5E65F6B5536B3 /* UpperAltitudeGuideline.swift */; };
+		F162CA393C15D07212A4B8F9 /* ProximityAlertSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F456235F29F951462D70E40 /* ProximityAlertSettings.swift */; };
+		C022A1964866FEBFF446EBD7 /* LocationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29984A082F88847E151497BE /* LocationManager.swift */; };
+		D5307206CBEE3CEC60FF1C06 /* AlertNotifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0C2664CB68FF2F839F20ECC /* AlertNotifier.swift */; };
+		574D5CF596912B12BB2A8BE2 /* SubscriptionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = DBD79AAC9F305A35FB1EFF35 /* SubscriptionManager.swift */; };
+		E5F17E84CD344E1193F3FD15 /* TurnpointPassageLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72A0AEE45CE92C5323380B4D /* TurnpointPassageLog.swift */; };
+		53DBA7FA1E70C43133FB4C7A /* PointOfInterestStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78BAA34743961B09AD0C2D0F /* PointOfInterestStore.swift */; };
+		2AF882452B88B0FB18AB42E4 /* GliderTrackerViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A824D246B4A60A0538405738 /* GliderTrackerViewModel.swift */; };
+		359A771629C4AC9A525FEECF /* GliderMarkerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9253124240A1713710364B89 /* GliderMarkerView.swift */; };
+		EC8FB4BF9B16D89018842970 /* GliderDetailCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1D564F73BFD115BE17929BF /* GliderDetailCard.swift */; };
+		D85FDC83ED9939A7E0151B83 /* GliderListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDB67A8F61EF414CEC347FE3 /* GliderListView.swift */; };
+		33C29A9A15C87ED1FC486FBA /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6125384BFBDF089715420118 /* SettingsView.swift */; };
+		A9BC6DFB4F032611AB726092 /* TrackHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABBAD1145C84634CF7A1D344 /* TrackHistoryView.swift */; };
+		19E509559675A0F88234CF66 /* CurrentMapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7019552BF5A7C703842403F2 /* CurrentMapView.swift */; };
+		F244128426F9A90C919695D4 /* EditableGliderName.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71415A43DC39849D827D9F36 /* EditableGliderName.swift */; };
+		7ADC2A1A18CB693A38DE4D98 /* BoardScanView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCA4F805F9B2B88BA1E7A2F6 /* BoardScanView.swift */; };
+		34EF938185644A3F1CCCAF88 /* CameraCaptureView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00255660CDBB7F98DF061200 /* CameraCaptureView.swift */; };
+		F8EACEED39ECA9C1977593C7 /* FavoriteButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 571940B76C07CC36B2A44623 /* FavoriteButton.swift */; };
+		6820FE34C22F3FE3DEDFCD38 /* ReferencePointPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 554EAAE69FC431778CA0BA24 /* ReferencePointPickerView.swift */; };
+		A5926228A3084A18EF58E11F /* PaywallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2AF394CF9F6557D6C2736A87 /* PaywallView.swift */; };
+		6FCB4A1F8C1598963305BAB6 /* TurnpointPassageHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65E6489C7CC64C25A161B631 /* TurnpointPassageHistoryView.swift */; };
+		F622A31248518CBD121BAEF7 /* AddPointOfInterestView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8D0F15370CC45F6BEB9EED6 /* AddPointOfInterestView.swift */; };
+		43359A1C4B5EC832567A58D7 /* MKCoordinateRegion+Fit.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5CB83C5C7B2C4E59D20160C /* MKCoordinateRegion+Fit.swift */; };
+		6AAEC6787EBDD5B3CBC4A948 /* CLLocationCoordinate2D+Geometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3124123965A6C4823A06CF5 /* CLLocationCoordinate2D+Geometry.swift */; };
 		45B13990ADAFB8366DA6DC33 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = E57D97F88D9220B6A495EF00 /* Assets.xcassets */; };
 		81BEF3A474DBBEFADE4F4952 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AD0A3C648792354BFDB982CC /* Preview Assets.xcassets */; };
 		10CDEB7E7BCE0DA83EBA0CFE /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = A76F1A7F4B331ADB5BFC5A68 /* GoogleService-Info.plist */; };
@@ -64,35 +67,38 @@
 		BB422A315DCABFFBDE87D5A5 /* CompetitionTaskCourse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CompetitionTaskCourse.swift"; sourceTree = "<group>"; };
 		624EFCBB6D0A4FC930BAF713 /* TurnpointPassageRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TurnpointPassageRecord.swift"; sourceTree = "<group>"; };
 		55463A2510E3E963D6AF44EA /* DistanceReferencePoint.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DistanceReferencePoint.swift"; sourceTree = "<group>"; };
-		F104A17407EB5C3C85DD2323 /* APISettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "APISettings.swift"; sourceTree = "<group>"; };
-		12F6D16A69D735F332EAF4F3 /* TrailRouteAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TrailRouteAPI.swift"; sourceTree = "<group>"; };
-		EBA4B6950B93045683452750 /* NicknameStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NicknameStore.swift"; sourceTree = "<group>"; };
-		BEC10A5CBFEBF1B67A5E8189 /* BoardOCR.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "BoardOCR.swift"; sourceTree = "<group>"; };
-		E4D3AAC0177346004755139D /* FavoritesStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "FavoritesStore.swift"; sourceTree = "<group>"; };
-		34AE61D44245553E9BF7A59B /* AlertSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AlertSettings.swift"; sourceTree = "<group>"; };
-		8E0545F5FE5FFF51C887EEC1 /* CompetitionAltitudeGuideline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CompetitionAltitudeGuideline.swift"; sourceTree = "<group>"; };
-		A30CABD9B38F68A2C86C6A62 /* UpperAltitudeGuideline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UpperAltitudeGuideline.swift"; sourceTree = "<group>"; };
-		552AB2B88215C0AE83BF99B6 /* ProximityAlertSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ProximityAlertSettings.swift"; sourceTree = "<group>"; };
-		C9AA699F45FD6754D425FEEE /* LocationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "LocationManager.swift"; sourceTree = "<group>"; };
-		FCFA1EF702AA78AFCF8100B8 /* AlertNotifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AlertNotifier.swift"; sourceTree = "<group>"; };
-		9EBE383CA4F25DF2E74317CC /* SubscriptionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SubscriptionManager.swift"; sourceTree = "<group>"; };
-		7F41011E4677A4C39B02E11F /* TurnpointPassageLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TurnpointPassageLog.swift"; sourceTree = "<group>"; };
-		CEFE75A9C3391D1CB6D6EBBA /* GliderTrackerViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "GliderTrackerViewModel.swift"; sourceTree = "<group>"; };
-		BA96EA0E0D82938C1B7D89CC /* GliderMarkerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "GliderMarkerView.swift"; sourceTree = "<group>"; };
-		842522FEFA02787E78801B54 /* GliderDetailCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "GliderDetailCard.swift"; sourceTree = "<group>"; };
-		4F3B308F4531DBE6EBAAA7FE /* GliderListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "GliderListView.swift"; sourceTree = "<group>"; };
-		E6E0BB4E4110F4F92581B4DC /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SettingsView.swift"; sourceTree = "<group>"; };
-		037A8BC7F14B624CA57F17F3 /* TrackHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TrackHistoryView.swift"; sourceTree = "<group>"; };
-		3A46221C72D02F1F28A28144 /* CurrentMapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CurrentMapView.swift"; sourceTree = "<group>"; };
-		D86458EA9FBDAF375CE9EA30 /* EditableGliderName.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EditableGliderName.swift"; sourceTree = "<group>"; };
-		F44ABA38E325F086A2BD611D /* BoardScanView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "BoardScanView.swift"; sourceTree = "<group>"; };
-		57AD36FBEB6D4FED9AEB9F5E /* CameraCaptureView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CameraCaptureView.swift"; sourceTree = "<group>"; };
-		5E8FDD8F728D697599CCA762 /* FavoriteButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "FavoriteButton.swift"; sourceTree = "<group>"; };
-		00CCD15D52CD1E9EDF867230 /* ReferencePointPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ReferencePointPickerView.swift"; sourceTree = "<group>"; };
-		B4800F45F3849CD845FC467C /* PaywallView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PaywallView.swift"; sourceTree = "<group>"; };
-		ABE953C1B0BD18F68DBA647A /* TurnpointPassageHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TurnpointPassageHistoryView.swift"; sourceTree = "<group>"; };
-		03B2DBF7B29BB91324802DCB /* MKCoordinateRegion+Fit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MKCoordinateRegion+Fit.swift"; sourceTree = "<group>"; };
-		D12A3459E2B21EFC7B4ACC7B /* CLLocationCoordinate2D+Geometry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CLLocationCoordinate2D+Geometry.swift"; sourceTree = "<group>"; };
+		AB59A87BE1D3418FECFDB720 /* PointOfInterest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PointOfInterest.swift"; sourceTree = "<group>"; };
+		ED6720C2DA25E1D21F40FB2F /* APISettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "APISettings.swift"; sourceTree = "<group>"; };
+		F3C793299BC7448D8E4E4F42 /* TrailRouteAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TrailRouteAPI.swift"; sourceTree = "<group>"; };
+		ABC09A8539EBCCD902299D87 /* NicknameStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NicknameStore.swift"; sourceTree = "<group>"; };
+		56BCCB3F66E9E34B053FF54B /* BoardOCR.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "BoardOCR.swift"; sourceTree = "<group>"; };
+		7B853E9A0E8182644D8EB963 /* FavoritesStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "FavoritesStore.swift"; sourceTree = "<group>"; };
+		83ED5BA833CD323FE6AE7A21 /* AlertSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AlertSettings.swift"; sourceTree = "<group>"; };
+		4A9B103149E712A259D8E752 /* CompetitionAltitudeGuideline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CompetitionAltitudeGuideline.swift"; sourceTree = "<group>"; };
+		F59783A125C5E65F6B5536B3 /* UpperAltitudeGuideline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UpperAltitudeGuideline.swift"; sourceTree = "<group>"; };
+		3F456235F29F951462D70E40 /* ProximityAlertSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ProximityAlertSettings.swift"; sourceTree = "<group>"; };
+		29984A082F88847E151497BE /* LocationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "LocationManager.swift"; sourceTree = "<group>"; };
+		B0C2664CB68FF2F839F20ECC /* AlertNotifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AlertNotifier.swift"; sourceTree = "<group>"; };
+		DBD79AAC9F305A35FB1EFF35 /* SubscriptionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SubscriptionManager.swift"; sourceTree = "<group>"; };
+		72A0AEE45CE92C5323380B4D /* TurnpointPassageLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TurnpointPassageLog.swift"; sourceTree = "<group>"; };
+		78BAA34743961B09AD0C2D0F /* PointOfInterestStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PointOfInterestStore.swift"; sourceTree = "<group>"; };
+		A824D246B4A60A0538405738 /* GliderTrackerViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "GliderTrackerViewModel.swift"; sourceTree = "<group>"; };
+		9253124240A1713710364B89 /* GliderMarkerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "GliderMarkerView.swift"; sourceTree = "<group>"; };
+		D1D564F73BFD115BE17929BF /* GliderDetailCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "GliderDetailCard.swift"; sourceTree = "<group>"; };
+		EDB67A8F61EF414CEC347FE3 /* GliderListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "GliderListView.swift"; sourceTree = "<group>"; };
+		6125384BFBDF089715420118 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SettingsView.swift"; sourceTree = "<group>"; };
+		ABBAD1145C84634CF7A1D344 /* TrackHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TrackHistoryView.swift"; sourceTree = "<group>"; };
+		7019552BF5A7C703842403F2 /* CurrentMapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CurrentMapView.swift"; sourceTree = "<group>"; };
+		71415A43DC39849D827D9F36 /* EditableGliderName.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EditableGliderName.swift"; sourceTree = "<group>"; };
+		DCA4F805F9B2B88BA1E7A2F6 /* BoardScanView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "BoardScanView.swift"; sourceTree = "<group>"; };
+		00255660CDBB7F98DF061200 /* CameraCaptureView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CameraCaptureView.swift"; sourceTree = "<group>"; };
+		571940B76C07CC36B2A44623 /* FavoriteButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "FavoriteButton.swift"; sourceTree = "<group>"; };
+		554EAAE69FC431778CA0BA24 /* ReferencePointPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ReferencePointPickerView.swift"; sourceTree = "<group>"; };
+		2AF394CF9F6557D6C2736A87 /* PaywallView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PaywallView.swift"; sourceTree = "<group>"; };
+		65E6489C7CC64C25A161B631 /* TurnpointPassageHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TurnpointPassageHistoryView.swift"; sourceTree = "<group>"; };
+		E8D0F15370CC45F6BEB9EED6 /* AddPointOfInterestView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AddPointOfInterestView.swift"; sourceTree = "<group>"; };
+		D5CB83C5C7B2C4E59D20160C /* MKCoordinateRegion+Fit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MKCoordinateRegion+Fit.swift"; sourceTree = "<group>"; };
+		B3124123965A6C4823A06CF5 /* CLLocationCoordinate2D+Geometry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CLLocationCoordinate2D+Geometry.swift"; sourceTree = "<group>"; };
 		E89172D281EBCA2A34EE5097 /* LoraViewer.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = LoraViewer.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E57D97F88D9220B6A495EF00 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		AD0A3C648792354BFDB982CC /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
@@ -157,6 +163,7 @@
 				BB422A315DCABFFBDE87D5A5 /* CompetitionTaskCourse.swift */,
 				624EFCBB6D0A4FC930BAF713 /* TurnpointPassageRecord.swift */,
 				55463A2510E3E963D6AF44EA /* DistanceReferencePoint.swift */,
+				AB59A87BE1D3418FECFDB720 /* PointOfInterest.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -164,19 +171,20 @@
 		41D8D87831B35C9C75712811 /* Services */ = {
 			isa = PBXGroup;
 			children = (
-				F104A17407EB5C3C85DD2323 /* APISettings.swift */,
-				12F6D16A69D735F332EAF4F3 /* TrailRouteAPI.swift */,
-				EBA4B6950B93045683452750 /* NicknameStore.swift */,
-				BEC10A5CBFEBF1B67A5E8189 /* BoardOCR.swift */,
-				E4D3AAC0177346004755139D /* FavoritesStore.swift */,
-				34AE61D44245553E9BF7A59B /* AlertSettings.swift */,
-				8E0545F5FE5FFF51C887EEC1 /* CompetitionAltitudeGuideline.swift */,
-				A30CABD9B38F68A2C86C6A62 /* UpperAltitudeGuideline.swift */,
-				552AB2B88215C0AE83BF99B6 /* ProximityAlertSettings.swift */,
-				C9AA699F45FD6754D425FEEE /* LocationManager.swift */,
-				FCFA1EF702AA78AFCF8100B8 /* AlertNotifier.swift */,
-				9EBE383CA4F25DF2E74317CC /* SubscriptionManager.swift */,
-				7F41011E4677A4C39B02E11F /* TurnpointPassageLog.swift */,
+				ED6720C2DA25E1D21F40FB2F /* APISettings.swift */,
+				F3C793299BC7448D8E4E4F42 /* TrailRouteAPI.swift */,
+				ABC09A8539EBCCD902299D87 /* NicknameStore.swift */,
+				56BCCB3F66E9E34B053FF54B /* BoardOCR.swift */,
+				7B853E9A0E8182644D8EB963 /* FavoritesStore.swift */,
+				83ED5BA833CD323FE6AE7A21 /* AlertSettings.swift */,
+				4A9B103149E712A259D8E752 /* CompetitionAltitudeGuideline.swift */,
+				F59783A125C5E65F6B5536B3 /* UpperAltitudeGuideline.swift */,
+				3F456235F29F951462D70E40 /* ProximityAlertSettings.swift */,
+				29984A082F88847E151497BE /* LocationManager.swift */,
+				B0C2664CB68FF2F839F20ECC /* AlertNotifier.swift */,
+				DBD79AAC9F305A35FB1EFF35 /* SubscriptionManager.swift */,
+				72A0AEE45CE92C5323380B4D /* TurnpointPassageLog.swift */,
+				78BAA34743961B09AD0C2D0F /* PointOfInterestStore.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -184,20 +192,21 @@
 		3F23291F6EE8E16A2D556705 /* Views */ = {
 			isa = PBXGroup;
 			children = (
-				CEFE75A9C3391D1CB6D6EBBA /* GliderTrackerViewModel.swift */,
-				BA96EA0E0D82938C1B7D89CC /* GliderMarkerView.swift */,
-				842522FEFA02787E78801B54 /* GliderDetailCard.swift */,
-				4F3B308F4531DBE6EBAAA7FE /* GliderListView.swift */,
-				E6E0BB4E4110F4F92581B4DC /* SettingsView.swift */,
-				037A8BC7F14B624CA57F17F3 /* TrackHistoryView.swift */,
-				3A46221C72D02F1F28A28144 /* CurrentMapView.swift */,
-				D86458EA9FBDAF375CE9EA30 /* EditableGliderName.swift */,
-				F44ABA38E325F086A2BD611D /* BoardScanView.swift */,
-				57AD36FBEB6D4FED9AEB9F5E /* CameraCaptureView.swift */,
-				5E8FDD8F728D697599CCA762 /* FavoriteButton.swift */,
-				00CCD15D52CD1E9EDF867230 /* ReferencePointPickerView.swift */,
-				B4800F45F3849CD845FC467C /* PaywallView.swift */,
-				ABE953C1B0BD18F68DBA647A /* TurnpointPassageHistoryView.swift */,
+				A824D246B4A60A0538405738 /* GliderTrackerViewModel.swift */,
+				9253124240A1713710364B89 /* GliderMarkerView.swift */,
+				D1D564F73BFD115BE17929BF /* GliderDetailCard.swift */,
+				EDB67A8F61EF414CEC347FE3 /* GliderListView.swift */,
+				6125384BFBDF089715420118 /* SettingsView.swift */,
+				ABBAD1145C84634CF7A1D344 /* TrackHistoryView.swift */,
+				7019552BF5A7C703842403F2 /* CurrentMapView.swift */,
+				71415A43DC39849D827D9F36 /* EditableGliderName.swift */,
+				DCA4F805F9B2B88BA1E7A2F6 /* BoardScanView.swift */,
+				00255660CDBB7F98DF061200 /* CameraCaptureView.swift */,
+				571940B76C07CC36B2A44623 /* FavoriteButton.swift */,
+				554EAAE69FC431778CA0BA24 /* ReferencePointPickerView.swift */,
+				2AF394CF9F6557D6C2736A87 /* PaywallView.swift */,
+				65E6489C7CC64C25A161B631 /* TurnpointPassageHistoryView.swift */,
+				E8D0F15370CC45F6BEB9EED6 /* AddPointOfInterestView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -205,8 +214,8 @@
 		6A3AA93937C8724920FC941C /* Utilities */ = {
 			isa = PBXGroup;
 			children = (
-				03B2DBF7B29BB91324802DCB /* MKCoordinateRegion+Fit.swift */,
-				D12A3459E2B21EFC7B4ACC7B /* CLLocationCoordinate2D+Geometry.swift */,
+				D5CB83C5C7B2C4E59D20160C /* MKCoordinateRegion+Fit.swift */,
+				B3124123965A6C4823A06CF5 /* CLLocationCoordinate2D+Geometry.swift */,
 			);
 			path = Utilities;
 			sourceTree = "<group>";
@@ -307,35 +316,38 @@
 				91B0224D1A2F9FCEC0491F07 /* CompetitionTaskCourse.swift in Sources */,
 				9117CAA404CD0939B761CE3A /* TurnpointPassageRecord.swift in Sources */,
 				0EA080892B1619030851CF6B /* DistanceReferencePoint.swift in Sources */,
-				036A22FC2513DFDDD5F34555 /* APISettings.swift in Sources */,
-				626898A2204E44B2AD0CE779 /* TrailRouteAPI.swift in Sources */,
-				E1ADE47F39D07EAC9B7EC466 /* NicknameStore.swift in Sources */,
-				3308790F2D756F3932BD89B3 /* BoardOCR.swift in Sources */,
-				AE80CFF6643C6FDFC2078D56 /* FavoritesStore.swift in Sources */,
-				444F30C01D6FDD6072546DEF /* AlertSettings.swift in Sources */,
-				4F666820FE3969ACE29D93D0 /* CompetitionAltitudeGuideline.swift in Sources */,
-				BE59B634D5933659EAD9F574 /* UpperAltitudeGuideline.swift in Sources */,
-				E6A894F9073D16605C69077A /* ProximityAlertSettings.swift in Sources */,
-				D522840F7403D6074845C9AE /* LocationManager.swift in Sources */,
-				B60D43F2C83B733E730F59E8 /* AlertNotifier.swift in Sources */,
-				13F6D21CCB1010AC690D9E1B /* SubscriptionManager.swift in Sources */,
-				22985C842A899DC3495698BD /* TurnpointPassageLog.swift in Sources */,
-				30282E6EFCD8C7AC820D0056 /* GliderTrackerViewModel.swift in Sources */,
-				F510E22C0CA45489716B6813 /* GliderMarkerView.swift in Sources */,
-				01890B32FD1CB17038BC81D5 /* GliderDetailCard.swift in Sources */,
-				39258EC3A1B1CA54BCBE4681 /* GliderListView.swift in Sources */,
-				395148F985D8950B9FBB9F11 /* SettingsView.swift in Sources */,
-				1CC68D5C2ECD4227E7007162 /* TrackHistoryView.swift in Sources */,
-				6D2DF5F844C224EB6454F0A8 /* CurrentMapView.swift in Sources */,
-				DA2F8E56E3ED4D76411EAD14 /* EditableGliderName.swift in Sources */,
-				7D209132F0A2089E1D701C49 /* BoardScanView.swift in Sources */,
-				5E8243610EF132237B9E653E /* CameraCaptureView.swift in Sources */,
-				DA0478CCF855A731761569F7 /* FavoriteButton.swift in Sources */,
-				1687DC926DF21BC9D121B2BD /* ReferencePointPickerView.swift in Sources */,
-				73BFF306037978B171D9BE9F /* PaywallView.swift in Sources */,
-				8582705BCA7D643A78EF6E0C /* TurnpointPassageHistoryView.swift in Sources */,
-				0CADD314987465FF89D2B066 /* MKCoordinateRegion+Fit.swift in Sources */,
-				C31FAADF92ECAAF34DF382C3 /* CLLocationCoordinate2D+Geometry.swift in Sources */,
+				8616FEE6EB1A42288CA30803 /* PointOfInterest.swift in Sources */,
+				721B530E305E330479A49FD7 /* APISettings.swift in Sources */,
+				1C536BDBFBCC5B9F7B90CB58 /* TrailRouteAPI.swift in Sources */,
+				3CE25F0309930A2C1C7C7373 /* NicknameStore.swift in Sources */,
+				3D6F8B086B9A7213E50DECAB /* BoardOCR.swift in Sources */,
+				4E37BBA59B579B9AA91C8856 /* FavoritesStore.swift in Sources */,
+				2916C5CA9366B3F3CAE41ECC /* AlertSettings.swift in Sources */,
+				0A7D7FD6B304E4F043F3E2F1 /* CompetitionAltitudeGuideline.swift in Sources */,
+				58028CB8A622B89D62C4D49F /* UpperAltitudeGuideline.swift in Sources */,
+				F162CA393C15D07212A4B8F9 /* ProximityAlertSettings.swift in Sources */,
+				C022A1964866FEBFF446EBD7 /* LocationManager.swift in Sources */,
+				D5307206CBEE3CEC60FF1C06 /* AlertNotifier.swift in Sources */,
+				574D5CF596912B12BB2A8BE2 /* SubscriptionManager.swift in Sources */,
+				E5F17E84CD344E1193F3FD15 /* TurnpointPassageLog.swift in Sources */,
+				53DBA7FA1E70C43133FB4C7A /* PointOfInterestStore.swift in Sources */,
+				2AF882452B88B0FB18AB42E4 /* GliderTrackerViewModel.swift in Sources */,
+				359A771629C4AC9A525FEECF /* GliderMarkerView.swift in Sources */,
+				EC8FB4BF9B16D89018842970 /* GliderDetailCard.swift in Sources */,
+				D85FDC83ED9939A7E0151B83 /* GliderListView.swift in Sources */,
+				33C29A9A15C87ED1FC486FBA /* SettingsView.swift in Sources */,
+				A9BC6DFB4F032611AB726092 /* TrackHistoryView.swift in Sources */,
+				19E509559675A0F88234CF66 /* CurrentMapView.swift in Sources */,
+				F244128426F9A90C919695D4 /* EditableGliderName.swift in Sources */,
+				7ADC2A1A18CB693A38DE4D98 /* BoardScanView.swift in Sources */,
+				34EF938185644A3F1CCCAF88 /* CameraCaptureView.swift in Sources */,
+				F8EACEED39ECA9C1977593C7 /* FavoriteButton.swift in Sources */,
+				6820FE34C22F3FE3DEDFCD38 /* ReferencePointPickerView.swift in Sources */,
+				A5926228A3084A18EF58E11F /* PaywallView.swift in Sources */,
+				6FCB4A1F8C1598963305BAB6 /* TurnpointPassageHistoryView.swift in Sources */,
+				F622A31248518CBD121BAEF7 /* AddPointOfInterestView.swift in Sources */,
+				43359A1C4B5EC832567A58D7 /* MKCoordinateRegion+Fit.swift in Sources */,
+				6AAEC6787EBDD5B3CBC4A948 /* CLLocationCoordinate2D+Geometry.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

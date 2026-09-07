@@ -5,6 +5,7 @@ import FirebaseCore
 struct LoraViewerApp: App {
     @StateObject private var settings = APISettings()
     @StateObject private var nicknameStore = NicknameStore()
+    @StateObject private var pointOfInterestStore = PointOfInterestStore()
     @StateObject private var favoritesStore = FavoritesStore()
     @StateObject private var alertSettings = AlertSettings()
     @StateObject private var competitionGuideline = CompetitionAltitudeGuideline()
@@ -21,6 +22,7 @@ struct LoraViewerApp: App {
             CurrentMapView(settings: settings)
                 .environmentObject(settings)
                 .environmentObject(nicknameStore)
+                .environmentObject(pointOfInterestStore)
                 .environmentObject(favoritesStore)
                 .environmentObject(alertSettings)
                 .environmentObject(competitionGuideline)

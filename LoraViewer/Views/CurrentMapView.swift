@@ -5,6 +5,7 @@ import CoreLocation
 struct CurrentMapView: View {
     @EnvironmentObject var settings: APISettings
     @EnvironmentObject private var nicknameStore: NicknameStore
+    @EnvironmentObject private var pointOfInterestStore: PointOfInterestStore
     @EnvironmentObject private var favoritesStore: FavoritesStore
     @EnvironmentObject private var alertSettings: AlertSettings
     @EnvironmentObject private var competitionGuideline: CompetitionAltitudeGuideline
@@ -18,6 +19,8 @@ struct CurrentMapView: View {
     @AppStorage("showGliderTrails") private var showGliderTrails = true
     @AppStorage("showDistanceReferencePoints") private var showDistanceReferencePoints = false
     @AppStorage("mapStyleIsSatellite") private var mapStyleIsSatellite = false
+    @State private var showAddPointOfInterest = false
+    @State private var pointOfInterestPendingDeletion: PointOfInterest?
     @State private var cameraPosition: MapCameraPosition = .automatic
     @State private var selectedGlider: GliderPosition?
     @State private var showSettings = false
@@ -224,6 +227,17 @@ struct CurrentMapView: View {
                             }
                         }
                     }
+                    ForEach(pointOfInterestStore.points) { point in
+                        Annotation(point.name, coordinate: point.coordinate) {
+                            Image(systemName: "mappin.circle.fill")
+                                .font(.title3)
+                                .foregroundStyle(.brown)
+                                .background(Circle().fill(.white))
+                                .onTapGesture {
+                                    pointOfInterestPendingDeletion = point
+                                }
+                        }
+                    }
                     if showGliderTrails {
                         ForEach(displayedPositions) { glider in
                             if let trail = viewModel.trails[glider.imei], trail.count > 1 {
@@ -334,6 +348,11 @@ struct CurrentMapView: View {
                     }
                     Spacer()
                     Button {
+                        showAddPointOfInterest = true
+                    } label: {
+                        Label("地点を追加", systemImage: "mappin.and.ellipse")
+                    }
+                    Button {
                         if subscriptionManager.isSubscribed {
                             showTurnpointHistory = true
                         } else {
@@ -355,6 +374,27 @@ struct CurrentMapView: View {
             }
             .sheet(isPresented: $showPaywall) {
                 PaywallView()
+            }
+            .sheet(isPresented: $showAddPointOfInterest) {
+                AddPointOfInterestView(initialCoordinate: visibleRegionCenter)
+            }
+            .confirmationDialog(
+                "「\(pointOfInterestPendingDeletion?.name ?? "")」を削除しますか?",
+                isPresented: Binding(
+                    get: { pointOfInterestPendingDeletion != nil },
+                    set: { if !$0 { pointOfInterestPendingDeletion = nil } }
+                ),
+                titleVisibility: .visible
+            ) {
+                Button("削除", role: .destructive) {
+                    if let point = pointOfInterestPendingDeletion {
+                        pointOfInterestStore.deletePoint(point)
+                    }
+                    pointOfInterestPendingDeletion = nil
+                }
+                Button("キャンセル", role: .cancel) {
+                    pointOfInterestPendingDeletion = nil
+                }
             }
             .sheet(isPresented: $showTurnpointHistory) {
                 NavigationStack {
