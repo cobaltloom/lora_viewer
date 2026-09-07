@@ -17,6 +17,7 @@ struct CurrentMapView: View {
     @StateObject private var turnpointPassageLog = TurnpointPassageLog()
     @AppStorage("showGliderTrails") private var showGliderTrails = true
     @AppStorage("showDistanceReferencePoints") private var showDistanceReferencePoints = false
+    @AppStorage("mapStyleIsSatellite") private var mapStyleIsSatellite = false
     @State private var cameraPosition: MapCameraPosition = .automatic
     @State private var selectedGlider: GliderPosition?
     @State private var showSettings = false
@@ -253,6 +254,7 @@ struct CurrentMapView: View {
                     }
                     UserAnnotation()
                 }
+                .mapStyle(mapStyleIsSatellite ? .hybrid(elevation: .realistic) : .standard(elevation: .realistic))
                 .mapControls {
                     MapCompass()
                     MapScaleView()
@@ -306,6 +308,13 @@ struct CurrentMapView: View {
                         Image(systemName: showFavoritesOnly ? "star.circle.fill" : "star.circle")
                     }
                     .disabled(subscriptionManager.isSubscribed && !viewModel.positions.contains { favoritesStore.isFavorite($0.imei) })
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        mapStyleIsSatellite.toggle()
+                    } label: {
+                        Image(systemName: mapStyleIsSatellite ? "map.fill" : "globe.americas.fill")
+                    }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
