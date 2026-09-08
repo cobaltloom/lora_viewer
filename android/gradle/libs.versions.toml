@@ -19,7 +19,7 @@ firebaseBom = "33.7.0"
 navigationCompose = "2.8.5"
 mlkitTextRecognitionJapanese = "16.0.1"
 kotlinxCoroutinesPlayServices = "1.9.0"
-billing = "7.1.1"
+billing = "8.0.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
