@@ -21,6 +21,22 @@ val localProperties = Properties().apply {
 }
 val mapsApiKey: String = localProperties.getProperty("MAPS_API_KEY") ?: ""
 
+// The release signing keystore is per-developer/per-machine too, and must never be committed —
+// losing it means losing the ability to publish updates to this app. Its path and passwords live
+// in local.properties (gitignored); the keystore file itself should live outside the repo
+// entirely (e.g. ~/keystores/loraviewer-release.jks). If these properties aren't set, release
+// builds are left unsigned rather than failing, so assembleRelease/lint keep working without a
+// keystore present (e.g. in CI) — only Play Console upload actually requires a signed bundle.
+val releaseStoreFile: String? = localProperties.getProperty("RELEASE_STORE_FILE")
+val releaseStorePassword: String? = localProperties.getProperty("RELEASE_STORE_PASSWORD")
+val releaseKeyAlias: String? = localProperties.getProperty("RELEASE_KEY_ALIAS")
+val releaseKeyPassword: String? = localProperties.getProperty("RELEASE_KEY_PASSWORD")
+val hasReleaseSigningConfig =
+    !releaseStoreFile.isNullOrBlank() &&
+        !releaseStorePassword.isNullOrBlank() &&
+        !releaseKeyAlias.isNullOrBlank() &&
+        !releaseKeyPassword.isNullOrBlank()
+
 android {
     namespace = "com.cobaltloom.loraviewer"
     compileSdk {
@@ -39,10 +55,24 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        if (hasReleaseSigningConfig) {
+            create("release") {
+                storeFile = file(releaseStoreFile!!)
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+            }
+        }
+    }
+
     buildTypes {
         release {
             optimization {
                 enable = false
+            }
+            if (hasReleaseSigningConfig) {
+                signingConfig = signingConfigs.getByName("release")
             }
         }
     }
