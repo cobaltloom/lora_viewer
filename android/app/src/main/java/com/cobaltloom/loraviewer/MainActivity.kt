@@ -73,14 +73,20 @@ private fun LoraViewerApp() {
 }
 
 /**
- * The map is free to open; favorites, nicknames, and altitude alerts/guidelines require an
- * active subscription. Gated screens navigate to [Routes.PAYWALL] instead of performing the
+ * The map is free to open; favorites, nicknames, and altitude alerts/guidelines were originally
+ * gated behind an active subscription, navigating to [Routes.PAYWALL] instead of performing the
  * action when there's no active subscription.
+ *
+ * For this release the app ships fully free (monetization moved to ads, added separately) rather
+ * than through Play Billing, so subscription gating is disabled by hardcoding [isSubscribed] to
+ * true instead of reading [BillingRepository.isSubscribed]. [BillingRepository] and
+ * [Routes.PAYWALL] are left wired up and untouched so subscriptions can be re-enabled later by
+ * reverting this one line.
  */
 @Composable
 private fun LoraViewerNavHost(billingRepository: BillingRepository) {
     val context = LocalContext.current
-    val isSubscribed by billingRepository.isSubscribed.collectAsState()
+    val isSubscribed = true
     val apiSettingsRepository = remember { ApiSettingsRepository(context) }
     val gliderRepository = remember {
         GliderRepository(TrailRouteApiClient(), apiSettingsRepository)
