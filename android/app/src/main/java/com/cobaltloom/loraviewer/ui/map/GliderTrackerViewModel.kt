@@ -55,6 +55,9 @@ data class GliderTrackerUiState(
     val trails: Map<String, List<Coordinate>> = emptyMap(),
     /** Whether trails are drawn on the map at all - a free, device-local display preference. */
     val showGliderTrails: Boolean = true,
+    /** Whether the map shows satellite/aerial imagery instead of the standard map - a free,
+     * device-local display preference. */
+    val showSatelliteMap: Boolean = false,
     val showFavoritesOnly: Boolean = false,
     val lastUpdated: Instant? = null,
     val errorMessage: String? = null,
@@ -187,6 +190,11 @@ class GliderTrackerViewModel(
                 _uiState.update { it.copy(showGliderTrails = show) }
             }
         }
+        viewModelScope.launch {
+            mapDisplaySettingsRepository.showSatelliteMap.collect { show ->
+                _uiState.update { it.copy(showSatelliteMap = show) }
+            }
+        }
     }
 
     fun startPolling() {
@@ -252,6 +260,10 @@ class GliderTrackerViewModel(
 
     fun setShowGliderTrails(show: Boolean) {
         viewModelScope.launch { mapDisplaySettingsRepository.setShowGliderTrails(show) }
+    }
+
+    fun toggleSatelliteMap() {
+        viewModelScope.launch { mapDisplaySettingsRepository.setShowSatelliteMap(!_uiState.value.showSatelliteMap) }
     }
 
     suspend fun refreshOnce() {

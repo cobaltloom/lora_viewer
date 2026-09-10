@@ -60,10 +60,16 @@ class GliderTrailRepository(private val context: Context) {
 /** Whether glider flight trails are drawn on the map - a free, device-local display preference. */
 class MapDisplaySettingsRepository(private val context: Context) {
     private val showTrailsKey = booleanPreferencesKey("showGliderTrails")
+    private val showSatelliteKey = booleanPreferencesKey("showSatelliteMap")
 
     val showGliderTrails: Flow<Boolean> = context.gliderTrailsDataStore.data.map { it[showTrailsKey] ?: true }
+    val showSatelliteMap: Flow<Boolean> = context.gliderTrailsDataStore.data.map { it[showSatelliteKey] ?: false }
 
     suspend fun setShowGliderTrails(value: Boolean) {
         context.gliderTrailsDataStore.edit { it[showTrailsKey] = value }
+    }
+
+    suspend fun setShowSatelliteMap(value: Boolean) {
+        context.gliderTrailsDataStore.edit { it[showSatelliteKey] = value }
     }
 }

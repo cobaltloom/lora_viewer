@@ -17,9 +17,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.ListAlt
+import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.Navigation
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Route
+import androidx.compose.material.icons.filled.Satellite
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SportsScore
 import androidx.compose.material.icons.filled.Star
@@ -70,6 +72,7 @@ import com.google.android.gms.maps.model.LatLngBounds
 import com.google.maps.android.compose.Circle
 import com.google.maps.android.compose.GoogleMap
 import com.google.maps.android.compose.MapProperties
+import com.google.maps.android.compose.MapType
 import com.google.maps.android.compose.MapUiSettings
 import com.google.maps.android.compose.MarkerComposable
 import com.google.maps.android.compose.MarkerState
@@ -200,6 +203,12 @@ fun MapScreen(
                             tint = if (uiState.showFavoritesOnly) Color(0xFFFFC107) else MaterialTheme.colorScheme.onSurface,
                         )
                     }
+                    IconButton(onClick = viewModel::toggleSatelliteMap) {
+                        Icon(
+                            imageVector = if (uiState.showSatelliteMap) Icons.Filled.Map else Icons.Filled.Satellite,
+                            contentDescription = if (uiState.showSatelliteMap) "標準地図に切り替え" else "航空写真に切り替え",
+                        )
+                    }
                     IconButton(onClick = onOpenSettings) {
                         Icon(Icons.Filled.Settings, contentDescription = "設定")
                     }
@@ -239,7 +248,10 @@ fun MapScreen(
             GoogleMap(
                 modifier = Modifier.fillMaxSize(),
                 cameraPositionState = cameraPositionState,
-                properties = MapProperties(isMyLocationEnabled = hasLocationPermission),
+                properties = MapProperties(
+                    isMyLocationEnabled = hasLocationPermission,
+                    mapType = if (uiState.showSatelliteMap) MapType.HYBRID else MapType.NORMAL,
+                ),
                 uiSettings = MapUiSettings(myLocationButtonEnabled = hasLocationPermission),
                 onMapLoaded = { mapLoaded = true },
             ) {
