@@ -243,6 +243,11 @@ struct CurrentMapView: View {
                             if let trail = viewModel.trails[glider.imei], trail.count > 1 {
                                 MapPolyline(coordinates: trail)
                                     .stroke(colorFor(imei: glider.imei), lineWidth: 2)
+                                if subscriptionManager.isSubscribed, nicknameStore.nickname(forIMEI: glider.imei) != nil {
+                                    Annotation("", coordinate: trail[trail.count / 2]) {
+                                        gliderNameLabel(for: glider)
+                                    }
+                                }
                             }
                         }
                     }
@@ -255,14 +260,6 @@ struct CurrentMapView: View {
                                 alertSeverity: alertReasons(for: glider).overallSeverity,
                                 isReturnGlideSafe: isReturnGlideSafe(glider)
                             )
-                                .overlay(alignment: .top) {
-                                    if showGliderTrails,
-                                       let trail = viewModel.trails[glider.imei], trail.count > 1,
-                                       subscriptionManager.isSubscribed, nicknameStore.nickname(forIMEI: glider.imei) != nil {
-                                        gliderNameLabel(for: glider)
-                                            .offset(x: 34, y: -4)
-                                    }
-                                }
                                 .onTapGesture {
                                     withAnimation { selectedGlider = glider }
                                 }
@@ -610,11 +607,13 @@ struct CurrentMapView: View {
         return nicknameStore.compactDisplayName(baseName: baseName, imei: glider.imei)
     }
 
-    /// A small name tag next to a glider's marker, colored to match its
-    /// trail, so multiple simultaneous flights can be told apart at a
-    /// glance instead of only by memorizing trail colors. Only shown when a
-    /// nickname is set — otherwise this would just repeat the marker's own
-    /// index number right next to it.
+    /// A small name tag placed at the midpoint of a glider's trail, colored
+    /// to match it, so multiple simultaneous flights can be told apart at a
+    /// glance instead of only by memorizing trail colors. Placed on the
+    /// trail rather than next to the marker so it doesn't crowd the
+    /// marker's own index number/altitude badge. Only shown when a nickname
+    /// is set — otherwise this would just repeat the marker's own index
+    /// number.
     private func gliderNameLabel(for glider: GliderPosition) -> some View {
         Text(displayName(for: glider))
             .font(.system(size: 10, weight: .semibold))
