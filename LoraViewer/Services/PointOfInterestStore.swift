@@ -1,4 +1,5 @@
 import Foundation
+import CoreLocation
 import FirebaseFirestore
 
 /// Pilot-named ground locations worth remembering on the map — e.g. a spot
