@@ -256,7 +256,9 @@ struct CurrentMapView: View {
                                 isReturnGlideSafe: isReturnGlideSafe(glider)
                             )
                                 .overlay(alignment: .top) {
-                                    if showGliderTrails, let trail = viewModel.trails[glider.imei], trail.count > 1 {
+                                    if showGliderTrails,
+                                       let trail = viewModel.trails[glider.imei], trail.count > 1,
+                                       subscriptionManager.isSubscribed, nicknameStore.nickname(forIMEI: glider.imei) != nil {
                                         gliderNameLabel(for: glider)
                                             .offset(x: 34, y: -4)
                                     }
@@ -610,7 +612,9 @@ struct CurrentMapView: View {
 
     /// A small name tag next to a glider's marker, colored to match its
     /// trail, so multiple simultaneous flights can be told apart at a
-    /// glance instead of only by memorizing trail colors.
+    /// glance instead of only by memorizing trail colors. Only shown when a
+    /// nickname is set — otherwise this would just repeat the marker's own
+    /// index number right next to it.
     private func gliderNameLabel(for glider: GliderPosition) -> some View {
         Text(displayName(for: glider))
             .font(.system(size: 10, weight: .semibold))
