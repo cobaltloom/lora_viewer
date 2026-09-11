@@ -85,22 +85,7 @@ fun SettingsScreen(
     ) { padding ->
         LazyColumn(modifier = Modifier.padding(padding).padding(horizontal = 16.dp)) {
             item {
-                SettingsSectionHeader("サーバー")
-                OutlinedTextField(
-                    value = apiSettings.baseUrl,
-                    onValueChange = { scope.launch { apiSettingsRepository.setBaseUrl(it) } },
-                    label = { Text("ベースURL") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                )
-                OutlinedTextField(
-                    value = apiSettings.secretKey,
-                    onValueChange = { scope.launch { apiSettingsRepository.setSecretKey(it) } },
-                    label = { Text("シークレットキー (任意)") },
-                    singleLine = true,
-                    visualTransformation = PasswordVisualTransformation(),
-                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                )
+                SettingsSectionHeader("更新間隔")
                 NumberStepper(
                     label = "${apiSettings.refreshIntervalSeconds.toInt()} 秒ごとに更新",
                     onDecrement = {
@@ -394,7 +379,25 @@ fun SettingsScreen(
                     "公式資料のA区域・B区域の境界に基づき、区域内でその上限高度を超えるとアラートを出します。あくまで目安であり、実際の判断の根拠にはしないでください。",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 4.dp, bottom = 24.dp),
+                    modifier = Modifier.padding(top = 4.dp, bottom = 4.dp),
+                )
+                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
+
+                SettingsSectionHeader("サーバー")
+                OutlinedTextField(
+                    value = apiSettings.baseUrl,
+                    onValueChange = { scope.launch { apiSettingsRepository.setBaseUrl(it) } },
+                    label = { Text("ベースURL") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                )
+                OutlinedTextField(
+                    value = apiSettings.secretKey,
+                    onValueChange = { scope.launch { apiSettingsRepository.setSecretKey(it) } },
+                    label = { Text("シークレットキー (任意)") },
+                    singleLine = true,
+                    visualTransformation = PasswordVisualTransformation(),
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 24.dp),
                 )
             }
         }
