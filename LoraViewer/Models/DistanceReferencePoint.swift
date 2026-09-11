@@ -13,11 +13,15 @@ struct DistanceReferencePoint: Identifiable {
 
 /// JSAL's 19 named distance-judging landmarks, grouped by their labeled
 /// ring (3/5/7/9km from 妻沼滑空場中心点). The source document gives each
-/// point's name and ring distance, but not a surveyed coordinate — these
-/// coordinates were estimated by reading each point's approximate bearing
-/// off the published diagram and combining it with its exact labeled
-/// distance, matching the source's own "距離の主な目安目標" framing. Treat
-/// as approximate, not surveyed.
+/// point's name and ring distance, but not a surveyed coordinate.
+/// ⑨⑭⑮⑯⑰⑱ are real, identifiable places (a factory, a park, a lake) whose
+/// coordinates were looked up directly and roughly match their labeled ring
+/// distance. The rest are still estimated by reading each point's
+/// approximate bearing off the published diagram and combining it with its
+/// exact labeled distance — either because they're informal landmarks
+/// pilots recognize by sight (colored roofs, "手前" of something) rather
+/// than addressable places, or because a precise coordinate wasn't found.
+/// Treat those as approximate, not surveyed.
 enum DistanceReferencePointData {
     static let points: [DistanceReferencePoint] = [
         // 3km
@@ -30,17 +34,17 @@ enum DistanceReferencePointData {
         DistanceReferencePoint(name: "⑥いずみ総合公園野球場", distanceKm: 5, coordinate: CLLocationCoordinate2D(latitude: 36.19974, longitude: 139.36506)),
         DistanceReferencePoint(name: "⑦御正作公園", distanceKm: 5, coordinate: CLLocationCoordinate2D(latitude: 36.25364, longitude: 139.39982)),
         DistanceReferencePoint(name: "⑧城之内公園", distanceKm: 5, coordinate: CLLocationCoordinate2D(latitude: 36.25618, longitude: 139.41403)),
-        DistanceReferencePoint(name: "⑨パナソニック中央交差点", distanceKm: 5, coordinate: CLLocationCoordinate2D(latitude: 36.22676, longitude: 139.36651)),
+        DistanceReferencePoint(name: "⑨パナソニック中央交差点", distanceKm: 5, coordinate: CLLocationCoordinate2D(latitude: 36.252342, longitude: 139.400896)),
         DistanceReferencePoint(name: "⑩田の字(鞍掛第一工業団地)中心", distanceKm: 5, coordinate: CLLocationCoordinate2D(latitude: 36.20746, longitude: 139.47440)),
         DistanceReferencePoint(name: "⑪ジョイフル本田", distanceKm: 5, coordinate: CLLocationCoordinate2D(latitude: 36.19237, longitude: 139.46939)),
         DistanceReferencePoint(name: "⑫千代田町立東小", distanceKm: 5, coordinate: CLLocationCoordinate2D(latitude: 36.20746, longitude: 139.47440)),
         // 7km
         DistanceReferencePoint(name: "⑬石田川分流点の橋", distanceKm: 7, coordinate: CLLocationCoordinate2D(latitude: 36.25589, longitude: 139.36369)),
-        DistanceReferencePoint(name: "⑭スバル大泉工場", distanceKm: 7, coordinate: CLLocationCoordinate2D(latitude: 36.24748, longitude: 139.48283)),
-        DistanceReferencePoint(name: "⑮近藤沼", distanceKm: 7, coordinate: CLLocationCoordinate2D(latitude: 36.20043, longitude: 139.49572)),
+        DistanceReferencePoint(name: "⑭スバル大泉工場", distanceKm: 7, coordinate: CLLocationCoordinate2D(latitude: 36.271549, longitude: 139.409691)),
+        DistanceReferencePoint(name: "⑮近藤沼", distanceKm: 7, coordinate: CLLocationCoordinate2D(latitude: 36.226088, longitude: 139.50233)),
         // 9km
-        DistanceReferencePoint(name: "⑯高山(西部工業団地)手前", distanceKm: 9, coordinate: CLLocationCoordinate2D(latitude: 36.27768, longitude: 139.36130)),
-        DistanceReferencePoint(name: "⑰スバル矢島工場", distanceKm: 9, coordinate: CLLocationCoordinate2D(latitude: 36.29110, longitude: 139.43633)),
+        DistanceReferencePoint(name: "⑯高山(西部工業団地)手前", distanceKm: 9, coordinate: CLLocationCoordinate2D(latitude: 36.273072, longitude: 139.338928)),
+        DistanceReferencePoint(name: "⑰スバル矢島工場", distanceKm: 9, coordinate: CLLocationCoordinate2D(latitude: 36.276825, longitude: 139.371439)),
         DistanceReferencePoint(name: "⑱多々良沼", distanceKm: 9, coordinate: CLLocationCoordinate2D(latitude: 36.260236, longitude: 139.497473)),
         DistanceReferencePoint(name: "⑲昭和橋", distanceKm: 9, coordinate: CLLocationCoordinate2D(latitude: 36.18367, longitude: 139.51312)),
     ]
