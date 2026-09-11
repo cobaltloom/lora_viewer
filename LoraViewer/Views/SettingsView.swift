@@ -70,6 +70,17 @@ struct SettingsView: View {
                     Group {
                     Toggle("高度不足アラートを有効にする", isOn: $alertSettings.isEnabled)
 
+                    Picker("基準地点", selection: $alertSettings.referenceField) {
+                        ForEach(AlertReferenceField.allCases, id: \.self) { field in
+                            Text(field.displayName).tag(field)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    LabeledContent(alertSettings.referenceField.displayName) {
+                        Text(String(format: "%.5f, %.5f", alertSettings.referenceField.coordinate.latitude, alertSettings.referenceField.coordinate.longitude))
+                            .foregroundStyle(.secondary)
+                    }
+
                     Picker("計算方法", selection: $alertSettings.mode) {
                         Text("距離ごとの段階").tag(AltitudeCalculationMode.steps)
                         Text("帰投高度とL/D").tag(AltitudeCalculationMode.glideRatio)
@@ -115,17 +126,6 @@ struct SettingsView: View {
                         Stepper(value: $alertSettings.cautionGlideRatio, in: 5...60, step: 1) {
                             Text("注意の滑空比(L/D) \(Int(alertSettings.cautionGlideRatio))")
                         }
-                    }
-
-                    Picker("基準地点", selection: $alertSettings.referenceField) {
-                        ForEach(AlertReferenceField.allCases, id: \.self) { field in
-                            Text(field.displayName).tag(field)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                    LabeledContent(alertSettings.referenceField.displayName) {
-                        Text(String(format: "%.5f, %.5f", alertSettings.referenceField.coordinate.latitude, alertSettings.referenceField.coordinate.longitude))
-                            .foregroundStyle(.secondary)
                     }
                     }
                     .disabled(!subscriptionManager.isSubscribed)
