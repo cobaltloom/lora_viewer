@@ -12,6 +12,8 @@ import com.cobaltloom.loraviewer.data.alert.CompetitionGuidelineSettings
 import com.cobaltloom.loraviewer.data.alert.CompetitionTaskCourseData
 import com.cobaltloom.loraviewer.data.alert.Coordinate
 import com.cobaltloom.loraviewer.data.alert.GliderAlertReason
+import com.cobaltloom.loraviewer.data.alert.ProximityAlertSettings
+import com.cobaltloom.loraviewer.data.alert.ProximityAlertSettingsRepository
 import com.cobaltloom.loraviewer.data.alert.TurnpointPassageLogRepository
 import com.cobaltloom.loraviewer.data.alert.TurnpointPassageRecord
 import com.cobaltloom.loraviewer.data.alert.UpperAltitudeGuidelineRepository
@@ -47,6 +49,11 @@ data class GliderTrackerUiState(
     val alertSettings: AlertSettings = AlertSettings(),
     val competitionGuidelineSettings: CompetitionGuidelineSettings = CompetitionGuidelineSettings(),
     val upperAltitudeSettings: UpperAltitudeSettings = UpperAltitudeSettings(),
+    val proximityAlertSettings: ProximityAlertSettings = ProximityAlertSettings(),
+    /** Each glider's proximity-to-other-gliders reasons as of the last refresh, keyed by imei -
+     * merged into [alertReasons]. Unlike the custom altitude alert/competition guideline, this is
+     * never scoped by favorites: it's inherently about other gliders near yours too. */
+    val proximityReasonsByImei: Map<String, List<GliderAlertReason>> = emptyMap(),
     val turnpointPassageRecords: List<TurnpointPassageRecord> = emptyList(),
     /** Each glider's positions for its current flight, keyed by imei - drawn on the map as a trail. */
     val trails: Map<String, List<Coordinate>> = emptyMap(),
@@ -108,6 +115,7 @@ data class GliderTrackerUiState(
             val zoneName = upperAltitudeSettings.applicableZone(glider)?.first.orEmpty()
             reasons.add(GliderAlertReason("${zoneName}上限超過", AlertSeverity.WARNING))
         }
+        reasons.addAll(proximityReasonsByImei[glider.imei].orEmpty())
         return reasons
     }
 
@@ -140,6 +148,7 @@ class GliderTrackerViewModel(
     private val alertSettingsRepository: AlertSettingsRepository,
     private val competitionGuidelineRepository: CompetitionGuidelineRepository,
     private val upperAltitudeGuidelineRepository: UpperAltitudeGuidelineRepository,
+    private val proximityAlertSettingsRepository: ProximityAlertSettingsRepository,
     private val turnpointPassageLogRepository: TurnpointPassageLogRepository,
     private val gliderTrailRepository: GliderTrailRepository,
     private val mapDisplaySettingsRepository: MapDisplaySettingsRepository,
@@ -158,6 +167,15 @@ class GliderTrackerViewModel(
      * notifications fire once on entry rather than repeatedly while a glider lingers inside.
      */
     private var previouslyInsideTurnpoints: Set<String> = emptySet()
+
+    /** Each glider pair's horizontal distance (meters) as of the previous refresh, keyed by a
+     * sorted "imei1|imei2", so a new refresh can tell whether a pair is closing rather than just
+     * currently near. */
+    private var previousProximityDistancesM: Map<String, Double> = emptyMap()
+
+    /** Pair keys currently past the proximity warning threshold and closing, so the push
+     * notification fires once per approach rather than every refresh while the pair stays close. */
+    private var proximityWarningPairs: Set<String> = emptySet()
 
     init {
         viewModelScope.launch {
@@ -182,6 +200,11 @@ class GliderTrackerViewModel(
         viewModelScope.launch {
             upperAltitudeGuidelineRepository.settings.collect { settings ->
                 _uiState.update { it.copy(upperAltitudeSettings = settings) }
+            }
+        }
+        viewModelScope.launch {
+            proximityAlertSettingsRepository.settings.collect { settings ->
+                _uiState.update { it.copy(proximityAlertSettings = settings) }
             }
         }
         viewModelScope.launch {
@@ -266,6 +289,10 @@ class GliderTrackerViewModel(
         viewModelScope.launch { upperAltitudeGuidelineRepository.save(settings) }
     }
 
+    fun updateProximityAlertSettings(settings: ProximityAlertSettings) {
+        viewModelScope.launch { proximityAlertSettingsRepository.save(settings) }
+    }
+
     fun clearTodaysTurnpointPassages() {
         viewModelScope.launch { turnpointPassageLogRepository.clearToday() }
     }
@@ -286,12 +313,20 @@ class GliderTrackerViewModel(
         _uiState.update { it.copy(isLoading = true) }
         try {
             val positions = repository.fetchCurrentPositions()
-            val stateWithNewPositions = _uiState.value.copy(positions = positions)
+            var stateWithNewPositions = _uiState.value.copy(positions = positions)
+            val proximityReasons = updateProximityAlerts(stateWithNewPositions)
+            stateWithNewPositions = stateWithNewPositions.copy(proximityReasonsByImei = proximityReasons)
             notifyNewAlerts(stateWithNewPositions)
             notifyTurnpointPassages(stateWithNewPositions)
             gliderTrailRepository.recordPositions(positions, stateWithNewPositions.alertSettings.minimumFlyingAltitudeM)
             _uiState.update {
-                it.copy(positions = positions, lastUpdated = Instant.now(), errorMessage = null, isLoading = false)
+                it.copy(
+                    positions = positions,
+                    proximityReasonsByImei = proximityReasons,
+                    lastUpdated = Instant.now(),
+                    errorMessage = null,
+                    isLoading = false,
+                )
             }
         } catch (e: Exception) {
             _uiState.update { it.copy(errorMessage = e.message, isLoading = false) }
@@ -323,6 +358,77 @@ class GliderTrackerViewModel(
             }
         }
         previouslyAlertingImeis = currentlyAlerting
+    }
+
+    /**
+     * Detects gliders getting close to each other (see [ProximityAlertSettings]) and returns each
+     * glider's proximity reasons for the map's ring coloring, same as any other alert reason. A
+     * pair within the warning distance fires a push notification too, but only once per
+     * continuous approach, and only while actually closing - gliders sharing a thermal are
+     * commonly close together without being on a collision course, so "just nearby" alone only
+     * shows quietly on the map (CAUTION), never as a notification. A subscriber-only feature.
+     */
+    private fun updateProximityAlerts(state: GliderTrackerUiState): Map<String, List<GliderAlertReason>> {
+        val settings = state.proximityAlertSettings
+        if (!state.isSubscribed || !settings.isEnabled) {
+            previousProximityDistancesM = emptyMap()
+            proximityWarningPairs = emptySet()
+            return emptyMap()
+        }
+        val flying = state.positions.filter { (it.alt ?: 0.0) > state.alertSettings.minimumFlyingAltitudeM }
+        val reference = state.alertSettings.referenceCoordinate
+        val patternRadiusM = settings.patternExclusionRadiusKm * 1000
+        val patternCeilingM = settings.patternExclusionCeilingM
+        val reasonsByImei = mutableMapOf<String, MutableList<GliderAlertReason>>()
+        val currentDistancesM = mutableMapOf<String, Double>()
+        val currentWarningPairs = mutableSetOf<String>()
+
+        for (i in flying.indices) {
+            for (j in flying.indices) {
+                if (j <= i) continue
+                val gliderA = flying[i]
+                val gliderB = flying[j]
+                val altitudeA = gliderA.alt ?: continue
+                val altitudeB = gliderB.alt ?: continue
+                val altitudeDifferenceM = kotlin.math.abs(altitudeA - altitudeB)
+                if (altitudeDifferenceM > settings.maxAltitudeDifferenceM) continue
+
+                val distanceM = distanceMeters(gliderA.lat, gliderA.lon, gliderB.lat, gliderB.lon)
+                if (distanceM > settings.cautionDistanceM) continue
+
+                // Near the field and low, gliders are routinely close and converging by design
+                // (following each other around the landing pattern) - cap at CAUTION there so a
+                // notification doesn't fire on essentially every landing.
+                val isInPattern = altitudeA <= patternCeilingM && altitudeB <= patternCeilingM &&
+                    distanceMeters(reference.latitude, reference.longitude, gliderA.lat, gliderA.lon) <= patternRadiusM &&
+                    distanceMeters(reference.latitude, reference.longitude, gliderB.lat, gliderB.lon) <= patternRadiusM
+
+                val pairKey = listOf(gliderA.imei, gliderB.imei).sorted().joinToString("|")
+                currentDistancesM[pairKey] = distanceM
+
+                var severity = AlertSeverity.CAUTION
+                val previousDistanceM = previousProximityDistancesM[pairKey]
+                if (!isInPattern && distanceM <= settings.warningDistanceM &&
+                    previousDistanceM != null && distanceM < previousDistanceM
+                ) {
+                    severity = AlertSeverity.WARNING
+                    currentWarningPairs += pairKey
+                    if (pairKey !in proximityWarningPairs) {
+                        alertNotifier.notifyProximity(state.nameFor(gliderA), state.nameFor(gliderB), distanceM, altitudeDifferenceM)
+                    }
+                }
+
+                val distanceText = "${distanceM.toInt()}m"
+                reasonsByImei.getOrPut(gliderA.imei) { mutableListOf() }
+                    .add(GliderAlertReason("${state.nameFor(gliderB)}と接近($distanceText)", severity))
+                reasonsByImei.getOrPut(gliderB.imei) { mutableListOf() }
+                    .add(GliderAlertReason("${state.nameFor(gliderA)}と接近($distanceText)", severity))
+            }
+        }
+
+        previousProximityDistancesM = currentDistancesM
+        proximityWarningPairs = currentWarningPairs
+        return reasonsByImei
     }
 
     /**

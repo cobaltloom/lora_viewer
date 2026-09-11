@@ -19,6 +19,7 @@ class AlertNotifier(private val context: Context) {
     companion object {
         const val CHANNEL_ID = "altitude_alerts"
         const val TURNPOINT_CHANNEL_ID = "turnpoint_passage"
+        const val PROXIMITY_CHANNEL_ID = "proximity_alerts"
     }
 
     init {
@@ -28,6 +29,9 @@ class AlertNotifier(private val context: Context) {
         )
         manager.createNotificationChannel(
             NotificationChannel(TURNPOINT_CHANNEL_ID, "旋回点通過", NotificationManager.IMPORTANCE_DEFAULT),
+        )
+        manager.createNotificationChannel(
+            NotificationChannel(PROXIMITY_CHANNEL_ID, "機体接近", NotificationManager.IMPORTANCE_HIGH),
         )
     }
 
@@ -70,5 +74,23 @@ class AlertNotifier(private val context: Context) {
             .setAutoCancel(true)
             .build()
         NotificationManagerCompat.from(context).notify((gliderName + turnpointName).hashCode(), notification)
+    }
+
+    /** Fired when two gliders are closing within the proximity warning distance - see [com.cobaltloom.loraviewer.data.alert.ProximityAlertSettings]. */
+    fun notifyProximity(gliderName: String, otherGliderName: String, distanceM: Double, altitudeDifferenceM: Double) {
+        if (ActivityCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            return
+        }
+
+        val notification = NotificationCompat.Builder(context, PROXIMITY_CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.ic_dialog_alert)
+            .setContentTitle("機体接近")
+            .setContentText("$gliderName と $otherGliderName: 水平${distanceM.toInt()}m・高度差${altitudeDifferenceM.toInt()}m")
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setAutoCancel(true)
+            .build()
+        NotificationManagerCompat.from(context).notify((gliderName + otherGliderName).hashCode(), notification)
     }
 }

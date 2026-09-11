@@ -69,6 +69,7 @@ fun SettingsScreen(
 
     val alertSettings = uiState.alertSettings
     val upperAltitudeSettings = uiState.upperAltitudeSettings
+    val proximityAlertSettings = uiState.proximityAlertSettings
     val competitionGuidelineSettings = uiState.competitionGuidelineSettings
 
     Scaffold(
@@ -343,6 +344,103 @@ fun SettingsScreen(
                 )
                 Text(
                     "公式資料のA区域・B区域の境界に基づき、区域内でその上限高度を超えるとアラートを出します。あくまで目安であり、実際の判断の根拠にはしないでください。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp, bottom = 4.dp),
+                )
+                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
+
+                ProSectionHeader("機体接近アラート", uiState.isSubscribed, onRequireSubscription)
+                SwitchRow(
+                    label = "有効にする",
+                    checked = proximityAlertSettings.isEnabled,
+                    onCheckedChange = {
+                        if (uiState.isSubscribed) {
+                            viewModel.updateProximityAlertSettings(proximityAlertSettings.copy(isEnabled = it))
+                        } else {
+                            onRequireSubscription()
+                        }
+                    },
+                )
+                NumberStepper(
+                    label = "注意(地図表示のみ): 水平距離 ${proximityAlertSettings.cautionDistanceM.toInt()} m 以内",
+                    onDecrement = {
+                        viewModel.updateProximityAlertSettings(
+                            proximityAlertSettings.copy(cautionDistanceM = (proximityAlertSettings.cautionDistanceM - 50).coerceAtLeast(50.0)),
+                        )
+                    },
+                    onIncrement = {
+                        viewModel.updateProximityAlertSettings(
+                            proximityAlertSettings.copy(cautionDistanceM = (proximityAlertSettings.cautionDistanceM + 50).coerceAtMost(2000.0)),
+                        )
+                    },
+                )
+                NumberStepper(
+                    label = "警告(通知): 水平距離 ${proximityAlertSettings.warningDistanceM.toInt()} m 以内",
+                    onDecrement = {
+                        viewModel.updateProximityAlertSettings(
+                            proximityAlertSettings.copy(warningDistanceM = (proximityAlertSettings.warningDistanceM - 10).coerceAtLeast(30.0)),
+                        )
+                    },
+                    onIncrement = {
+                        viewModel.updateProximityAlertSettings(
+                            proximityAlertSettings.copy(warningDistanceM = (proximityAlertSettings.warningDistanceM + 10).coerceAtMost(1000.0)),
+                        )
+                    },
+                )
+                NumberStepper(
+                    label = "高度差 ${proximityAlertSettings.maxAltitudeDifferenceM.toInt()} m 以内のみ対象",
+                    onDecrement = {
+                        viewModel.updateProximityAlertSettings(
+                            proximityAlertSettings.copy(
+                                maxAltitudeDifferenceM = (proximityAlertSettings.maxAltitudeDifferenceM - 10).coerceAtLeast(10.0),
+                            ),
+                        )
+                    },
+                    onIncrement = {
+                        viewModel.updateProximityAlertSettings(
+                            proximityAlertSettings.copy(
+                                maxAltitudeDifferenceM = (proximityAlertSettings.maxAltitudeDifferenceM + 10).coerceAtMost(500.0),
+                            ),
+                        )
+                    },
+                )
+                NumberStepper(
+                    label = "場周除外: 基準地点から %.1f km 以内".format(proximityAlertSettings.patternExclusionRadiusKm),
+                    onDecrement = {
+                        viewModel.updateProximityAlertSettings(
+                            proximityAlertSettings.copy(
+                                patternExclusionRadiusKm = (proximityAlertSettings.patternExclusionRadiusKm - 0.5).coerceAtLeast(0.5),
+                            ),
+                        )
+                    },
+                    onIncrement = {
+                        viewModel.updateProximityAlertSettings(
+                            proximityAlertSettings.copy(
+                                patternExclusionRadiusKm = (proximityAlertSettings.patternExclusionRadiusKm + 0.5).coerceAtMost(5.0),
+                            ),
+                        )
+                    },
+                )
+                NumberStepper(
+                    label = "場周除外: 高度 ${proximityAlertSettings.patternExclusionCeilingM.toInt()} m 以下",
+                    onDecrement = {
+                        viewModel.updateProximityAlertSettings(
+                            proximityAlertSettings.copy(
+                                patternExclusionCeilingM = (proximityAlertSettings.patternExclusionCeilingM - 50).coerceAtLeast(50.0),
+                            ),
+                        )
+                    },
+                    onIncrement = {
+                        viewModel.updateProximityAlertSettings(
+                            proximityAlertSettings.copy(
+                                patternExclusionCeilingM = (proximityAlertSettings.patternExclusionCeilingM + 50).coerceAtMost(3000.0),
+                            ),
+                        )
+                    },
+                )
+                Text(
+                    "水平距離が近く、高度差も小さい機体同士を検知します。地図上の色分け(注意)は距離だけで表示しますが、プッシュ通知(警告)は距離が縮まり続けている場合のみ送ります。サーマルで複数機が近接して旋回するのは通常のことなので、離れつつある/一定の距離を保っている場合は通知しません。「場周除外」は、基準地点付近かつ低高度(場周経路)にいる機体同士を注意表示のみにとどめ、通知を出さないようにする設定です。着陸のたびに追従・近接するのは正常な状態のため、そこを検知対象から外します。位置情報は数秒〜数十秒間隔のポーリングによるものであり、リアルタイムのGPSではないため、あくまで参考情報です。実際の見張り・衝突回避の代わりにはなりません。",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 4.dp, bottom = 4.dp),

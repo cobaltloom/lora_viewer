@@ -17,6 +17,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.cobaltloom.loraviewer.data.alert.AlertSettingsRepository
 import com.cobaltloom.loraviewer.data.alert.CompetitionGuidelineRepository
+import com.cobaltloom.loraviewer.data.alert.ProximityAlertSettingsRepository
 import com.cobaltloom.loraviewer.data.alert.TurnpointPassageLogRepository
 import com.cobaltloom.loraviewer.data.alert.UpperAltitudeGuidelineRepository
 import com.cobaltloom.loraviewer.data.billing.BillingRepository
@@ -94,6 +95,7 @@ private fun LoraViewerNavHost(billingRepository: BillingRepository) {
         val alertSettingsRepository = AlertSettingsRepository(context)
         val competitionGuidelineRepository = CompetitionGuidelineRepository(context)
         val upperAltitudeGuidelineRepository = UpperAltitudeGuidelineRepository(context)
+        val proximityAlertSettingsRepository = ProximityAlertSettingsRepository(context)
         val turnpointPassageLogRepository = TurnpointPassageLogRepository(context)
         val gliderTrailRepository = GliderTrailRepository(context)
         val mapDisplaySettingsRepository = MapDisplaySettingsRepository(context)
@@ -107,6 +109,7 @@ private fun LoraViewerNavHost(billingRepository: BillingRepository) {
                     alertSettingsRepository = alertSettingsRepository,
                     competitionGuidelineRepository = competitionGuidelineRepository,
                     upperAltitudeGuidelineRepository = upperAltitudeGuidelineRepository,
+                    proximityAlertSettingsRepository = proximityAlertSettingsRepository,
                     turnpointPassageLogRepository = turnpointPassageLogRepository,
                     gliderTrailRepository = gliderTrailRepository,
                     mapDisplaySettingsRepository = mapDisplaySettingsRepository,
