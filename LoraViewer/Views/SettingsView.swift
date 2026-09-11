@@ -74,7 +74,7 @@ struct SettingsView: View {
                             Label("購読して有効化", systemImage: "lock.fill")
                         }
                     }
-                    Toggle("地上目標地点を表示(①〜⑲)", isOn: $showDistanceReferencePoints)
+                    Toggle("地上目標地点を表示", isOn: $showDistanceReferencePoints)
                         .disabled(!subscriptionManager.isSubscribed)
                 } header: {
                     Text("地上目標地点")
