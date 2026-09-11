@@ -39,7 +39,7 @@ enum DistanceReferencePointData {
         DistanceReferencePoint(name: "⑭スバル大泉工場", distanceKm: 7, coordinate: CLLocationCoordinate2D(latitude: 36.271549, longitude: 139.409691)),
         DistanceReferencePoint(name: "⑮近藤沼", distanceKm: 7, coordinate: CLLocationCoordinate2D(latitude: 36.226088, longitude: 139.50233)),
         // 9km
-        DistanceReferencePoint(name: "⑯高山(西部工業団地)手前", distanceKm: 9, coordinate: CLLocationCoordinate2D(latitude: 36.273072, longitude: 139.338928)),
+        DistanceReferencePoint(name: "⑯高山(西部工業団地)", distanceKm: 9, coordinate: CLLocationCoordinate2D(latitude: 36.273072, longitude: 139.338928)),
         DistanceReferencePoint(name: "⑰スバル矢島工場", distanceKm: 9, coordinate: CLLocationCoordinate2D(latitude: 36.276825, longitude: 139.371439)),
         DistanceReferencePoint(name: "⑱多々良沼", distanceKm: 9, coordinate: CLLocationCoordinate2D(latitude: 36.260236, longitude: 139.497473)),
         DistanceReferencePoint(name: "⑲昭和橋", distanceKm: 9, coordinate: CLLocationCoordinate2D(latitude: 36.192931, longitude: 139.511203)),
