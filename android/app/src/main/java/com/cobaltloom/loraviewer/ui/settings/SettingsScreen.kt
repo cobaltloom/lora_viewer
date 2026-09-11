@@ -13,7 +13,6 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
@@ -42,6 +41,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import com.cobaltloom.loraviewer.data.alert.AlertReferenceField
 import com.cobaltloom.loraviewer.data.alert.AltitudeCalculationMode
 import com.cobaltloom.loraviewer.data.alert.AltitudeStep
 import com.cobaltloom.loraviewer.data.alert.CompetitionTaskCourseData
@@ -49,7 +49,6 @@ import com.cobaltloom.loraviewer.data.alert.UpperAltitudeGuideline
 import com.cobaltloom.loraviewer.data.alert.UpperCeilingMode
 import com.cobaltloom.loraviewer.data.settings.ApiSettings
 import com.cobaltloom.loraviewer.data.settings.ApiSettingsRepository
-import com.cobaltloom.loraviewer.ui.map.DefaultAlertReferenceCoordinate
 import com.cobaltloom.loraviewer.ui.map.GliderTrackerViewModel
 import kotlinx.coroutines.launch
 
@@ -59,7 +58,6 @@ fun SettingsScreen(
     viewModel: GliderTrackerViewModel,
     apiSettingsRepository: ApiSettingsRepository,
     onBack: () -> Unit,
-    onOpenReferencePointPicker: () -> Unit,
     onRequireSubscription: () -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -236,38 +234,27 @@ fun SettingsScreen(
             }
 
             item {
-                SwitchRow(
-                    label = "基準地点を自分で指定する",
-                    checked = alertSettings.useCustomReference,
-                    onCheckedChange = { viewModel.updateAlertSettings(alertSettings.copy(useCustomReference = it)) },
-                )
-                if (alertSettings.useCustomReference) {
-                    val hasCustom = alertSettings.customLatitude != 0.0 || alertSettings.customLongitude != 0.0
-                    Text(
-                        if (hasCustom) {
-                            "%.5f, %.5f".format(alertSettings.customLatitude, alertSettings.customLongitude)
-                        } else {
-                            "未設定"
-                        },
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+                    FilterChip(
+                        selected = alertSettings.referenceField == AlertReferenceField.FIELD_1,
+                        onClick = { viewModel.updateAlertSettings(alertSettings.copy(referenceField = AlertReferenceField.FIELD_1)) },
+                        label = { Text("第1滑空場基準") },
+                        modifier = Modifier.weight(1f),
                     )
-                    TextButton(onClick = onOpenReferencePointPicker) {
-                        Icon(Icons.Filled.Map, contentDescription = null)
-                        Text("地図で選ぶ")
-                    }
-                } else {
-                    Text(
-                        "基準地点(サイトの初期座標): %.5f, %.5f".format(
-                            DefaultAlertReferenceCoordinate.latitude,
-                            DefaultAlertReferenceCoordinate.longitude,
-                        ),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    FilterChip(
+                        selected = alertSettings.referenceField == AlertReferenceField.FIELD_2,
+                        onClick = { viewModel.updateAlertSettings(alertSettings.copy(referenceField = AlertReferenceField.FIELD_2)) },
+                        label = { Text("第2滑空場基準") },
+                        modifier = Modifier.weight(1f).padding(start = 8.dp),
                     )
                 }
                 Text(
-                    "あくまで目安であり、実際の判断の根拠にはしないでください。高度は本サイトが提供する値(海抜高)をそのまま使っています。",
+                    "%.5f, %.5f".format(alertSettings.referenceField.coordinate.latitude, alertSettings.referenceField.coordinate.longitude),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    "基準地点は、競技会ガイドラインと同じ第1滑空場基準か、第2滑空場基準かを選べます。あくまで目安であり、実際の判断の根拠にはしないでください。高度は本サイトが提供する値(海抜高)をそのまま使っています。",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 8.dp),

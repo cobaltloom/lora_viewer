@@ -6,7 +6,6 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
@@ -18,7 +17,6 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.cobaltloom.loraviewer.data.alert.AlertSettingsRepository
 import com.cobaltloom.loraviewer.data.alert.CompetitionGuidelineRepository
-import com.cobaltloom.loraviewer.data.alert.Coordinate
 import com.cobaltloom.loraviewer.data.alert.TurnpointPassageLogRepository
 import com.cobaltloom.loraviewer.data.alert.UpperAltitudeGuidelineRepository
 import com.cobaltloom.loraviewer.data.billing.BillingRepository
@@ -35,7 +33,6 @@ import com.cobaltloom.loraviewer.ui.list.GliderListScreen
 import com.cobaltloom.loraviewer.ui.map.GliderTrackerViewModel
 import com.cobaltloom.loraviewer.ui.map.MapScreen
 import com.cobaltloom.loraviewer.ui.paywall.PaywallScreen
-import com.cobaltloom.loraviewer.ui.settings.ReferencePointPickerScreen
 import com.cobaltloom.loraviewer.ui.settings.SettingsScreen
 import com.cobaltloom.loraviewer.ui.theme.LoraViewerTheme
 import com.cobaltloom.loraviewer.ui.track.TrackHistoryScreen
@@ -60,7 +57,6 @@ private object Routes {
     const val SETTINGS = "settings"
     const val TRACK_HISTORY = "trackHistory"
     const val BOARD_SCAN = "boardScan"
-    const val REFERENCE_POINT_PICKER = "referencePointPicker"
     const val PAYWALL = "paywall"
     const val TURNPOINT_HISTORY = "turnpointHistory"
 }
@@ -154,7 +150,6 @@ private fun LoraViewerNavHost(billingRepository: BillingRepository) {
                 viewModel = viewModel,
                 apiSettingsRepository = apiSettingsRepository,
                 onBack = { navController.popBackStack() },
-                onOpenReferencePointPicker = { navController.navigate(Routes.REFERENCE_POINT_PICKER) },
                 onRequireSubscription = onRequireSubscription,
             )
         }
@@ -169,25 +164,6 @@ private fun LoraViewerNavHost(billingRepository: BillingRepository) {
         }
         composable(Routes.BOARD_SCAN) {
             BoardScanScreen(viewModel = viewModel, onDone = { navController.popBackStack() })
-        }
-        composable(Routes.REFERENCE_POINT_PICKER) {
-            val current by viewModel.uiState.collectAsState()
-            val alertSettings = current.alertSettings
-            val initial = if (alertSettings.customLatitude != 0.0 || alertSettings.customLongitude != 0.0) {
-                Coordinate(alertSettings.customLatitude, alertSettings.customLongitude)
-            } else {
-                null
-            }
-            ReferencePointPickerScreen(
-                initialCoordinate = initial,
-                onConfirm = { coordinate ->
-                    viewModel.updateAlertSettings(
-                        alertSettings.copy(customLatitude = coordinate.latitude, customLongitude = coordinate.longitude),
-                    )
-                    navController.popBackStack()
-                },
-                onCancel = { navController.popBackStack() },
-            )
         }
     }
 }

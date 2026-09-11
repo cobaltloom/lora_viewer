@@ -38,9 +38,6 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
-/** The safety-altitude reference point used when no custom one is set: JSAL's own airfield coordinate. */
-val DefaultAlertReferenceCoordinate = CompetitionAltitudeGuideline.referenceCoordinate
-
 data class GliderTrackerUiState(
     val config: AppConfig? = null,
     val positions: List<GliderPosition> = emptyList(),
@@ -94,7 +91,7 @@ data class GliderTrackerUiState(
     fun alertReasons(glider: GliderPosition): List<GliderAlertReason> {
         if (!isSubscribed) return emptyList()
         val reasons = mutableListOf<GliderAlertReason>()
-        alertSettings.alertSeverity(glider, DefaultAlertReferenceCoordinate)?.let {
+        alertSettings.alertSeverity(glider)?.let {
             reasons.add(GliderAlertReason("カスタム設定", it))
         }
         if (CompetitionAltitudeGuideline.isBelowGuideline(glider, competitionGuidelineSettings.isEnabled, alertSettings.minimumFlyingAltitudeM)) {

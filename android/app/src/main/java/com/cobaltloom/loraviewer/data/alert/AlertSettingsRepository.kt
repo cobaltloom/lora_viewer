@@ -36,6 +36,32 @@ enum class AltitudeCalculationMode {
 }
 
 /**
+ * Which of the airfield's two fields a custom altitude-alert distance is measured from. [FIELD_1]'s
+ * coordinate is JSAL's own published "妻沼滑空場中心" point ([CompetitionAltitudeGuideline.referenceCoordinate]),
+ * the same one the competition guideline itself assumes; [FIELD_2]'s is a separately surveyed
+ * point, since the two fields are far enough apart that using field 1's point for field 2 traffic
+ * would be misleading.
+ */
+@Serializable
+enum class AlertReferenceField {
+    FIELD_1,
+    FIELD_2,
+    ;
+
+    val coordinate: Coordinate
+        get() = when (this) {
+            FIELD_1 -> CompetitionAltitudeGuideline.referenceCoordinate
+            FIELD_2 -> Coordinate(36.200140, 139.434643)
+        }
+
+    val displayName: String
+        get() = when (this) {
+            FIELD_1 -> "第1滑空場基準"
+            FIELD_2 -> "第2滑空場基準"
+        }
+}
+
+/**
  * Configurable "minimum altitude beyond a distance" safety rule: gliders have no engine, so past
  * a given distance from the field they need enough altitude (MSL, matching the site's own
  * altitude data) to glide back. [mode] picks which of two ways to compute that required altitude
@@ -49,9 +75,7 @@ enum class AltitudeCalculationMode {
 data class AlertSettings(
     val isEnabled: Boolean = false,
     val mode: AltitudeCalculationMode = AltitudeCalculationMode.STEPS,
-    val useCustomReference: Boolean = false,
-    val customLatitude: Double = 0.0,
-    val customLongitude: Double = 0.0,
+    val referenceField: AlertReferenceField = AlertReferenceField.FIELD_1,
     val steps: List<AltitudeStep> = listOf(AltitudeStep(3.0, 350.0)),
     val arrivalAltitudeM: Double = 300.0,
     val cautionGlideRatio: Double = 20.0,
@@ -59,9 +83,9 @@ data class AlertSettings(
     /** Altitude (MSL) at or below which a position is treated as on the ground, never alerted on. */
     val minimumFlyingAltitudeM: Double = 60.0,
 ) {
-    /** The point distance is measured from: the custom point if set, otherwise [default]. */
-    fun referenceCoordinate(default: Coordinate?): Coordinate? =
-        if (useCustomReference) Coordinate(customLatitude, customLongitude) else default
+    /** The point distance is measured from: [referenceField]'s coordinate. */
+    val referenceCoordinate: Coordinate
+        get() = referenceField.coordinate
 
     /**
      * The minimum MSL altitude (meters) required at this distance in STEPS mode, or the required
@@ -78,11 +102,11 @@ data class AlertSettings(
     }
 
     /** This rule's alert severity for [glider], or null if it doesn't apply. */
-    fun alertSeverity(glider: GliderPosition, defaultReference: Coordinate?): AlertSeverity? {
+    fun alertSeverity(glider: GliderPosition): AlertSeverity? {
         if (!isEnabled) return null
         val alt = glider.alt ?: return null
         if (alt <= minimumFlyingAltitudeM) return null
-        val reference = referenceCoordinate(defaultReference) ?: return null
+        val reference = referenceCoordinate
         val distanceKm = distanceMeters(reference.latitude, reference.longitude, glider.lat, glider.lon) / 1000.0
 
         return when (mode) {

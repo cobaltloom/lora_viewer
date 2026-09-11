@@ -177,7 +177,7 @@ fun MapScreen(
 
     val hasAnyFavoritePosition = uiState.positions.any { uiState.isFavorite(it.imei) }
     val alertReferenceCoordinate = if (uiState.isSubscribed && uiState.alertSettings.isEnabled) {
-        uiState.alertSettings.referenceCoordinate(DefaultAlertReferenceCoordinate)
+        uiState.alertSettings.referenceCoordinate
     } else {
         null
     }
