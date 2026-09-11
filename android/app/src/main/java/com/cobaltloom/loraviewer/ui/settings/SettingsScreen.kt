@@ -152,7 +152,7 @@ fun SettingsScreen(
 
                 ProSectionHeader("地上目標地点", uiState.isSubscribed, onRequireSubscription)
                 SwitchRow(
-                    label = "表示する(①〜⑲)",
+                    label = "表示する",
                     checked = uiState.showDistanceReferencePoints,
                     onCheckedChange = {
                         if (uiState.isSubscribed) viewModel.setShowDistanceReferencePoints(it) else onRequireSubscription()
