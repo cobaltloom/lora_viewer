@@ -35,7 +35,7 @@ object DistanceReferencePointData {
         DistanceReferencePoint("⑭スバル大泉工場", 7.0, Coordinate(36.271549, 139.409691)),
         DistanceReferencePoint("⑮近藤沼", 7.0, Coordinate(36.226088, 139.50233)),
         // 9km
-        DistanceReferencePoint("⑯高山(西部工業団地)手前", 9.0, Coordinate(36.273072, 139.338928)),
+        DistanceReferencePoint("⑯高山(西部工業団地)", 9.0, Coordinate(36.273072, 139.338928)),
         DistanceReferencePoint("⑰スバル矢島工場", 9.0, Coordinate(36.276825, 139.371439)),
         DistanceReferencePoint("⑱多々良沼", 9.0, Coordinate(36.260236, 139.497473)),
         DistanceReferencePoint("⑲昭和橋", 9.0, Coordinate(36.192931, 139.511203)),
