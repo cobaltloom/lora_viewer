@@ -2,8 +2,6 @@ import SwiftUI
 import CoreLocation
 
 struct SettingsView: View {
-    let defaultReferenceCoordinate: CLLocationCoordinate2D?
-
     @EnvironmentObject var settings: APISettings
     @EnvironmentObject private var alertSettings: AlertSettings
     @EnvironmentObject private var competitionGuideline: CompetitionAltitudeGuideline
@@ -13,16 +11,8 @@ struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @AppStorage("showGliderTrails") private var showGliderTrails = true
     @AppStorage("showDistanceReferencePoints") private var showDistanceReferencePoints = false
-    @State private var showReferencePointPicker = false
     @State private var showDeleteAllStepsConfirmation = false
     @State private var showPaywall = false
-
-    private var referencePointPickerInitialCoordinate: CLLocationCoordinate2D? {
-        if alertSettings.customLatitude != 0 || alertSettings.customLongitude != 0 {
-            return CLLocationCoordinate2D(latitude: alertSettings.customLatitude, longitude: alertSettings.customLongitude)
-        }
-        return defaultReferenceCoordinate
-    }
 
     var body: some View {
         NavigationStack {
@@ -127,31 +117,14 @@ struct SettingsView: View {
                         }
                     }
 
-                    Toggle("基準地点を自分で指定する", isOn: $alertSettings.useCustomReference)
-
-                    if alertSettings.useCustomReference {
-                        LabeledContent("基準地点") {
-                            if alertSettings.customLatitude != 0 || alertSettings.customLongitude != 0 {
-                                Text(String(format: "%.5f, %.5f", alertSettings.customLatitude, alertSettings.customLongitude))
-                                    .foregroundStyle(.secondary)
-                            } else {
-                                Text("未設定")
-                                    .foregroundStyle(.secondary)
-                            }
+                    Picker("基準地点", selection: $alertSettings.referenceField) {
+                        ForEach(AlertReferenceField.allCases, id: \.self) { field in
+                            Text(field.displayName).tag(field)
                         }
-                        Button {
-                            showReferencePointPicker = true
-                        } label: {
-                            Label("地図で選ぶ", systemImage: "mappin.and.ellipse")
-                        }
-                    } else if let defaultReferenceCoordinate {
-                        LabeledContent("基準地点(サイトの初期座標)") {
-                            Text(String(format: "%.5f, %.5f", defaultReferenceCoordinate.latitude, defaultReferenceCoordinate.longitude))
-                                .foregroundStyle(.secondary)
-                        }
-                    } else {
-                        Text("基準地点がまだ取得できていません。しばらく待ってから確認するか、下のトグルで自分で座標を指定してください。")
-                            .font(.caption)
+                    }
+                    .pickerStyle(.segmented)
+                    LabeledContent(alertSettings.referenceField.displayName) {
+                        Text(String(format: "%.5f, %.5f", alertSettings.referenceField.coordinate.latitude, alertSettings.referenceField.coordinate.longitude))
                             .foregroundStyle(.secondary)
                     }
                     }
@@ -159,7 +132,7 @@ struct SettingsView: View {
                 } header: {
                     Text("高度不足アラート(カスタム設定)")
                 } footer: {
-                    Text("「距離ごとの段階」は、段階を複数追加して距離ごとに必要な高度を設定する方式です(各機体には、その時点の距離以下となる段階のうち最も距離が大きいものが適用されます)。「帰投高度とL/D」は、基準地点での必要高度に、距離÷滑空比(L/D)を加えた高度を必要高度とする方式で、警告と注意で異なる滑空比を設定し2段階で警告します。警告の滑空比は注意の滑空比より大きい値(より楽観的な数値)にしてください。地図上には、段階方式では各段階の距離を半径とした円が表示されます。あくまで目安であり、実際の判断の根拠にはしないでください。高度は本サイトが提供する値(海抜高)をそのまま使っています。")
+                    Text("「距離ごとの段階」は、段階を複数追加して距離ごとに必要な高度を設定する方式です(各機体には、その時点の距離以下となる段階のうち最も距離が大きいものが適用されます)。「帰投高度とL/D」は、基準地点での必要高度に、距離÷滑空比(L/D)を加えた高度を必要高度とする方式で、警告と注意で異なる滑空比を設定し2段階で警告します。警告の滑空比は注意の滑空比より大きい値(より楽観的な数値)にしてください。地図上には、段階方式では各段階の距離を半径とした円が表示されます。基準地点は、競技会ガイドラインと同じ第1滑空場基準か、第2滑空場基準かを選べます。あくまで目安であり、実際の判断の根拠にはしないでください。高度は本サイトが提供する値(海抜高)をそのまま使っています。")
                 }
 
                 Section {
@@ -300,13 +273,6 @@ struct SettingsView: View {
                 Button("キャンセル", role: .cancel) {}
             } message: {
                 Text("追加した段階がすべて削除されます。この操作は取り消せません。")
-            }
-            .sheet(isPresented: $showReferencePointPicker) {
-                ReferencePointPickerView(
-                    latitude: $alertSettings.customLatitude,
-                    longitude: $alertSettings.customLongitude,
-                    initialCoordinate: referencePointPickerInitialCoordinate
-                )
             }
             .sheet(isPresented: $showPaywall) {
                 PaywallView()

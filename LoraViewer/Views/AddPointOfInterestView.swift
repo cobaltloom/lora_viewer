@@ -3,7 +3,7 @@ import MapKit
 
 /// A standalone map for adding a named point of interest (e.g. a reliable
 /// thermal spot) by panning until a fixed center pin sits where you want
-/// it, then naming it — mirrors `ReferencePointPickerView`'s picking flow.
+/// it, then naming it.
 struct AddPointOfInterestView: View {
     @EnvironmentObject private var pointOfInterestStore: PointOfInterestStore
     @Environment(\.dismiss) private var dismiss

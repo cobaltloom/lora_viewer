@@ -43,6 +43,31 @@ enum AltitudeCalculationMode: String, Codable, Hashable {
     case glideRatio
 }
 
+/// Which of the airfield's two fields a custom altitude-alert distance is
+/// measured from. `field1`'s coordinate is JSAL's own published "妻沼滑空場
+/// 中心" point (`CompetitionAltitudeGuideline.referenceCoordinate`), the
+/// same one the competition guideline itself assumes; `field2`'s is a
+/// separately surveyed point, since the two fields are far enough apart
+/// that using field 1's point for field 2 traffic would be misleading.
+enum AlertReferenceField: String, Codable, CaseIterable {
+    case field1
+    case field2
+
+    var coordinate: CLLocationCoordinate2D {
+        switch self {
+        case .field1: return CompetitionAltitudeGuideline.referenceCoordinate
+        case .field2: return CLLocationCoordinate2D(latitude: 36.200140, longitude: 139.434643)
+        }
+    }
+
+    var displayName: String {
+        switch self {
+        case .field1: return "第1滑空場基準"
+        case .field2: return "第2滑空場基準"
+        }
+    }
+}
+
 /// Configurable "minimum altitude beyond a distance" safety rule: gliders
 /// have no engine, so past a given distance from the field they need enough
 /// altitude (MSL, matching the site's own altitude data) to glide back.
@@ -55,9 +80,7 @@ enum AltitudeCalculationMode: String, Codable, Hashable {
 final class AlertSettings: ObservableObject {
     @Published var isEnabled: Bool { didSet { persist() } }
     @Published var mode: AltitudeCalculationMode { didSet { persist() } }
-    @Published var useCustomReference: Bool { didSet { persist() } }
-    @Published var customLatitude: Double { didSet { persist() } }
-    @Published var customLongitude: Double { didSet { persist() } }
+    @Published var referenceField: AlertReferenceField { didSet { persist() } }
     @Published var steps: [AltitudeStep] { didSet { persist() } }
     /// Required MSL altitude right at the reference point, in glide-ratio mode.
     @Published var arrivalAltitudeM: Double { didSet { persist() } }
@@ -79,9 +102,7 @@ final class AlertSettings: ObservableObject {
     private enum Keys {
         static let isEnabled = "altIsEnabled"
         static let mode = "altMode"
-        static let useCustomReference = "altUseCustomReference"
-        static let customLat = "altCustomLat"
-        static let customLon = "altCustomLon"
+        static let referenceField = "altReferenceField"
         static let steps = "altSteps"
         static let arrivalAltM = "altArrivalAltitudeM"
         static let cautionGlideRatio = "altCautionGlideRatio"
@@ -98,9 +119,7 @@ final class AlertSettings: ObservableObject {
         let d = UserDefaults.standard
         isEnabled = d.bool(forKey: Keys.isEnabled)
         mode = AltitudeCalculationMode(rawValue: d.string(forKey: Keys.mode) ?? "") ?? .steps
-        useCustomReference = d.bool(forKey: Keys.useCustomReference)
-        customLatitude = d.double(forKey: Keys.customLat)
-        customLongitude = d.double(forKey: Keys.customLon)
+        referenceField = AlertReferenceField(rawValue: d.string(forKey: Keys.referenceField) ?? "") ?? .field1
 
         if let data = d.data(forKey: Keys.steps),
            let decoded = try? JSONDecoder().decode([AltitudeStep].self, from: data) {
@@ -137,15 +156,8 @@ final class AlertSettings: ObservableObject {
         minimumFlyingAltitudeM = storedFlyingAlt > 0 ? storedFlyingAlt : 60
     }
 
-    /// The point distance is measured from: the custom point if the user set
-    /// one, otherwise the site's own configured map center (normally the
-    /// airfield itself).
-    func referenceCoordinate(default defaultCoordinate: CLLocationCoordinate2D?) -> CLLocationCoordinate2D? {
-        if useCustomReference {
-            return CLLocationCoordinate2D(latitude: customLatitude, longitude: customLongitude)
-        }
-        return defaultCoordinate
-    }
+    /// The point distance is measured from: `referenceField`'s coordinate.
+    var referenceCoordinate: CLLocationCoordinate2D { referenceField.coordinate }
 
     /// The minimum MSL altitude (meters) required at this distance in
     /// `.steps` mode, or the required altitude at the given glide ratio in
@@ -169,11 +181,10 @@ final class AlertSettings: ObservableObject {
     /// doesn't apply. `.steps` mode is a single threshold, always
     /// `.warning` when triggered; `.glideRatio` mode checks both glide
     /// ratios and returns the more severe one that's crossed.
-    func alertSeverity(for glider: GliderPosition, defaultReference: CLLocationCoordinate2D?) -> AlertSeverity? {
+    func alertSeverity(for glider: GliderPosition) -> AlertSeverity? {
         guard isEnabled, let alt = glider.alt, alt > minimumFlyingAltitudeM else { return nil }
-        guard let reference = referenceCoordinate(default: defaultReference) else { return nil }
 
-        let referenceLocation = CLLocation(latitude: reference.latitude, longitude: reference.longitude)
+        let referenceLocation = CLLocation(latitude: referenceCoordinate.latitude, longitude: referenceCoordinate.longitude)
         let gliderLocation = CLLocation(latitude: glider.lat, longitude: glider.lon)
         let distanceKm = referenceLocation.distance(from: gliderLocation) / 1000.0
 
@@ -212,9 +223,7 @@ final class AlertSettings: ObservableObject {
         let d = UserDefaults.standard
         d.set(isEnabled, forKey: Keys.isEnabled)
         d.set(mode.rawValue, forKey: Keys.mode)
-        d.set(useCustomReference, forKey: Keys.useCustomReference)
-        d.set(customLatitude, forKey: Keys.customLat)
-        d.set(customLongitude, forKey: Keys.customLon)
+        d.set(referenceField.rawValue, forKey: Keys.referenceField)
         if let data = try? JSONEncoder().encode(steps) {
             d.set(data, forKey: Keys.steps)
         }

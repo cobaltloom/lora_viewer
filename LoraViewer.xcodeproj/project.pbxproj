@@ -43,7 +43,6 @@
 		7ADC2A1A18CB693A38DE4D98 /* BoardScanView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCA4F805F9B2B88BA1E7A2F6 /* BoardScanView.swift */; };
 		34EF938185644A3F1CCCAF88 /* CameraCaptureView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00255660CDBB7F98DF061200 /* CameraCaptureView.swift */; };
 		F8EACEED39ECA9C1977593C7 /* FavoriteButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 571940B76C07CC36B2A44623 /* FavoriteButton.swift */; };
-		6820FE34C22F3FE3DEDFCD38 /* ReferencePointPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 554EAAE69FC431778CA0BA24 /* ReferencePointPickerView.swift */; };
 		A5926228A3084A18EF58E11F /* PaywallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2AF394CF9F6557D6C2736A87 /* PaywallView.swift */; };
 		6FCB4A1F8C1598963305BAB6 /* TurnpointPassageHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65E6489C7CC64C25A161B631 /* TurnpointPassageHistoryView.swift */; };
 		F622A31248518CBD121BAEF7 /* AddPointOfInterestView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8D0F15370CC45F6BEB9EED6 /* AddPointOfInterestView.swift */; };
@@ -93,7 +92,6 @@
 		DCA4F805F9B2B88BA1E7A2F6 /* BoardScanView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "BoardScanView.swift"; sourceTree = "<group>"; };
 		00255660CDBB7F98DF061200 /* CameraCaptureView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CameraCaptureView.swift"; sourceTree = "<group>"; };
 		571940B76C07CC36B2A44623 /* FavoriteButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "FavoriteButton.swift"; sourceTree = "<group>"; };
-		554EAAE69FC431778CA0BA24 /* ReferencePointPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ReferencePointPickerView.swift"; sourceTree = "<group>"; };
 		2AF394CF9F6557D6C2736A87 /* PaywallView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PaywallView.swift"; sourceTree = "<group>"; };
 		65E6489C7CC64C25A161B631 /* TurnpointPassageHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TurnpointPassageHistoryView.swift"; sourceTree = "<group>"; };
 		E8D0F15370CC45F6BEB9EED6 /* AddPointOfInterestView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AddPointOfInterestView.swift"; sourceTree = "<group>"; };
@@ -203,7 +201,6 @@
 				DCA4F805F9B2B88BA1E7A2F6 /* BoardScanView.swift */,
 				00255660CDBB7F98DF061200 /* CameraCaptureView.swift */,
 				571940B76C07CC36B2A44623 /* FavoriteButton.swift */,
-				554EAAE69FC431778CA0BA24 /* ReferencePointPickerView.swift */,
 				2AF394CF9F6557D6C2736A87 /* PaywallView.swift */,
 				65E6489C7CC64C25A161B631 /* TurnpointPassageHistoryView.swift */,
 				E8D0F15370CC45F6BEB9EED6 /* AddPointOfInterestView.swift */,
@@ -342,7 +339,6 @@
 				7ADC2A1A18CB693A38DE4D98 /* BoardScanView.swift in Sources */,
 				34EF938185644A3F1CCCAF88 /* CameraCaptureView.swift in Sources */,
 				F8EACEED39ECA9C1977593C7 /* FavoriteButton.swift in Sources */,
-				6820FE34C22F3FE3DEDFCD38 /* ReferencePointPickerView.swift in Sources */,
 				A5926228A3084A18EF58E11F /* PaywallView.swift in Sources */,
 				6FCB4A1F8C1598963305BAB6 /* TurnpointPassageHistoryView.swift in Sources */,
 				F622A31248518CBD121BAEF7 /* AddPointOfInterestView.swift in Sources */,

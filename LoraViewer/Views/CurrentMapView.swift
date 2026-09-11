@@ -61,19 +61,8 @@ struct CurrentMapView: View {
         return favorites.isEmpty ? viewModel.positions : favorites
     }
 
-    /// The safety-altitude reference point used when no custom one is set:
-    /// the airfield coordinate from JSAL's own guideline document. The
-    /// site's own "settings.lat/lon" turned out unreliable for this — it's
-    /// sometimes 0 (Tokyo Station in MapKit's fallback region) and
-    /// sometimes some other value far from the actual field, so circles
-    /// drawn around it could end up off-screen. This coordinate is the one
-    /// value known to actually be the airfield.
-    private var defaultReferenceCoordinate: CLLocationCoordinate2D {
-        CompetitionAltitudeGuideline.referenceCoordinate
-    }
-
-    private var alertReferenceCoordinate: CLLocationCoordinate2D? {
-        alertSettings.referenceCoordinate(default: defaultReferenceCoordinate)
+    private var alertReferenceCoordinate: CLLocationCoordinate2D {
+        alertSettings.referenceCoordinate
     }
 
     /// The three altitude-based alert reasons only (not proximity) — kept
@@ -87,7 +76,7 @@ struct CurrentMapView: View {
         // after lapsing.
         guard subscriptionManager.isSubscribed else { return [] }
         var reasons: [GliderAlertReason] = []
-        if let severity = alertSettings.alertSeverity(for: glider, defaultReference: defaultReferenceCoordinate) {
+        if let severity = alertSettings.alertSeverity(for: glider) {
             reasons.append(GliderAlertReason(label: "カスタム設定", severity: severity))
         }
         if competitionGuideline.isBelowGuideline(glider, minimumFlyingAltitudeM: alertSettings.minimumFlyingAltitudeM) {
@@ -146,7 +135,7 @@ struct CurrentMapView: View {
         NavigationStack {
             ZStack(alignment: .bottom) {
                 Map(position: $cameraPosition) {
-                    if subscriptionManager.isSubscribed, alertSettings.isEnabled, let alertReferenceCoordinate {
+                    if subscriptionManager.isSubscribed, alertSettings.isEnabled {
                         if alertSettings.mode == .steps {
                             ForEach(alertSettings.steps) { step in
                                 MapCircle(center: alertReferenceCoordinate, radius: step.distanceKm * 1000)
@@ -368,7 +357,7 @@ struct CurrentMapView: View {
                 }
             }
             .sheet(isPresented: $showSettings) {
-                SettingsView(defaultReferenceCoordinate: defaultReferenceCoordinate)
+                SettingsView()
                     .environmentObject(settings)
             }
             .sheet(isPresented: $showPaywall) {
@@ -517,8 +506,7 @@ struct CurrentMapView: View {
             return
         }
         let flying = positions.filter { ($0.alt ?? 0) > alertSettings.minimumFlyingAltitudeM }
-        let referenceLocation = alertSettings.referenceCoordinate(default: defaultReferenceCoordinate)
-            .map { CLLocation(latitude: $0.latitude, longitude: $0.longitude) }
+        let referenceLocation = CLLocation(latitude: alertSettings.referenceCoordinate.latitude, longitude: alertSettings.referenceCoordinate.longitude)
         let patternRadiusM = proximityAlertSettings.patternExclusionRadiusKm * 1000
         let patternCeilingM = proximityAlertSettings.patternExclusionCeilingM
         var reasonsByIMEI: [String: [GliderAlertReason]] = [:]
@@ -543,7 +531,7 @@ struct CurrentMapView: View {
                 // landing pattern) — cap at .caution there so a notification
                 // doesn't fire on essentially every landing.
                 let isInPattern: Bool = {
-                    guard let referenceLocation, altitudeA <= patternCeilingM, altitudeB <= patternCeilingM else { return false }
+                    guard altitudeA <= patternCeilingM, altitudeB <= patternCeilingM else { return false }
                     return referenceLocation.distance(from: locationA) <= patternRadiusM
                         && referenceLocation.distance(from: locationB) <= patternRadiusM
                 }()
