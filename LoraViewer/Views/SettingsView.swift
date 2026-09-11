@@ -76,10 +76,6 @@ struct SettingsView: View {
                         }
                     }
                     .pickerStyle(.segmented)
-                    LabeledContent(alertSettings.referenceField.displayName) {
-                        Text(String(format: "%.5f, %.5f", alertSettings.referenceField.coordinate.latitude, alertSettings.referenceField.coordinate.longitude))
-                            .foregroundStyle(.secondary)
-                    }
 
                     Picker("計算方法", selection: $alertSettings.mode) {
                         Text("距離ごとの段階").tag(AltitudeCalculationMode.steps)
