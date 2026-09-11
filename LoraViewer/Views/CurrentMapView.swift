@@ -76,11 +76,18 @@ struct CurrentMapView: View {
         // after lapsing.
         guard subscriptionManager.isSubscribed else { return [] }
         var reasons: [GliderAlertReason] = []
-        if let severity = alertSettings.alertSeverity(for: glider) {
-            reasons.append(GliderAlertReason(label: "カスタム設定", severity: severity))
-        }
-        if competitionGuideline.isBelowGuideline(glider, minimumFlyingAltitudeM: alertSettings.minimumFlyingAltitudeM) {
-            reasons.append(GliderAlertReason(label: "競技会ガイドライン", severity: .warning))
+        // When one or more gliders are favorited, only they are checked against the custom
+        // altitude alert and competition guideline — otherwise, e.g. a glider flying from a
+        // different field than the one these are configured for triggers noise notifications
+        // for gliders the person tracking them doesn't actually care about. With no favorites
+        // set, every glider is checked, same as before this distinction existed.
+        if favoritesStore.favoriteIMEIs.isEmpty || favoritesStore.isFavorite(glider.imei) {
+            if let severity = alertSettings.alertSeverity(for: glider) {
+                reasons.append(GliderAlertReason(label: "カスタム設定", severity: severity))
+            }
+            if competitionGuideline.isBelowGuideline(glider, minimumFlyingAltitudeM: alertSettings.minimumFlyingAltitudeM) {
+                reasons.append(GliderAlertReason(label: "競技会ガイドライン", severity: .warning))
+            }
         }
         if upperAltitudeGuideline.exceedsCeiling(glider), let zone = upperAltitudeGuideline.applicableZone(for: glider) {
             reasons.append(GliderAlertReason(label: "\(zone.name)上限超過", severity: .warning))
