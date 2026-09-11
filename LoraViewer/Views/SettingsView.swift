@@ -74,6 +74,22 @@ struct SettingsView: View {
                             Label("購読して有効化", systemImage: "lock.fill")
                         }
                     }
+                    Toggle("地上目標地点を表示(①〜⑲)", isOn: $showDistanceReferencePoints)
+                        .disabled(!subscriptionManager.isSubscribed)
+                } header: {
+                    Text("地上目標地点")
+                } footer: {
+                    Text("日本学生航空連盟(JSAL)妻沼滑空場の公式資料(図3、Ver.2026-01-26)掲載の19地点(妻沼滑空場中心点から3/5/7/9kmの目安目標)と、それに加えたローカルの目印を、実在の場所の座標で地図上に表示します。上限高度アラートとは独立した機能で、あくまで目安であり、実際の判断の根拠にはしないでください。")
+                }
+
+                Section {
+                    if !subscriptionManager.isSubscribed {
+                        Button {
+                            showPaywall = true
+                        } label: {
+                            Label("購読して有効化", systemImage: "lock.fill")
+                        }
+                    }
                     Group {
                     Toggle("高度不足アラートを有効にする", isOn: $alertSettings.isEnabled)
 
@@ -230,22 +246,6 @@ struct SettingsView: View {
                     Text("上限高度アラート(妻沼滑空場)")
                 } footer: {
                     Text("公式資料のA区域・B区域の境界に基づき、区域内でその上限高度を超えるとアラートを出します。A区域は常に4,500ft MSL。B区域は平日2,500ft、土日祝日3,500ftで、「今日を祝日として扱う」で土日以外の祝日にも対応できます。競技会など別の上限が許可されている期間は「競技会中」を選び、許可された値を入力してください。区域の境界(緯度経度)は公式資料に基づく固定値のため、ここでは変更できません。")
-                }
-
-                Section {
-                    if !subscriptionManager.isSubscribed {
-                        Button {
-                            showPaywall = true
-                        } label: {
-                            Label("購読して有効化", systemImage: "lock.fill")
-                        }
-                    }
-                    Toggle("地上目標地点を表示(①〜⑲)", isOn: $showDistanceReferencePoints)
-                        .disabled(!subscriptionManager.isSubscribed)
-                } header: {
-                    Text("地上目標地点")
-                } footer: {
-                    Text("日本学生航空連盟(JSAL)妻沼滑空場の公式資料(図3、Ver.2026-01-26)掲載の19地点(妻沼滑空場中心点から3/5/7/9kmの目安目標)と、それに加えたローカルの目印を、実在の場所の座標で地図上に表示します。上限高度アラートとは独立した機能で、あくまで目安であり、実際の判断の根拠にはしないでください。")
                 }
 
                 Section {
