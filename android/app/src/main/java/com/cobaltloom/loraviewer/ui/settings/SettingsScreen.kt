@@ -159,6 +159,25 @@ fun SettingsScreen(
                 )
                 Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
                     FilterChip(
+                        selected = alertSettings.referenceField == AlertReferenceField.FIELD_1,
+                        onClick = { viewModel.updateAlertSettings(alertSettings.copy(referenceField = AlertReferenceField.FIELD_1)) },
+                        label = { Text("第1滑空場基準") },
+                        modifier = Modifier.weight(1f),
+                    )
+                    FilterChip(
+                        selected = alertSettings.referenceField == AlertReferenceField.FIELD_2,
+                        onClick = { viewModel.updateAlertSettings(alertSettings.copy(referenceField = AlertReferenceField.FIELD_2)) },
+                        label = { Text("第2滑空場基準") },
+                        modifier = Modifier.weight(1f).padding(start = 8.dp),
+                    )
+                }
+                Text(
+                    "%.5f, %.5f".format(alertSettings.referenceField.coordinate.latitude, alertSettings.referenceField.coordinate.longitude),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+                    FilterChip(
                         selected = alertSettings.mode == AltitudeCalculationMode.STEPS,
                         onClick = { viewModel.updateAlertSettings(alertSettings.copy(mode = AltitudeCalculationMode.STEPS)) },
                         label = { Text("距離ごとの段階") },
@@ -234,25 +253,6 @@ fun SettingsScreen(
             }
 
             item {
-                Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
-                    FilterChip(
-                        selected = alertSettings.referenceField == AlertReferenceField.FIELD_1,
-                        onClick = { viewModel.updateAlertSettings(alertSettings.copy(referenceField = AlertReferenceField.FIELD_1)) },
-                        label = { Text("第1滑空場基準") },
-                        modifier = Modifier.weight(1f),
-                    )
-                    FilterChip(
-                        selected = alertSettings.referenceField == AlertReferenceField.FIELD_2,
-                        onClick = { viewModel.updateAlertSettings(alertSettings.copy(referenceField = AlertReferenceField.FIELD_2)) },
-                        label = { Text("第2滑空場基準") },
-                        modifier = Modifier.weight(1f).padding(start = 8.dp),
-                    )
-                }
-                Text(
-                    "%.5f, %.5f".format(alertSettings.referenceField.coordinate.latitude, alertSettings.referenceField.coordinate.longitude),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
                 Text(
                     "基準地点は、競技会ガイドラインと同じ第1滑空場基準か、第2滑空場基準かを選べます。あくまで目安であり、実際の判断の根拠にはしないでください。高度は本サイトが提供する値(海抜高)をそのまま使っています。",
                     style = MaterialTheme.typography.bodySmall,
