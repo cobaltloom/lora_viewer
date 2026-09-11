@@ -33,35 +33,39 @@ struct GliderListView: View {
                      : "この端末だけのニックネームになります。他の利用者の変更は反映されず、この端末での変更も共有されません。")
             }
 
-            ForEach(sortedPositions) { glider in
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack {
-                        FavoriteButton(imei: glider.imei)
-                        EditableGliderName(imei: glider.imei, baseName: viewModel.nameFor(index: glider.index))
-                            .font(.headline)
-                        Spacer()
-                        if glider.isDisconnected {
-                            Text("切断")
-                                .font(.caption)
-                                .foregroundStyle(.red)
-                        } else {
-                            Text(glider.source.label)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+            Section {
+                ForEach(sortedPositions) { glider in
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack {
+                            FavoriteButton(imei: glider.imei)
+                            EditableGliderName(imei: glider.imei, baseName: viewModel.nameFor(index: glider.index))
+                                .font(.headline)
+                            Spacer()
+                            if glider.isDisconnected {
+                                Text("切断")
+                                    .font(.caption)
+                                    .foregroundStyle(.red)
+                            } else {
+                                Text(glider.source.label)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
                         }
+                        HStack(spacing: 12) {
+                            if let alt = glider.alt {
+                                Text("高度 \(Int(alt)) m")
+                            }
+                            if let date = glider.positionDateTimeUTC {
+                                Text(date, style: .time)
+                            }
+                        }
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
                     }
-                    HStack(spacing: 12) {
-                        if let alt = glider.alt {
-                            Text("高度 \(Int(alt)) m")
-                        }
-                        if let date = glider.positionDateTimeUTC {
-                            Text(date, style: .time)
-                        }
-                    }
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .padding(.vertical, 4)
                 }
-                .padding(.vertical, 4)
+            } footer: {
+                Text("★でお気に入りに登録した機体が1機以上あると、高度不足アラート(カスタム設定)と競技会ガイドラインのアラートはお気に入りの機体だけが対象になります。お気に入りが0機のときは全機が対象です。")
             }
         }
         .navigationTitle("メンバー一覧")
