@@ -77,6 +77,15 @@ fun GliderListScreen(
     ) { padding ->
         LazyColumn(modifier = Modifier.padding(padding)) {
             item {
+                Text(
+                    "★でお気に入りに登録した機体が1機以上あると、高度不足アラート(カスタム設定)と競技会ガイドラインのアラートはお気に入りの機体だけが対象になります。お気に入りが0機のときは全機が対象です。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                )
+                HorizontalDivider()
+            }
+            item {
                 Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
                     Text("ニックネームの同期", style = MaterialTheme.typography.titleSmall)
                     Row(modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
@@ -105,14 +114,6 @@ fun GliderListScreen(
                     )
                 }
                 HorizontalDivider()
-            }
-            item {
-                Text(
-                    "★でお気に入りに登録した機体が1機以上あると、高度不足アラート(カスタム設定)と競技会ガイドラインのアラートはお気に入りの機体だけが対象になります。お気に入りが0機のときは全機が対象です。",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                )
             }
             items(sortedPositions, key = { it.imei }) { glider ->
                 Row(
