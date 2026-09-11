@@ -240,10 +240,10 @@ struct SettingsView: View {
                             Label("購読して有効化", systemImage: "lock.fill")
                         }
                     }
-                    Toggle("距離目安地点を表示(①〜⑲)", isOn: $showDistanceReferencePoints)
+                    Toggle("地上目標地点を表示(①〜⑲)", isOn: $showDistanceReferencePoints)
                         .disabled(!subscriptionManager.isSubscribed)
                 } header: {
-                    Text("距離目安地点")
+                    Text("地上目標地点")
                 } footer: {
                     Text("日本学生航空連盟(JSAL)妻沼滑空場の公式資料(図3、Ver.2026-01-26)掲載の19地点(妻沼滑空場中心点から3/5/7/9kmの目安目標)と、それに加えたローカルの目印を、実在の場所の座標で地図上に表示します。上限高度アラートとは独立した機能で、あくまで目安であり、実際の判断の根拠にはしないでください。")
                 }
