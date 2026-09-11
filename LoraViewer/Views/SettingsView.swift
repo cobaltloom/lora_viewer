@@ -18,14 +18,6 @@ struct SettingsView: View {
         NavigationStack {
             Form {
                 Section {
-                    Stepper(value: $settings.refreshIntervalSeconds, in: 3...60, step: 1) {
-                        Text("\(Int(settings.refreshIntervalSeconds)) 秒ごとに更新")
-                    }
-                } header: {
-                    Text("更新間隔")
-                }
-
-                Section {
                     Toggle("軌跡を表示", isOn: $showGliderTrails)
                 } header: {
                     Text("地図表示")
@@ -250,6 +242,16 @@ struct SettingsView: View {
                     Text("サーバー")
                 } footer: {
                     Text("シークレットキーは通常は空欄のままで問題ありません。動作しない場合のみ、MacのSafariで「開発」>「Webインスペクタを表示」の「ネットワーク」タブから mapapi.php へのリクエストを確認し、URL中に key= があればその値を入力してください。")
+                }
+
+                Section {
+                    Stepper(value: $settings.refreshIntervalSeconds, in: 3...60, step: 1) {
+                        Text("\(Int(settings.refreshIntervalSeconds)) 秒ごとに更新")
+                    }
+                } header: {
+                    Text("更新間隔")
+                } footer: {
+                    Text("接続先のサーバーに負荷をかけるため、短くしすぎないでください。機体側の送信間隔もこれより速くはならないため、短くしても位置情報が特に速く更新されるわけではありません。")
                 }
             }
             .navigationTitle("設定")
