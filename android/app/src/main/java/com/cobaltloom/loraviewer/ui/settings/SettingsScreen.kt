@@ -150,6 +150,22 @@ fun SettingsScreen(
                 )
                 HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
 
+                ProSectionHeader("地上目標地点", uiState.isSubscribed, onRequireSubscription)
+                SwitchRow(
+                    label = "表示する(①〜⑲)",
+                    checked = uiState.showDistanceReferencePoints,
+                    onCheckedChange = {
+                        if (uiState.isSubscribed) viewModel.setShowDistanceReferencePoints(it) else onRequireSubscription()
+                    },
+                )
+                Text(
+                    "日本学生航空連盟(JSAL)妻沼滑空場の公式資料(図3、Ver.2026-01-26)掲載の19地点(妻沼滑空場中心点から3/5/7/9kmの目安目標)と、それに加えたローカルの目印を、実在の場所の座標で地図上に表示します。上限高度アラートとは独立した機能で、あくまで目安であり、実際の判断の根拠にはしないでください。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp, bottom = 4.dp),
+                )
+                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
+
                 ProSectionHeader("高度不足アラート(カスタム設定)", uiState.isSubscribed, onRequireSubscription)
                 SwitchRow(
                     label = "有効にする",
@@ -376,22 +392,6 @@ fun SettingsScreen(
                 )
                 Text(
                     "公式資料のA区域・B区域の境界に基づき、区域内でその上限高度を超えるとアラートを出します。あくまで目安であり、実際の判断の根拠にはしないでください。",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 4.dp, bottom = 4.dp),
-                )
-                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
-
-                ProSectionHeader("地上目標地点", uiState.isSubscribed, onRequireSubscription)
-                SwitchRow(
-                    label = "表示する(①〜⑲)",
-                    checked = uiState.showDistanceReferencePoints,
-                    onCheckedChange = {
-                        if (uiState.isSubscribed) viewModel.setShowDistanceReferencePoints(it) else onRequireSubscription()
-                    },
-                )
-                Text(
-                    "日本学生航空連盟(JSAL)妻沼滑空場の公式資料(図3、Ver.2026-01-26)掲載の19地点(妻沼滑空場中心点から3/5/7/9kmの目安目標)と、それに加えたローカルの目印を、実在の場所の座標で地図上に表示します。上限高度アラートとは独立した機能で、あくまで目安であり、実際の判断の根拠にはしないでください。",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 4.dp, bottom = 24.dp),
