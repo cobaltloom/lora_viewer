@@ -91,11 +91,18 @@ data class GliderTrackerUiState(
     fun alertReasons(glider: GliderPosition): List<GliderAlertReason> {
         if (!isSubscribed) return emptyList()
         val reasons = mutableListOf<GliderAlertReason>()
-        alertSettings.alertSeverity(glider)?.let {
-            reasons.add(GliderAlertReason("カスタム設定", it))
-        }
-        if (CompetitionAltitudeGuideline.isBelowGuideline(glider, competitionGuidelineSettings.isEnabled, alertSettings.minimumFlyingAltitudeM)) {
-            reasons.add(GliderAlertReason("競技会ガイドライン", AlertSeverity.WARNING))
+        // When one or more gliders are favorited, only they are checked against the custom
+        // altitude alert and competition guideline - otherwise, e.g. a glider flying from a
+        // different field than the one these are configured for triggers noise notifications
+        // for gliders the person tracking them doesn't actually care about. With no favorites
+        // set, every glider is checked, same as before this distinction existed.
+        if (favorites.isEmpty() || glider.imei in favorites) {
+            alertSettings.alertSeverity(glider)?.let {
+                reasons.add(GliderAlertReason("カスタム設定", it))
+            }
+            if (CompetitionAltitudeGuideline.isBelowGuideline(glider, competitionGuidelineSettings.isEnabled, alertSettings.minimumFlyingAltitudeM)) {
+                reasons.add(GliderAlertReason("競技会ガイドライン", AlertSeverity.WARNING))
+            }
         }
         if (upperAltitudeSettings.exceedsCeiling(glider)) {
             val zoneName = upperAltitudeSettings.applicableZone(glider)?.first.orEmpty()
