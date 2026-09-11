@@ -215,15 +215,15 @@ struct CurrentMapView: View {
                         MapPolygon(coordinates: UpperAltitudeGuideline.zoneB.boundary)
                             .foregroundStyle(.cyan.opacity(0.06))
                             .stroke(.cyan.opacity(0.6), lineWidth: 1.5)
-                        if showDistanceReferencePoints {
-                            ForEach(DistanceReferencePointData.points) { point in
-                                Annotation(point.name, coordinate: point.coordinate) {
-                                    Text(String(point.name.first ?? "?"))
-                                        .font(.system(size: 9, weight: .bold))
-                                        .foregroundStyle(.white)
-                                        .padding(5)
-                                        .background(Circle().fill(.indigo))
-                                }
+                    }
+                    if subscriptionManager.isSubscribed, showDistanceReferencePoints {
+                        ForEach(DistanceReferencePointData.points) { point in
+                            Annotation(point.name, coordinate: point.coordinate) {
+                                Text(String(point.name.first ?? "?"))
+                                    .font(.system(size: 9, weight: .bold))
+                                    .foregroundStyle(.white)
+                                    .padding(5)
+                                    .background(Circle().fill(.indigo))
                             }
                         }
                     }
