@@ -58,6 +58,9 @@ data class GliderTrackerUiState(
     /** Whether the map shows satellite/aerial imagery instead of the standard map - a free,
      * device-local display preference. */
     val showSatelliteMap: Boolean = false,
+    /** Whether JSAL's distance-judging landmarks are drawn on the map, alongside the upper
+     * altitude guideline zones - a subscriber-only display preference. */
+    val showDistanceReferencePoints: Boolean = false,
     val showFavoritesOnly: Boolean = false,
     val lastUpdated: Instant? = null,
     val errorMessage: String? = null,
@@ -195,6 +198,11 @@ class GliderTrackerViewModel(
                 _uiState.update { it.copy(showSatelliteMap = show) }
             }
         }
+        viewModelScope.launch {
+            mapDisplaySettingsRepository.showDistanceReferencePoints.collect { show ->
+                _uiState.update { it.copy(showDistanceReferencePoints = show) }
+            }
+        }
     }
 
     fun startPolling() {
@@ -264,6 +272,10 @@ class GliderTrackerViewModel(
 
     fun toggleSatelliteMap() {
         viewModelScope.launch { mapDisplaySettingsRepository.setShowSatelliteMap(!_uiState.value.showSatelliteMap) }
+    }
+
+    fun setShowDistanceReferencePoints(show: Boolean) {
+        viewModelScope.launch { mapDisplaySettingsRepository.setShowDistanceReferencePoints(show) }
     }
 
     suspend fun refreshOnce() {
