@@ -247,10 +247,10 @@ struct SettingsView: View {
                     Toggle("有効にする", isOn: $proximityAlertSettings.isEnabled)
 
                     Stepper(value: $proximityAlertSettings.cautionDistanceM, in: 50...2000, step: 50) {
-                        Text("注意(地図表示のみ): \(Int(proximityAlertSettings.cautionDistanceM)) m 以内")
+                        Text("注意(地図表示のみ): 水平距離 \(Int(proximityAlertSettings.cautionDistanceM)) m 以内")
                     }
                     Stepper(value: $proximityAlertSettings.warningDistanceM, in: 30...1000, step: 10) {
-                        Text("警告(通知): \(Int(proximityAlertSettings.warningDistanceM)) m 以内")
+                        Text("警告(通知): 水平距離 \(Int(proximityAlertSettings.warningDistanceM)) m 以内")
                     }
                     Stepper(value: $proximityAlertSettings.maxAltitudeDifferenceM, in: 10...500, step: 10) {
                         Text("高度差 \(Int(proximityAlertSettings.maxAltitudeDifferenceM)) m 以内のみ対象")
