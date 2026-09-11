@@ -22,26 +22,26 @@ enum DistanceReferencePointData {
     static let points: [DistanceReferencePoint] = [
         // 3km
         DistanceReferencePoint(name: "①青屋根(味の素)", distanceKm: 3, coordinate: CLLocationCoordinate2D(latitude: 36.19998, longitude: 139.38859)),
-        DistanceReferencePoint(name: "②サントリー工場手前", distanceKm: 3, coordinate: CLLocationCoordinate2D(latitude: 36.21374, longitude: 139.45220)),
+        DistanceReferencePoint(name: "②サントリー工場手前", distanceKm: 3, coordinate: CLLocationCoordinate2D(latitude: 36.227707, longitude: 139.449893)),
         DistanceReferencePoint(name: "③第2滑空場南端対岸赤・黄色の水門塔", distanceKm: 3, coordinate: CLLocationCoordinate2D(latitude: 36.18604, longitude: 139.40746)),
         DistanceReferencePoint(name: "④メタルワン建材", distanceKm: 3, coordinate: CLLocationCoordinate2D(latitude: 36.22061, longitude: 139.45031)),
         // 5km
-        DistanceReferencePoint(name: "⑤刀水橋南詰", distanceKm: 5, coordinate: CLLocationCoordinate2D(latitude: 36.21530, longitude: 139.36337)),
-        DistanceReferencePoint(name: "⑥いずみ総合公園野球場", distanceKm: 5, coordinate: CLLocationCoordinate2D(latitude: 36.19974, longitude: 139.36506)),
-        DistanceReferencePoint(name: "⑦御正作公園", distanceKm: 5, coordinate: CLLocationCoordinate2D(latitude: 36.25364, longitude: 139.39982)),
-        DistanceReferencePoint(name: "⑧城之内公園", distanceKm: 5, coordinate: CLLocationCoordinate2D(latitude: 36.25618, longitude: 139.41403)),
-        DistanceReferencePoint(name: "⑨パナソニック中央交差点", distanceKm: 5, coordinate: CLLocationCoordinate2D(latitude: 36.22676, longitude: 139.36651)),
-        DistanceReferencePoint(name: "⑩田の字(鞍掛第一工業団地)中心", distanceKm: 5, coordinate: CLLocationCoordinate2D(latitude: 36.20746, longitude: 139.47440)),
-        DistanceReferencePoint(name: "⑪ジョイフル本田", distanceKm: 5, coordinate: CLLocationCoordinate2D(latitude: 36.19237, longitude: 139.46939)),
-        DistanceReferencePoint(name: "⑫千代田町立東小", distanceKm: 5, coordinate: CLLocationCoordinate2D(latitude: 36.20746, longitude: 139.47440)),
+        DistanceReferencePoint(name: "⑤刀水橋南詰", distanceKm: 5, coordinate: CLLocationCoordinate2D(latitude: 36.239919, longitude: 139.378726)),
+        DistanceReferencePoint(name: "⑥いずみ総合公園野球場", distanceKm: 5, coordinate: CLLocationCoordinate2D(latitude: 36.245464, longitude: 139.394687)),
+        DistanceReferencePoint(name: "⑦御正作公園", distanceKm: 5, coordinate: CLLocationCoordinate2D(latitude: 36.251963, longitude: 139.422989)),
+        DistanceReferencePoint(name: "⑧城之内公園", distanceKm: 5, coordinate: CLLocationCoordinate2D(latitude: 36.260831, longitude: 139.412929)),
+        DistanceReferencePoint(name: "⑨パナソニック中央交差点", distanceKm: 5, coordinate: CLLocationCoordinate2D(latitude: 36.252342, longitude: 139.400896)),
+        DistanceReferencePoint(name: "⑩田の字(鞍掛第一工業団地)中心", distanceKm: 5, coordinate: CLLocationCoordinate2D(latitude: 36.224179, longitude: 139.469551)),
+        DistanceReferencePoint(name: "⑪ジョイフル本田", distanceKm: 5, coordinate: CLLocationCoordinate2D(latitude: 36.205613, longitude: 139.472661)),
+        DistanceReferencePoint(name: "⑫千代田町立東小", distanceKm: 5, coordinate: CLLocationCoordinate2D(latitude: 36.199496, longitude: 139.46518)),
         // 7km
         DistanceReferencePoint(name: "⑬石田川分流点の橋", distanceKm: 7, coordinate: CLLocationCoordinate2D(latitude: 36.25589, longitude: 139.36369)),
-        DistanceReferencePoint(name: "⑭スバル大泉工場", distanceKm: 7, coordinate: CLLocationCoordinate2D(latitude: 36.24748, longitude: 139.48283)),
-        DistanceReferencePoint(name: "⑮近藤沼", distanceKm: 7, coordinate: CLLocationCoordinate2D(latitude: 36.20043, longitude: 139.49572)),
+        DistanceReferencePoint(name: "⑭スバル大泉工場", distanceKm: 7, coordinate: CLLocationCoordinate2D(latitude: 36.271549, longitude: 139.409691)),
+        DistanceReferencePoint(name: "⑮近藤沼", distanceKm: 7, coordinate: CLLocationCoordinate2D(latitude: 36.226088, longitude: 139.50233)),
         // 9km
-        DistanceReferencePoint(name: "⑯高山(西部工業団地)手前", distanceKm: 9, coordinate: CLLocationCoordinate2D(latitude: 36.27768, longitude: 139.36130)),
-        DistanceReferencePoint(name: "⑰スバル矢島工場", distanceKm: 9, coordinate: CLLocationCoordinate2D(latitude: 36.29110, longitude: 139.43633)),
-        DistanceReferencePoint(name: "⑱多々良沼", distanceKm: 9, coordinate: CLLocationCoordinate2D(latitude: 36.26860, longitude: 139.48987)),
-        DistanceReferencePoint(name: "⑲昭和橋", distanceKm: 9, coordinate: CLLocationCoordinate2D(latitude: 36.18367, longitude: 139.51312)),
+        DistanceReferencePoint(name: "⑯高山(西部工業団地)手前", distanceKm: 9, coordinate: CLLocationCoordinate2D(latitude: 36.273072, longitude: 139.338928)),
+        DistanceReferencePoint(name: "⑰スバル矢島工場", distanceKm: 9, coordinate: CLLocationCoordinate2D(latitude: 36.276825, longitude: 139.371439)),
+        DistanceReferencePoint(name: "⑱多々良沼", distanceKm: 9, coordinate: CLLocationCoordinate2D(latitude: 36.260236, longitude: 139.497473)),
+        DistanceReferencePoint(name: "⑲昭和橋", distanceKm: 9, coordinate: CLLocationCoordinate2D(latitude: 36.192931, longitude: 139.511203)),
     ]
 }
