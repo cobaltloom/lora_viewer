@@ -20,7 +20,7 @@ enum DistanceReferencePointData {
     static let points: [DistanceReferencePoint] = [
         // 3km
         DistanceReferencePoint(name: "①青屋根(味の素)", distanceKm: 3, coordinate: CLLocationCoordinate2D(latitude: 36.236159, longitude: 139.405079)),
-        DistanceReferencePoint(name: "②サントリー工場手前", distanceKm: 3, coordinate: CLLocationCoordinate2D(latitude: 36.227707, longitude: 139.449893)),
+        DistanceReferencePoint(name: "②サントリー工場", distanceKm: 3, coordinate: CLLocationCoordinate2D(latitude: 36.227707, longitude: 139.449893)),
         DistanceReferencePoint(name: "③第2滑空場南端対岸赤・黄色の水門塔", distanceKm: 3, coordinate: CLLocationCoordinate2D(latitude: 36.199346, longitude: 139.445622)),
         DistanceReferencePoint(name: "④メタルワン建材", distanceKm: 3, coordinate: CLLocationCoordinate2D(latitude: 36.211974, longitude: 139.451984)),
         // Not one of JSAL's original 19 - a locally-known visual landmark added on top of them.
