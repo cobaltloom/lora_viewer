@@ -171,11 +171,6 @@ fun SettingsScreen(
                         modifier = Modifier.weight(1f).padding(start = 8.dp),
                     )
                 }
-                Text(
-                    "%.5f, %.5f".format(alertSettings.referenceField.coordinate.latitude, alertSettings.referenceField.coordinate.longitude),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
                 Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
                     FilterChip(
                         selected = alertSettings.mode == AltitudeCalculationMode.STEPS,
