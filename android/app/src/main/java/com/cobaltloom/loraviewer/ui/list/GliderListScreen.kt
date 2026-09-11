@@ -106,6 +106,14 @@ fun GliderListScreen(
                 }
                 HorizontalDivider()
             }
+            item {
+                Text(
+                    "★でお気に入りに登録した機体が1機以上あると、高度不足アラート(カスタム設定)と競技会ガイドラインのアラートはお気に入りの機体だけが対象になります。お気に入りが0機のときは全機が対象です。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                )
+            }
             items(sortedPositions, key = { it.imei }) { glider ->
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
