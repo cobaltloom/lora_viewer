@@ -27,7 +27,7 @@ object DistanceReferencePointData {
         DistanceReferencePoint("⑦御正作公園", 5.0, Coordinate(36.251963, 139.422989)),
         DistanceReferencePoint("⑧城之内公園", 5.0, Coordinate(36.260831, 139.412929)),
         DistanceReferencePoint("⑨パナソニック中央交差点", 5.0, Coordinate(36.252342, 139.400896)),
-        DistanceReferencePoint("⑩田の字(鞍掛第一工業団地)中心", 5.0, Coordinate(36.224179, 139.469551)),
+        DistanceReferencePoint("⑩田の字(鞍掛第一工業団地)中心", 5.0, Coordinate(36.224387, 139.468077)),
         DistanceReferencePoint("⑪ジョイフル本田", 5.0, Coordinate(36.205613, 139.472661)),
         DistanceReferencePoint("⑫千代田町立東小", 5.0, Coordinate(36.199496, 139.46518)),
         // 7km
