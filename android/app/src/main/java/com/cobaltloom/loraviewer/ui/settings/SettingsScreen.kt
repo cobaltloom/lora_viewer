@@ -382,7 +382,7 @@ fun SettingsScreen(
                 )
                 HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
 
-                ProSectionHeader("距離目安地点", uiState.isSubscribed, onRequireSubscription)
+                ProSectionHeader("地上目標地点", uiState.isSubscribed, onRequireSubscription)
                 SwitchRow(
                     label = "表示する(①〜⑲)",
                     checked = uiState.showDistanceReferencePoints,
