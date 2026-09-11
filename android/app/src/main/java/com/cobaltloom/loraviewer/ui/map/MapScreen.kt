@@ -377,22 +377,22 @@ fun MapScreen(
                         strokeColor = Color(0xFF00BCD4).copy(alpha = 0.6f),
                         strokeWidth = 1.5f,
                     )
-                    if (uiState.showDistanceReferencePoints) {
-                        DistanceReferencePointData.points.forEach { point ->
-                            MarkerComposable(
-                                state = MarkerState(LatLng(point.coordinate.latitude, point.coordinate.longitude)),
-                                title = point.name,
-                                anchor = Offset(0.5f, 0.5f),
-                            ) {
-                                Surface(shape = CircleShape, color = Color(0xFF3F51B5)) {
-                                    Text(
-                                        text = point.name.first().toString(),
-                                        color = Color.White,
-                                        fontSize = 9.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        modifier = Modifier.padding(5.dp),
-                                    )
-                                }
+                }
+                if (uiState.isSubscribed && uiState.showDistanceReferencePoints) {
+                    DistanceReferencePointData.points.forEach { point ->
+                        MarkerComposable(
+                            state = MarkerState(LatLng(point.coordinate.latitude, point.coordinate.longitude)),
+                            title = point.name,
+                            anchor = Offset(0.5f, 0.5f),
+                        ) {
+                            Surface(shape = CircleShape, color = Color(0xFF3F51B5)) {
+                                Text(
+                                    text = point.name.first().toString(),
+                                    color = Color.White,
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(5.dp),
+                                )
                             }
                         }
                     }
