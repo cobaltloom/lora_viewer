@@ -83,22 +83,6 @@ fun SettingsScreen(
     ) { padding ->
         LazyColumn(modifier = Modifier.padding(padding).padding(horizontal = 16.dp)) {
             item {
-                SettingsSectionHeader("更新間隔")
-                NumberStepper(
-                    label = "${apiSettings.refreshIntervalSeconds.toInt()} 秒ごとに更新",
-                    onDecrement = {
-                        scope.launch {
-                            apiSettingsRepository.setRefreshIntervalSeconds((apiSettings.refreshIntervalSeconds - 1).coerceAtLeast(3.0))
-                        }
-                    },
-                    onIncrement = {
-                        scope.launch {
-                            apiSettingsRepository.setRefreshIntervalSeconds((apiSettings.refreshIntervalSeconds + 1).coerceAtMost(60.0))
-                        }
-                    },
-                )
-                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
-
                 SettingsSectionHeader("地図表示")
                 SwitchRow(
                     label = "軌跡を表示",
@@ -379,7 +363,29 @@ fun SettingsScreen(
                     label = { Text("シークレットキー (任意)") },
                     singleLine = true,
                     visualTransformation = PasswordVisualTransformation(),
-                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 24.dp),
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                )
+                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
+
+                SettingsSectionHeader("更新間隔")
+                NumberStepper(
+                    label = "${apiSettings.refreshIntervalSeconds.toInt()} 秒ごとに更新",
+                    onDecrement = {
+                        scope.launch {
+                            apiSettingsRepository.setRefreshIntervalSeconds((apiSettings.refreshIntervalSeconds - 1).coerceAtLeast(3.0))
+                        }
+                    },
+                    onIncrement = {
+                        scope.launch {
+                            apiSettingsRepository.setRefreshIntervalSeconds((apiSettings.refreshIntervalSeconds + 1).coerceAtMost(60.0))
+                        }
+                    },
+                )
+                Text(
+                    "接続先のサーバーに負荷をかけるため、短くしすぎないでください。機体側の送信間隔もこれより速くはならないため、短くしても位置情報が特に速く更新されるわけではありません。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 8.dp, bottom = 24.dp),
                 )
             }
         }
