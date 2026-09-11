@@ -22,6 +22,12 @@ struct GliderListView: View {
     var body: some View {
         List {
             Section {
+                Text("★でお気に入りに登録した機体が1機以上あると、高度不足アラート(カスタム設定)と競技会ガイドラインのアラートはお気に入りの機体だけが対象になります。お気に入りが0機のときは全機が対象です。")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+
+            Section {
                 Picker("ニックネームの同期", selection: $nicknameStore.syncMode) {
                     Text("他の人と同期").tag(NicknameSyncMode.synced)
                     Text("手動入力").tag(NicknameSyncMode.manual)
@@ -64,8 +70,6 @@ struct GliderListView: View {
                     }
                     .padding(.vertical, 4)
                 }
-            } footer: {
-                Text("★でお気に入りに登録した機体が1機以上あると、高度不足アラート(カスタム設定)と競技会ガイドラインのアラートはお気に入りの機体だけが対象になります。お気に入りが0機のときは全機が対象です。")
             }
         }
         .navigationTitle("メンバー一覧")
