@@ -16,7 +16,7 @@ object DistanceReferencePointData {
     val points: List<DistanceReferencePoint> = listOf(
         // 3km
         DistanceReferencePoint("①青屋根(味の素)", 3.0, Coordinate(36.236159, 139.405079)),
-        DistanceReferencePoint("②サントリー工場手前", 3.0, Coordinate(36.227707, 139.449893)),
+        DistanceReferencePoint("②サントリー工場", 3.0, Coordinate(36.227707, 139.449893)),
         DistanceReferencePoint("③第2滑空場南端対岸赤・黄色の水門塔", 3.0, Coordinate(36.199346, 139.445622)),
         DistanceReferencePoint("④メタルワン建材", 3.0, Coordinate(36.211974, 139.451984)),
         // Not one of JSAL's original 19 - a locally-known visual landmark added on top of them.
