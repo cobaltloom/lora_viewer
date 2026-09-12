@@ -17,6 +17,7 @@
 		91B0224D1A2F9FCEC0491F07 /* CompetitionTaskCourse.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB422A315DCABFFBDE87D5A5 /* CompetitionTaskCourse.swift */; };
 		9117CAA404CD0939B761CE3A /* TurnpointPassageRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = 624EFCBB6D0A4FC930BAF713 /* TurnpointPassageRecord.swift */; };
 		0EA080892B1619030851CF6B /* DistanceReferencePoint.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55463A2510E3E963D6AF44EA /* DistanceReferencePoint.swift */; };
+		E9F47A2060298506DC8BFE49 /* CivilTrainingAreaKK43.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88FF331F49A5245D02D5D900 /* CivilTrainingAreaKK43.swift */; };
 		8616FEE6EB1A42288CA30803 /* PointOfInterest.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB59A87BE1D3418FECFDB720 /* PointOfInterest.swift */; };
 		721B530E305E330479A49FD7 /* APISettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED6720C2DA25E1D21F40FB2F /* APISettings.swift */; };
 		1C536BDBFBCC5B9F7B90CB58 /* TrailRouteAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3C793299BC7448D8E4E4F42 /* TrailRouteAPI.swift */; };
@@ -67,6 +68,7 @@
 		BB422A315DCABFFBDE87D5A5 /* CompetitionTaskCourse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CompetitionTaskCourse.swift"; sourceTree = "<group>"; };
 		624EFCBB6D0A4FC930BAF713 /* TurnpointPassageRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TurnpointPassageRecord.swift"; sourceTree = "<group>"; };
 		55463A2510E3E963D6AF44EA /* DistanceReferencePoint.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DistanceReferencePoint.swift"; sourceTree = "<group>"; };
+		88FF331F49A5245D02D5D900 /* CivilTrainingAreaKK43.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CivilTrainingAreaKK43.swift"; sourceTree = "<group>"; };
 		AB59A87BE1D3418FECFDB720 /* PointOfInterest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PointOfInterest.swift"; sourceTree = "<group>"; };
 		ED6720C2DA25E1D21F40FB2F /* APISettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "APISettings.swift"; sourceTree = "<group>"; };
 		F3C793299BC7448D8E4E4F42 /* TrailRouteAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TrailRouteAPI.swift"; sourceTree = "<group>"; };
@@ -163,6 +165,7 @@
 				BB422A315DCABFFBDE87D5A5 /* CompetitionTaskCourse.swift */,
 				624EFCBB6D0A4FC930BAF713 /* TurnpointPassageRecord.swift */,
 				55463A2510E3E963D6AF44EA /* DistanceReferencePoint.swift */,
+				88FF331F49A5245D02D5D900 /* CivilTrainingAreaKK43.swift */,
 				AB59A87BE1D3418FECFDB720 /* PointOfInterest.swift */,
 			);
 			path = Models;
@@ -316,6 +319,7 @@
 				91B0224D1A2F9FCEC0491F07 /* CompetitionTaskCourse.swift in Sources */,
 				9117CAA404CD0939B761CE3A /* TurnpointPassageRecord.swift in Sources */,
 				0EA080892B1619030851CF6B /* DistanceReferencePoint.swift in Sources */,
+				E9F47A2060298506DC8BFE49 /* CivilTrainingAreaKK43.swift in Sources */,
 				8616FEE6EB1A42288CA30803 /* PointOfInterest.swift in Sources */,
 				721B530E305E330479A49FD7 /* APISettings.swift in Sources */,
 				1C536BDBFBCC5B9F7B90CB58 /* TrailRouteAPI.swift in Sources */,

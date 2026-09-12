@@ -11,6 +11,7 @@ struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @AppStorage("showGliderTrails") private var showGliderTrails = true
     @AppStorage("showDistanceReferencePoints") private var showDistanceReferencePoints = false
+    @AppStorage("showKK43Area") private var showKK43Area = false
     @State private var showDeleteAllStepsConfirmation = false
     @State private var showPaywall = false
 
@@ -49,6 +50,22 @@ struct SettingsView: View {
                     Text("地上目標地点")
                 } footer: {
                     Text("日本学生航空連盟(JSAL)妻沼滑空場の公式資料(図3、Ver.2026-01-26)掲載の19地点(妻沼滑空場中心点から3/5/7/9kmの目安目標)と、それに加えたローカルの目印を、実在の場所の座標で地図上に表示します。上限高度アラートとは独立した機能で、あくまで目安であり、実際の判断の根拠にはしないでください。")
+                }
+
+                Section {
+                    if !subscriptionManager.isSubscribed {
+                        Button {
+                            showPaywall = true
+                        } label: {
+                            Label("購読して有効化", systemImage: "lock.fill")
+                        }
+                    }
+                    Toggle("KK4-3を表示", isOn: $showKK43Area)
+                        .disabled(!subscriptionManager.isSubscribed)
+                } header: {
+                    Text("民間訓練試験空域(KK4-3)")
+                } footer: {
+                    Text("国土交通省AIP(ENR 5.3-15)掲載の民間訓練試験空域KK4-3(地表〜2,000ft)を地図上に表示します。B区域の一部と重なる空域です。境界は新幹線・高速道路等の実際の経路をもとに再現していますが、一部区間は直線で近似した参考表示であり、実際の判断の根拠にはしないでください。")
                 }
 
                 Section {

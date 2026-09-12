@@ -18,6 +18,7 @@ struct CurrentMapView: View {
     @StateObject private var turnpointPassageLog = TurnpointPassageLog()
     @AppStorage("showGliderTrails") private var showGliderTrails = true
     @AppStorage("showDistanceReferencePoints") private var showDistanceReferencePoints = false
+    @AppStorage("showKK43Area") private var showKK43Area = false
     @AppStorage("mapStyleIsSatellite") private var mapStyleIsSatellite = false
     @State private var showAddPointOfInterest = false
     @State private var pointOfInterestPendingDeletion: PointOfInterest?
@@ -211,6 +212,11 @@ struct CurrentMapView: View {
                         MapPolygon(coordinates: UpperAltitudeGuideline.zoneB.boundary)
                             .foregroundStyle(.cyan.opacity(0.06))
                             .stroke(.cyan.opacity(0.6), lineWidth: 1.5)
+                    }
+                    if subscriptionManager.isSubscribed, showKK43Area {
+                        MapPolygon(coordinates: CivilTrainingAreaKK43.boundary)
+                            .foregroundStyle(.orange.opacity(0.05))
+                            .stroke(.orange.opacity(0.6), lineWidth: 1.5)
                     }
                     if subscriptionManager.isSubscribed, showDistanceReferencePoints {
                         ForEach(DistanceReferencePointData.points) { point in
