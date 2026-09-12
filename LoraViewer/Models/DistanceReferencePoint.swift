@@ -36,6 +36,9 @@ enum DistanceReferencePointData {
         DistanceReferencePoint(name: "⑩田の字(鞍掛第一工業団地)中心", distanceKm: 5, coordinate: CLLocationCoordinate2D(latitude: 36.224387, longitude: 139.468077)),
         DistanceReferencePoint(name: "⑪ジョイフル本田", distanceKm: 5, coordinate: CLLocationCoordinate2D(latitude: 36.205613, longitude: 139.472661)),
         DistanceReferencePoint(name: "⑫千代田町立東小", distanceKm: 5, coordinate: CLLocationCoordinate2D(latitude: 36.199496, longitude: 139.46518)),
+        // Not one of JSAL's original 19 - a locally-known visual landmark added on top of them.
+        DistanceReferencePoint(name: "熊谷ドーム", distanceKm: 5.1, coordinate: CLLocationCoordinate2D(latitude: 36.166329, longitude: 139.409539)),
+        DistanceReferencePoint(name: "妻沼運動公園", distanceKm: 5.6, coordinate: CLLocationCoordinate2D(latitude: 36.224169, longitude: 139.358523)),
         // 7km
         DistanceReferencePoint(name: "⑬石田川分流点の橋", distanceKm: 7, coordinate: CLLocationCoordinate2D(latitude: 36.255355, longitude: 139.355098)),
         DistanceReferencePoint(name: "⑭スバル大泉工場", distanceKm: 7, coordinate: CLLocationCoordinate2D(latitude: 36.271549, longitude: 139.409691)),
