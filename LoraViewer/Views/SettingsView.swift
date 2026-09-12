@@ -167,14 +167,12 @@ struct SettingsView: View {
                     Toggle("有効にする", isOn: $upperAltitudeGuideline.isEnabled)
 
                     Picker("B区域の上限の決め方", selection: $upperAltitudeGuideline.mode) {
-                        Text("自動(平日/土日祝)").tag(UpperCeilingMode.auto)
+                        Text("自動(平日/土日)").tag(UpperCeilingMode.auto)
                         Text("競技会中(手動指定)").tag(UpperCeilingMode.competition)
                     }
                     .pickerStyle(.segmented)
 
-                    if upperAltitudeGuideline.mode == .auto {
-                        Toggle("今日を祝日として扱う", isOn: $upperAltitudeGuideline.treatTodayAsHoliday)
-                    } else {
+                    if upperAltitudeGuideline.mode == .competition {
                         Stepper(value: $upperAltitudeGuideline.competitionCeilingFt, in: 500...10000, step: 100) {
                             Text("競技会中の上限 \(Int(upperAltitudeGuideline.competitionCeilingFt)) ft MSL")
                         }
@@ -193,7 +191,7 @@ struct SettingsView: View {
                 } header: {
                     Text("上限高度アラート(妻沼滑空場)")
                 } footer: {
-                    Text("公式資料のA区域・B区域の境界に基づき、区域内でその上限高度を超えるとアラートを出します。A区域は常に4,500ft MSL。B区域は平日2,500ft、土日祝日3,500ftで、「今日を祝日として扱う」で土日以外の祝日にも対応できます。競技会など別の上限が許可されている期間は「競技会中」を選び、許可された値を入力してください。区域の境界(緯度経度)は公式資料に基づく固定値のため、ここでは変更できません。")
+                    Text("公式資料のA区域・B区域の境界に基づき、区域内でその上限高度を超えるとアラートを出します。A区域は常に4,500ft MSL。B区域は土日3,500ft、それ以外(祝日を含む)は2,500ftです。競技会など別の上限が許可されている期間は「競技会中」を選び、許可された値を入力してください。区域の境界(緯度経度)は公式資料に基づく固定値のため、ここでは変更できません。")
                 }
 
                 Section {

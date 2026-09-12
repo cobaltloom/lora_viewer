@@ -32,9 +32,8 @@ struct AirspaceZone {
 
 /// How B区域's altitude ceiling for "today" is decided.
 enum UpperCeilingMode: String, Codable {
-    /// Weekday vs. weekend, per JSAL's standard rule. `treatTodayAsHoliday`
-    /// covers national holidays that fall on a weekday, since Foundation
-    /// has no built-in Japanese holiday calendar.
+    /// Weekday vs. weekend (Sat/Sun), per JSAL's standard rule. National
+    /// holidays don't affect this — only the day of the week matters.
     case auto
     /// A competition (or other special arrangement) is in effect, with its
     /// own granted ceiling entered directly.
@@ -51,13 +50,11 @@ enum UpperCeilingMode: String, Codable {
 final class UpperAltitudeGuideline: ObservableObject {
     @Published var isEnabled: Bool { didSet { persist() } }
     @Published var mode: UpperCeilingMode { didSet { persist() } }
-    @Published var treatTodayAsHoliday: Bool { didSet { persist() } }
     @Published var competitionCeilingFt: Double { didSet { persist() } }
 
     private enum Keys {
         static let isEnabled = "upperAltIsEnabled"
         static let mode = "upperAltMode"
-        static let treatTodayAsHoliday = "upperAltTreatTodayAsHoliday"
         static let competitionCeilingFt = "upperAltCompetitionCeilingFt"
     }
 
@@ -65,7 +62,6 @@ final class UpperAltitudeGuideline: ObservableObject {
         let d = UserDefaults.standard
         isEnabled = d.bool(forKey: Keys.isEnabled)
         mode = UpperCeilingMode(rawValue: d.string(forKey: Keys.mode) ?? "") ?? .auto
-        treatTodayAsHoliday = d.bool(forKey: Keys.treatTodayAsHoliday)
         let storedCeiling = d.double(forKey: Keys.competitionCeilingFt)
         competitionCeilingFt = storedCeiling > 0 ? storedCeiling : 4500
     }
@@ -74,7 +70,6 @@ final class UpperAltitudeGuideline: ObservableObject {
         let d = UserDefaults.standard
         d.set(isEnabled, forKey: Keys.isEnabled)
         d.set(mode.rawValue, forKey: Keys.mode)
-        d.set(treatTodayAsHoliday, forKey: Keys.treatTodayAsHoliday)
         d.set(competitionCeilingFt, forKey: Keys.competitionCeilingFt)
     }
 
@@ -123,7 +118,7 @@ final class UpperAltitudeGuideline: ObservableObject {
         case .auto:
             let weekday = Calendar(identifier: .gregorian).component(.weekday, from: Date())
             let isWeekend = weekday == 1 || weekday == 7 // Sunday / Saturday
-            return (isWeekend || treatTodayAsHoliday) ? Self.zoneBWeekendCeilingFt : Self.zoneBWeekdayCeilingFt
+            return isWeekend ? Self.zoneBWeekendCeilingFt : Self.zoneBWeekdayCeilingFt
         }
     }
 
