@@ -34,6 +34,7 @@ import com.cobaltloom.loraviewer.ui.list.GliderListScreen
 import com.cobaltloom.loraviewer.ui.map.GliderTrackerViewModel
 import com.cobaltloom.loraviewer.ui.map.MapScreen
 import com.cobaltloom.loraviewer.ui.paywall.PaywallScreen
+import com.cobaltloom.loraviewer.ui.settings.AdvancedSettingsScreen
 import com.cobaltloom.loraviewer.ui.settings.SettingsScreen
 import com.cobaltloom.loraviewer.ui.theme.LoraViewerTheme
 import com.cobaltloom.loraviewer.ui.track.TrackHistoryScreen
@@ -60,6 +61,7 @@ private object Routes {
     const val BOARD_SCAN = "boardScan"
     const val PAYWALL = "paywall"
     const val TURNPOINT_HISTORY = "turnpointHistory"
+    const val ADVANCED_SETTINGS = "advancedSettings"
 }
 
 @Composable
@@ -151,9 +153,15 @@ private fun LoraViewerNavHost(billingRepository: BillingRepository) {
         composable(Routes.SETTINGS) {
             SettingsScreen(
                 viewModel = viewModel,
-                apiSettingsRepository = apiSettingsRepository,
                 onBack = { navController.popBackStack() },
                 onRequireSubscription = onRequireSubscription,
+                onOpenAdvancedSettings = { navController.navigate(Routes.ADVANCED_SETTINGS) },
+            )
+        }
+        composable(Routes.ADVANCED_SETTINGS) {
+            AdvancedSettingsScreen(
+                apiSettingsRepository = apiSettingsRepository,
+                onBack = { navController.popBackStack() },
             )
         }
         composable(Routes.PAYWALL) {
