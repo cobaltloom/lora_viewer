@@ -41,7 +41,7 @@ data class AirspaceZone(val name: String, val boundary: List<Coordinate>) {
 /** How B区域's altitude ceiling for "today" is decided. */
 @Serializable
 enum class UpperCeilingMode {
-    /** Weekday vs. weekend, per JSAL's standard rule ([UpperAltitudeSettings.treatTodayAsHoliday] covers holidays). */
+    /** Weekday vs. weekend (Sat/Sun), per JSAL's standard rule. National holidays don't affect this. */
     AUTO,
 
     /** A competition (or other special arrangement) is in effect, with its own granted ceiling. */
@@ -52,7 +52,6 @@ enum class UpperCeilingMode {
 data class UpperAltitudeSettings(
     val isEnabled: Boolean = false,
     val mode: UpperCeilingMode = UpperCeilingMode.AUTO,
-    val treatTodayAsHoliday: Boolean = false,
     val competitionCeilingFt: Double = 4500.0,
 ) {
     /** B区域's ceiling (ft) for today, given the current mode/settings. */
@@ -62,7 +61,7 @@ data class UpperAltitudeSettings(
             UpperCeilingMode.AUTO -> {
                 val today = LocalDate.now().dayOfWeek
                 val isWeekend = today == DayOfWeek.SATURDAY || today == DayOfWeek.SUNDAY
-                if (isWeekend || treatTodayAsHoliday) {
+                if (isWeekend) {
                     UpperAltitudeGuideline.ZONE_B_WEEKEND_CEILING_FT
                 } else {
                     UpperAltitudeGuideline.ZONE_B_WEEKDAY_CEILING_FT

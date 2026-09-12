@@ -286,7 +286,7 @@ fun SettingsScreen(
                     FilterChip(
                         selected = upperAltitudeSettings.mode == UpperCeilingMode.AUTO,
                         onClick = { viewModel.updateUpperAltitudeSettings(upperAltitudeSettings.copy(mode = UpperCeilingMode.AUTO)) },
-                        label = { Text("自動(平日/土日祝)") },
+                        label = { Text("自動(平日/土日)") },
                         modifier = Modifier.weight(1f),
                     )
                     FilterChip(
@@ -298,13 +298,7 @@ fun SettingsScreen(
                         modifier = Modifier.weight(1f).padding(start = 8.dp),
                     )
                 }
-                if (upperAltitudeSettings.mode == UpperCeilingMode.AUTO) {
-                    SwitchRow(
-                        label = "今日を祝日として扱う",
-                        checked = upperAltitudeSettings.treatTodayAsHoliday,
-                        onCheckedChange = { viewModel.updateUpperAltitudeSettings(upperAltitudeSettings.copy(treatTodayAsHoliday = it)) },
-                    )
-                } else {
+                if (upperAltitudeSettings.mode == UpperCeilingMode.COMPETITION) {
                     NumberStepper(
                         label = "競技会中の上限 ${upperAltitudeSettings.competitionCeilingFt.toInt()} ft MSL",
                         onDecrement = {
