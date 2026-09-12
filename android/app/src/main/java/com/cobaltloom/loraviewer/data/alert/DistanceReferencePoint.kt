@@ -32,6 +32,9 @@ object DistanceReferencePointData {
         DistanceReferencePoint("⑩田の字(鞍掛第一工業団地)中心", 5.0, Coordinate(36.224387, 139.468077)),
         DistanceReferencePoint("⑪ジョイフル本田", 5.0, Coordinate(36.205613, 139.472661)),
         DistanceReferencePoint("⑫千代田町立東小", 5.0, Coordinate(36.199496, 139.46518)),
+        // Not one of JSAL's original 19 - a locally-known visual landmark added on top of them.
+        DistanceReferencePoint("熊谷ドーム", 5.1, Coordinate(36.166329, 139.409539)),
+        DistanceReferencePoint("妻沼運動公園", 5.6, Coordinate(36.224169, 139.358523)),
         // 7km
         DistanceReferencePoint("⑬石田川分流点の橋", 7.0, Coordinate(36.255355, 139.355098)),
         DistanceReferencePoint("⑭スバル大泉工場", 7.0, Coordinate(36.271549, 139.409691)),
