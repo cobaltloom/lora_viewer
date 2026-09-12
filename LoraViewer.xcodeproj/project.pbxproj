@@ -37,6 +37,7 @@
 		EC8FB4BF9B16D89018842970 /* GliderDetailCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1D564F73BFD115BE17929BF /* GliderDetailCard.swift */; };
 		D85FDC83ED9939A7E0151B83 /* GliderListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDB67A8F61EF414CEC347FE3 /* GliderListView.swift */; };
 		33C29A9A15C87ED1FC486FBA /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6125384BFBDF089715420118 /* SettingsView.swift */; };
+		B5B4F79316DA12862247E407 /* AdvancedSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C372A37B8A5BD79E7A623E4F /* AdvancedSettingsView.swift */; };
 		A9BC6DFB4F032611AB726092 /* TrackHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABBAD1145C84634CF7A1D344 /* TrackHistoryView.swift */; };
 		19E509559675A0F88234CF66 /* CurrentMapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7019552BF5A7C703842403F2 /* CurrentMapView.swift */; };
 		F244128426F9A90C919695D4 /* EditableGliderName.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71415A43DC39849D827D9F36 /* EditableGliderName.swift */; };
@@ -86,6 +87,7 @@
 		D1D564F73BFD115BE17929BF /* GliderDetailCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "GliderDetailCard.swift"; sourceTree = "<group>"; };
 		EDB67A8F61EF414CEC347FE3 /* GliderListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "GliderListView.swift"; sourceTree = "<group>"; };
 		6125384BFBDF089715420118 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SettingsView.swift"; sourceTree = "<group>"; };
+		C372A37B8A5BD79E7A623E4F /* AdvancedSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AdvancedSettingsView.swift"; sourceTree = "<group>"; };
 		ABBAD1145C84634CF7A1D344 /* TrackHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TrackHistoryView.swift"; sourceTree = "<group>"; };
 		7019552BF5A7C703842403F2 /* CurrentMapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CurrentMapView.swift"; sourceTree = "<group>"; };
 		71415A43DC39849D827D9F36 /* EditableGliderName.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EditableGliderName.swift"; sourceTree = "<group>"; };
@@ -195,6 +197,7 @@
 				D1D564F73BFD115BE17929BF /* GliderDetailCard.swift */,
 				EDB67A8F61EF414CEC347FE3 /* GliderListView.swift */,
 				6125384BFBDF089715420118 /* SettingsView.swift */,
+				C372A37B8A5BD79E7A623E4F /* AdvancedSettingsView.swift */,
 				ABBAD1145C84634CF7A1D344 /* TrackHistoryView.swift */,
 				7019552BF5A7C703842403F2 /* CurrentMapView.swift */,
 				71415A43DC39849D827D9F36 /* EditableGliderName.swift */,
@@ -333,6 +336,7 @@
 				EC8FB4BF9B16D89018842970 /* GliderDetailCard.swift in Sources */,
 				D85FDC83ED9939A7E0151B83 /* GliderListView.swift in Sources */,
 				33C29A9A15C87ED1FC486FBA /* SettingsView.swift in Sources */,
+				B5B4F79316DA12862247E407 /* AdvancedSettingsView.swift in Sources */,
 				A9BC6DFB4F032611AB726092 /* TrackHistoryView.swift in Sources */,
 				19E509559675A0F88234CF66 /* CurrentMapView.swift in Sources */,
 				F244128426F9A90C919695D4 /* EditableGliderName.swift in Sources */,
