@@ -9,7 +9,6 @@ import com.google.firebase.firestore.DocumentChange
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
-import java.time.DayOfWeek
 import java.time.Instant
 import java.time.ZoneId
 import java.util.Date
@@ -137,12 +136,12 @@ class NicknameRepository(
 
     /**
      * The shared list has no server to run a timer on its own, so instead every synced device
-     * checks - on launch, and whenever it (re)joins sync - whether the most recent weekly boundary
+     * checks - on launch, and whenever it (re)joins sync - whether the most recent daily boundary
      * has already passed without being cleared, and if so clears it itself. This keeps the reset
      * entirely within Firestore's free tier (no scheduled Cloud Function), at the cost of not
-     * firing at the exact minute: it takes effect the next time anyone opens the app after Wed
-     * 23:00 JST. Any client can safely perform this - if two both do, the second is a harmless
-     * no-op over an already-empty collection.
+     * firing at the exact minute: it takes effect the next time anyone opens the app after 22:00
+     * JST. Any client can safely perform this - if two both do, the second is a harmless no-op
+     * over an already-empty collection.
      */
     private suspend fun checkAndPerformScheduledClearIfNeeded() {
         val boundary = mostRecentClearBoundary()
@@ -163,19 +162,16 @@ class NicknameRepository(
     }
 
     /**
-     * The most recent Wednesday 23:00 JST that has already passed (or now, if it's exactly that
-     * moment) - the shared list resets weekly at this time so old names don't linger indefinitely;
-     * anyone still using a name just re-enters it and it's back until the following week.
+     * The most recent 22:00 JST that has already passed (or now, if it's exactly that moment) -
+     * the shared list resets daily at this time so old names don't linger indefinitely; anyone
+     * still using a name just re-enters it and it's back until the following day.
      */
     private fun mostRecentClearBoundary(now: Instant = Instant.now()): Instant {
         val zone = ZoneId.of("Asia/Tokyo")
         val zonedNow = now.atZone(zone)
-        var daysSinceWednesday = zonedNow.dayOfWeek.value - DayOfWeek.WEDNESDAY.value
-        if (daysSinceWednesday < 0) daysSinceWednesday += 7
-        val candidateDay = zonedNow.toLocalDate().minusDays(daysSinceWednesday.toLong())
-        var candidate = candidateDay.atTime(23, 0).atZone(zone)
+        var candidate = zonedNow.toLocalDate().atTime(22, 0).atZone(zone)
         if (candidate.toInstant() > now) {
-            candidate = candidate.minusDays(7)
+            candidate = candidate.minusDays(1)
         }
         return candidate.toInstant()
     }
