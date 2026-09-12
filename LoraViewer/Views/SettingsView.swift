@@ -235,13 +235,16 @@ struct SettingsView: View {
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                         .keyboardType(.URL)
+                    if settings.isBaseURLCustomized {
+                        Button("既定のURLに戻す") { settings.resetBaseURLToServerDefault() }
+                    }
                     SecureField("シークレットキー (任意)", text: $settings.secretKey)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                 } header: {
                     Text("サーバー")
                 } footer: {
-                    Text("シークレットキーは通常は空欄のままで問題ありません。動作しない場合のみ、MacのSafariで「開発」>「Webインスペクタを表示」の「ネットワーク」タブから mapapi.php へのリクエストを確認し、URL中に key= があればその値を入力してください。")
+                    Text("ベースURLは通常は変更不要です。運営側でURLが変更された場合は自動的に反映されます。自分のアカウント用に別のURLを使う場合のみ入力してください(手動で入力すると自動反映は止まります)。シークレットキーは通常は空欄のままで問題ありません。動作しない場合のみ、MacのSafariで「開発」>「Webインスペクタを表示」の「ネットワーク」タブから mapapi.php へのリクエストを確認し、URL中に key= があればその値を入力してください。")
                 }
 
                 Section {
