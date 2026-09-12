@@ -107,12 +107,12 @@ final class NicknameStore: ObservableObject {
 
     /// The shared list has no server to run a timer on its own, so instead
     /// every synced device checks — on launch, and whenever it (re)joins
-    /// sync — whether the most recent weekly boundary has already passed
+    /// sync — whether the most recent daily boundary has already passed
     /// without being cleared, and if so clears it itself. This keeps the
     /// reset entirely within Firestore's free tier (no scheduled Cloud
     /// Function), at the cost of not firing at the exact minute: it takes
-    /// effect the next time anyone opens the app after Wed 23:00 JST,
-    /// which for an app people open before/during flying is normally soon
+    /// effect the next time anyone opens the app after 22:00 JST, which
+    /// for an app people open before/during flying is normally soon
     /// after. Any client can safely perform this — if two both do, the
     /// second is a harmless no-op over an already-empty collection.
     private func checkAndPerformScheduledClearIfNeeded() {
@@ -138,20 +138,16 @@ final class NicknameStore: ObservableObject {
         }
     }
 
-    /// The most recent Wednesday 23:00 JST that has already passed (or now,
-    /// if it's exactly that moment) — the shared list resets weekly at this
-    /// time so old names don't linger indefinitely; anyone still using a
-    /// name just re-enters it and it's back until the following week.
+    /// The most recent 22:00 JST that has already passed (or now, if it's
+    /// exactly that moment) — the shared list resets daily at this time so
+    /// old names don't linger indefinitely; anyone still using a name just
+    /// re-enters it and it's back until the following day.
     private static func mostRecentClearBoundary(from now: Date = Date()) -> Date {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(identifier: "Asia/Tokyo")!
-        let weekday = calendar.component(.weekday, from: now) // 1 = Sunday ... 4 = Wednesday
-        var daysSinceWednesday = weekday - 4
-        if daysSinceWednesday < 0 { daysSinceWednesday += 7 }
-        let candidateDay = calendar.date(byAdding: .day, value: -daysSinceWednesday, to: now)!
-        var candidate = calendar.date(bySettingHour: 23, minute: 0, second: 0, of: candidateDay)!
+        var candidate = calendar.date(bySettingHour: 22, minute: 0, second: 0, of: now)!
         if candidate > now {
-            candidate = calendar.date(byAdding: .day, value: -7, to: candidate)!
+            candidate = calendar.date(byAdding: .day, value: -1, to: candidate)!
         }
         return candidate
     }
