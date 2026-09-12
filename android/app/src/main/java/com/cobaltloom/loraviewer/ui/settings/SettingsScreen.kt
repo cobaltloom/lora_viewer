@@ -63,7 +63,7 @@ fun SettingsScreen(
     val uiState by viewModel.uiState.collectAsState()
     val scope = rememberCoroutineScope()
     val apiSettings by apiSettingsRepository.settings.collectAsState(
-        initial = ApiSettings(ApiSettings.DEFAULT_BASE_URL, "", ApiSettings.DEFAULT_REFRESH_INTERVAL_SECONDS),
+        initial = ApiSettings(ApiSettings.DEFAULT_BASE_URL, "", ApiSettings.DEFAULT_REFRESH_INTERVAL_SECONDS, isBaseUrlCustomized = false),
     )
     var showDeleteAllStepsConfirmation by remember { mutableStateOf(false) }
 
@@ -455,6 +455,13 @@ fun SettingsScreen(
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                 )
+                if (apiSettings.isBaseUrlCustomized) {
+                    TextButton(
+                        onClick = { scope.launch { apiSettingsRepository.resetBaseUrlToServerDefault() } },
+                    ) {
+                        Text("既定のURLに戻す")
+                    }
+                }
                 OutlinedTextField(
                     value = apiSettings.secretKey,
                     onValueChange = { scope.launch { apiSettingsRepository.setSecretKey(it) } },
@@ -462,6 +469,12 @@ fun SettingsScreen(
                     singleLine = true,
                     visualTransformation = PasswordVisualTransformation(),
                     modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                )
+                Text(
+                    "ベースURLは通常は変更不要です。運営側でURLが変更された場合は自動的に反映されます。自分のアカウント用に別のURLを使う場合のみ入力してください(手動で入力すると自動反映は止まります)。シークレットキーは通常は空欄のままで問題ありません。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp, bottom = 4.dp),
                 )
                 HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
 
