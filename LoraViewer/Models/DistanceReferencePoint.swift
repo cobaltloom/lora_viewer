@@ -18,6 +18,8 @@ struct DistanceReferencePoint: Identifiable {
 /// are surveyed locations, not estimates.
 enum DistanceReferencePointData {
     static let points: [DistanceReferencePoint] = [
+        // Not one of JSAL's original 19 - a locally-known visual landmark added on top of them.
+        DistanceReferencePoint(name: "日清シスコ工場", distanceKm: 2.8, coordinate: CLLocationCoordinate2D(latitude: 36.222486, longitude: 139.391465)),
         // 3km
         DistanceReferencePoint(name: "①青屋根(味の素)", distanceKm: 3, coordinate: CLLocationCoordinate2D(latitude: 36.236159, longitude: 139.405079)),
         DistanceReferencePoint(name: "②サントリー工場", distanceKm: 3, coordinate: CLLocationCoordinate2D(latitude: 36.227707, longitude: 139.449893)),
