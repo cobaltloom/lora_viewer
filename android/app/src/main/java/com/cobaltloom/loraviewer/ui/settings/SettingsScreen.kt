@@ -125,6 +125,22 @@ fun SettingsScreen(
                 )
                 HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
 
+                ProSectionHeader("民間訓練試験空域(KK4-3)", uiState.isSubscribed, onRequireSubscription)
+                SwitchRow(
+                    label = "表示する",
+                    checked = uiState.showKk43Area,
+                    onCheckedChange = {
+                        if (uiState.isSubscribed) viewModel.setShowKk43Area(it) else onRequireSubscription()
+                    },
+                )
+                Text(
+                    "国土交通省AIP(ENR 5.3-15)掲載の民間訓練試験空域KK4-3(地表〜2,000ft)を地図上に表示します。B区域の一部と重なる空域です。境界は新幹線・高速道路等の実際の経路をもとに再現していますが、一部区間は直線で近似した参考表示であり、実際の判断の根拠にはしないでください。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp, bottom = 4.dp),
+                )
+                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
+
                 ProSectionHeader("高度不足アラート(カスタム設定)", uiState.isSubscribed, onRequireSubscription)
                 SwitchRow(
                     label = "有効にする",

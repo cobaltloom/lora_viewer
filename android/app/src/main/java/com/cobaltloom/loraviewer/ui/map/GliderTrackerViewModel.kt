@@ -65,6 +65,9 @@ data class GliderTrackerUiState(
     /** Whether JSAL's distance-judging landmarks are drawn on the map, alongside the upper
      * altitude guideline zones - a subscriber-only display preference. */
     val showDistanceReferencePoints: Boolean = false,
+    /** Whether the KK4-3 civil training/testing area boundary is drawn on the map - a
+     * subscriber-only display preference. */
+    val showKk43Area: Boolean = false,
     val showFavoritesOnly: Boolean = false,
     val lastUpdated: Instant? = null,
     val errorMessage: String? = null,
@@ -230,6 +233,11 @@ class GliderTrackerViewModel(
                 _uiState.update { it.copy(showDistanceReferencePoints = show) }
             }
         }
+        viewModelScope.launch {
+            mapDisplaySettingsRepository.showKk43Area.collect { show ->
+                _uiState.update { it.copy(showKk43Area = show) }
+            }
+        }
     }
 
     fun startPolling() {
@@ -307,6 +315,10 @@ class GliderTrackerViewModel(
 
     fun setShowDistanceReferencePoints(show: Boolean) {
         viewModelScope.launch { mapDisplaySettingsRepository.setShowDistanceReferencePoints(show) }
+    }
+
+    fun setShowKk43Area(show: Boolean) {
+        viewModelScope.launch { mapDisplaySettingsRepository.setShowKk43Area(show) }
     }
 
     suspend fun refreshOnce() {

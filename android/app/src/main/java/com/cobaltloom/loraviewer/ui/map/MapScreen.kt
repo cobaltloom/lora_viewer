@@ -59,6 +59,7 @@ import androidx.core.content.ContextCompat
 import com.cobaltloom.loraviewer.data.alert.AlertSeverity
 import com.cobaltloom.loraviewer.data.alert.AltitudeCalculationMode
 import com.cobaltloom.loraviewer.data.alert.CompetitionAltitudeGuideline
+import com.cobaltloom.loraviewer.data.alert.CivilTrainingAreaKK43
 import com.cobaltloom.loraviewer.data.alert.CompetitionTaskCourseData
 import com.cobaltloom.loraviewer.data.alert.DistanceReferencePointData
 import com.cobaltloom.loraviewer.data.alert.UpperAltitudeGuideline
@@ -375,6 +376,14 @@ fun MapScreen(
                         points = UpperAltitudeGuideline.zoneB.boundary.map { LatLng(it.latitude, it.longitude) },
                         fillColor = Color(0xFF00BCD4).copy(alpha = 0.06f),
                         strokeColor = Color(0xFF00BCD4).copy(alpha = 0.6f),
+                        strokeWidth = 1.5f,
+                    )
+                }
+                if (uiState.isSubscribed && uiState.showKk43Area) {
+                    Polygon(
+                        points = CivilTrainingAreaKK43.boundary.map { LatLng(it.latitude, it.longitude) },
+                        fillColor = Color(0xFFFF9800).copy(alpha = 0.05f),
+                        strokeColor = Color(0xFFFF9800).copy(alpha = 0.6f),
                         strokeWidth = 1.5f,
                     )
                 }
