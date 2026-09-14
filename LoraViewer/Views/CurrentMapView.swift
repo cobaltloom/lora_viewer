@@ -570,8 +570,8 @@ struct CurrentMapView: View {
                 }
 
                 let distanceText = "\(Int(distanceM))m"
-                reasonsByIMEI[gliderA.imei, default: []].append(GliderAlertReason(label: "\(displayName(for: gliderB))と接近(\(distanceText))", severity: severity))
-                reasonsByIMEI[gliderB.imei, default: []].append(GliderAlertReason(label: "\(displayName(for: gliderA))と接近(\(distanceText))", severity: severity))
+                reasonsByIMEI[gliderA.imei, default: []].append(GliderAlertReason(label: "\(displayName(for: gliderB))と接近(\(distanceText))", severity: severity, pairKey: pairKey))
+                reasonsByIMEI[gliderB.imei, default: []].append(GliderAlertReason(label: "\(displayName(for: gliderA))と接近(\(distanceText))", severity: severity, pairKey: pairKey))
             }
         }
 
@@ -663,8 +663,20 @@ struct CurrentMapView: View {
         // Reasons can now mean "too low" or "too high" depending on which
         // rule fired, so each glider lists its own reason labels rather
         // than sharing one blanket "high altitude" or "low altitude" title.
-        let lines = alertingGliders.map { glider in
-            "\(displayName(for: glider)): " + alertReasons(for: glider).map(\.label).joined(separator: "・")
+        // A proximity reason is recorded on both gliders in the pair (each
+        // needs its own copy for the map ring/badge), so here we only
+        // surface it once — on whichever glider is listed first — instead
+        // of reporting the same pair from both directions.
+        var shownProximityPairKeys: Set<String> = []
+        let lines = alertingGliders.compactMap { glider -> String? in
+            let reasons = alertReasons(for: glider).filter { reason in
+                guard let pairKey = reason.pairKey else { return true }
+                guard !shownProximityPairKeys.contains(pairKey) else { return false }
+                shownProximityPairKeys.insert(pairKey)
+                return true
+            }
+            guard !reasons.isEmpty else { return nil }
+            return "\(displayName(for: glider)): " + reasons.map(\.label).joined(separator: "・")
         }
         return HStack(alignment: .top, spacing: 6) {
             Image(systemName: "exclamationmark.triangle.fill")
