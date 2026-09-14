@@ -432,9 +432,9 @@ class GliderTrackerViewModel(
 
                 val distanceText = "${distanceM.toInt()}m"
                 reasonsByImei.getOrPut(gliderA.imei) { mutableListOf() }
-                    .add(GliderAlertReason("${state.nameFor(gliderB)}と接近($distanceText)", severity))
+                    .add(GliderAlertReason("${state.nameFor(gliderB)}と接近($distanceText)", severity, pairKey))
                 reasonsByImei.getOrPut(gliderB.imei) { mutableListOf() }
-                    .add(GliderAlertReason("${state.nameFor(gliderA)}と接近($distanceText)", severity))
+                    .add(GliderAlertReason("${state.nameFor(gliderA)}と接近($distanceText)", severity, pairKey))
             }
         }
 

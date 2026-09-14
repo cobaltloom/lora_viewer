@@ -532,9 +532,20 @@ private fun ActiveAlertsIndicator(labels: List<String>) {
 @Composable
 private fun AlertBanner(uiState: GliderTrackerUiState) {
     val worstSeverity = uiState.alertingGliders.mapNotNull { uiState.alertReasons(it).overallSeverity() }.maxOrNull()
-    val lines = uiState.alertingGliders.joinToString("、") { glider ->
-        "${uiState.nameFor(glider)}: " + uiState.alertReasons(glider).joinToString("・") { it.label }
-    }
+    // A proximity reason is recorded on both gliders in the pair (each needs its own copy for
+    // the map ring/badge), so here we only surface it once - on whichever glider is listed
+    // first - instead of reporting the same pair from both directions.
+    val shownProximityPairKeys = mutableSetOf<String>()
+    val lines = uiState.alertingGliders.mapNotNull { glider ->
+        val reasons = uiState.alertReasons(glider).filter { reason ->
+            val pairKey = reason.pairKey ?: return@filter true
+            if (pairKey in shownProximityPairKeys) false else {
+                shownProximityPairKeys += pairKey
+                true
+            }
+        }
+        if (reasons.isEmpty()) null else "${uiState.nameFor(glider)}: " + reasons.joinToString("・") { it.label }
+    }.joinToString("、")
     Surface(
         color = if (worstSeverity == AlertSeverity.WARNING) {
             Color(0xFFD32F2F)
