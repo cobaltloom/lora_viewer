@@ -8,6 +8,9 @@ DerivedData/
 *.moved-aside
 *.xccheckout
 *.xcscmblueprint
+LoraViewer/GoogleService-Info.plist
+LoraViewer.xcodeproj/project.xcworkspace/
+LoraViewer.xcodeproj/xcshareddata/xcschemes/
 
 # Android (android/)
 android/local.properties

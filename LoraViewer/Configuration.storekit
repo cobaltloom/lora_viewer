@@ -1,0 +1,52 @@
+{
+  "identifier" : "5A1F3C2E-8B4D-4E6A-9C3F-1D2B3A4C5D6E",
+  "nonRenewingSubscriptions" : [],
+  "products" : [],
+  "settings" : {
+    "_applicationInternalID" : "0",
+    "_developerTeamID" : "563XHL5ZLR",
+    "_failTransactionsEnabled" : false,
+    "_lastSynchronizedDate" : 0,
+    "_locale" : "ja_JP",
+    "_storefront" : "JPN",
+    "_storeKitErrors" : []
+  },
+  "subscriptionGroups" : [
+    {
+      "id" : "5426AE98-902D-4FF9-96FE-F801ED9E44AE",
+      "localizations" : [],
+      "name" : "LoRa妻沼 購読",
+      "subscriptions" : [
+        {
+          "adHocOffers" : [],
+          "codeOffers" : [],
+          "displayPrice" : "300",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "E2172031-625D-476A-8C78-53DA1C24AE0B",
+          "introductoryOffer" : {
+            "internalID" : "7A00092D-E9D8-48F7-BFBE-3F17C2F19A22",
+            "paymentMode" : "free",
+            "subscriptionPeriod" : "P1M"
+          },
+          "localizations" : [
+            {
+              "description" : "妻沼滑空場のグライダー位置・高度をリアルタイム表示",
+              "displayName" : "月額プラン",
+              "locale" : "ja"
+            }
+          ],
+          "productID" : "com.cobaltloom.loraviewer.monthly",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "Monthly",
+          "subscriptionGroupID" : "5426AE98-902D-4FF9-96FE-F801ED9E44AE",
+          "type" : "RecurringSubscription"
+        }
+      ]
+    }
+  ],
+  "version" : {
+    "major" : 3,
+    "minor" : 0
+  }
+}
