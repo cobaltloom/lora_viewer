@@ -79,7 +79,7 @@ struct GliderListView: View {
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
-                    if subscriptionManager.isSubscribed {
+                    if subscriptionManager.hasFullAccess {
                         showBoardScan = true
                     } else {
                         showPaywall = true

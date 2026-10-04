@@ -15,13 +15,13 @@ struct EditableGliderName: View {
     @State private var draft = ""
 
     private var displayName: String {
-        guard subscriptionManager.isSubscribed else { return baseName }
+        guard subscriptionManager.hasFullAccess else { return baseName }
         return nicknameStore.displayName(baseName: baseName, imei: imei)
     }
 
     var body: some View {
         Button {
-            if subscriptionManager.isSubscribed {
+            if subscriptionManager.hasFullAccess {
                 draft = nicknameStore.nickname(forIMEI: imei) ?? ""
                 isEditing = true
             } else {
