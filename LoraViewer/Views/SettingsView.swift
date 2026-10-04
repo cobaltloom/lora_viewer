@@ -37,15 +37,7 @@ struct SettingsView: View {
                 }
 
                 Section {
-                    if !subscriptionManager.isSubscribed {
-                        Button {
-                            showPaywall = true
-                        } label: {
-                            Label("購読して有効化", systemImage: "lock.fill")
-                        }
-                    }
                     Toggle("地上目標地点を表示", isOn: $showDistanceReferencePoints)
-                        .disabled(!subscriptionManager.isSubscribed)
                 } header: {
                     Text("地上目標地点")
                 } footer: {

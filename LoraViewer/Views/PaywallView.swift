@@ -50,7 +50,7 @@ struct PaywallView: View {
                     .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16))
                     .padding(.horizontal)
 
-                    Text("地図でのグライダー位置・高度の表示は購読なしで無料でお使いいただけます。上記の機能を使うには購読が必要です。")
+                    Text("地図でのグライダー位置・高度の表示と地上目標地点の表示は購読なしで無料でお使いいただけます。上記の機能を使うには購読が必要です。")
                         .font(.caption)
                         .multilineTextAlignment(.center)
                         .foregroundStyle(.secondary)

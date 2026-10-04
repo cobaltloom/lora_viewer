@@ -218,7 +218,7 @@ struct CurrentMapView: View {
                             .foregroundStyle(.orange.opacity(0.05))
                             .stroke(.orange.opacity(0.6), lineWidth: 1.5)
                     }
-                    if subscriptionManager.isSubscribed, showDistanceReferencePoints {
+                    if showDistanceReferencePoints {
                         ForEach(DistanceReferencePointData.points) { point in
                             Annotation(point.name, coordinate: point.coordinate) {
                                 Text(String(point.name.first ?? "?"))
