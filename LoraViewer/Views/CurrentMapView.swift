@@ -75,7 +75,7 @@ struct CurrentMapView: View {
         // of whether their individual settings are switched on — otherwise
         // someone could enable them during a trial and keep the alerts
         // after lapsing.
-        guard subscriptionManager.isSubscribed else { return [] }
+        guard subscriptionManager.hasFullAccess else { return [] }
         var reasons: [GliderAlertReason] = []
         // When one or more gliders are favorited, only they are checked against the custom
         // altitude alert and competition guideline — otherwise, e.g. a glider flying from a
@@ -113,7 +113,7 @@ struct CurrentMapView: View {
     /// low-altitude rule is on, this glider is currently flying, and it
     /// isn't triggering that rule (or any other alert) right now.
     private func isReturnGlideSafe(_ glider: GliderPosition) -> Bool {
-        guard subscriptionManager.isSubscribed, alertSettings.isEnabled else { return false }
+        guard subscriptionManager.hasFullAccess, alertSettings.isEnabled else { return false }
         guard let alt = glider.alt, alt > alertSettings.minimumFlyingAltitudeM else { return false }
         return alertReasons(for: glider).isEmpty
     }
@@ -122,7 +122,7 @@ struct CurrentMapView: View {
     /// so it's visible at a glance without opening Settings. Empty when
     /// neither alert is enabled.
     private var activeAlertLabels: [String] {
-        guard subscriptionManager.isSubscribed else { return [] }
+        guard subscriptionManager.hasFullAccess else { return [] }
         var labels: [String] = []
         if alertSettings.isEnabled {
             switch alertSettings.mode {
@@ -143,7 +143,7 @@ struct CurrentMapView: View {
         NavigationStack {
             ZStack(alignment: .bottom) {
                 Map(position: $cameraPosition) {
-                    if subscriptionManager.isSubscribed, alertSettings.isEnabled {
+                    if subscriptionManager.hasFullAccess, alertSettings.isEnabled {
                         if alertSettings.mode == .steps {
                             ForEach(alertSettings.steps) { step in
                                 MapCircle(center: alertReferenceCoordinate, radius: step.distanceKm * 1000)
@@ -161,7 +161,7 @@ struct CurrentMapView: View {
                                 .background(Circle().fill(.white))
                         }
                     }
-                    if subscriptionManager.isSubscribed, competitionGuideline.isEnabled {
+                    if subscriptionManager.hasFullAccess, competitionGuideline.isEnabled {
                         MapCircle(
                             center: CompetitionAltitudeGuideline.referenceCoordinate,
                             radius: CompetitionAltitudeGuideline.innerRadiusKm * 1000
@@ -187,7 +187,7 @@ struct CurrentMapView: View {
                                 .background(Circle().fill(.white))
                         }
                     }
-                    if subscriptionManager.isSubscribed, competitionGuideline.showTaskCourse {
+                    if subscriptionManager.hasFullAccess, competitionGuideline.showTaskCourse {
                         ForEach(CompetitionTaskCourseData.turnpointDisplayOrder, id: \.self) { name in
                             if let coordinate = CompetitionTaskCourseData.turnpoints[name] {
                                 Annotation(name, coordinate: coordinate) {
@@ -205,7 +205,7 @@ struct CurrentMapView: View {
                                 .stroke(.orange, lineWidth: 2)
                         }
                     }
-                    if subscriptionManager.isSubscribed, upperAltitudeGuideline.isEnabled {
+                    if subscriptionManager.hasFullAccess, upperAltitudeGuideline.isEnabled {
                         MapPolygon(coordinates: UpperAltitudeGuideline.zoneA.boundary)
                             .foregroundStyle(.blue.opacity(0.03))
                             .stroke(.blue.opacity(0.5), lineWidth: 1)
@@ -213,7 +213,7 @@ struct CurrentMapView: View {
                             .foregroundStyle(.cyan.opacity(0.06))
                             .stroke(.cyan.opacity(0.6), lineWidth: 1.5)
                     }
-                    if subscriptionManager.isSubscribed, showKK43Area {
+                    if subscriptionManager.hasFullAccess, showKK43Area {
                         MapPolygon(coordinates: CivilTrainingAreaKK43.boundary)
                             .foregroundStyle(.orange.opacity(0.05))
                             .stroke(.orange.opacity(0.6), lineWidth: 1.5)
@@ -245,7 +245,7 @@ struct CurrentMapView: View {
                             if let trail = viewModel.trails[glider.imei], trail.count > 1 {
                                 MapPolyline(coordinates: trail)
                                     .stroke(colorFor(imei: glider.imei), lineWidth: 2)
-                                if subscriptionManager.isSubscribed, nicknameStore.nickname(forIMEI: glider.imei) != nil {
+                                if subscriptionManager.hasFullAccess, nicknameStore.nickname(forIMEI: glider.imei) != nil {
                                     Annotation("", coordinate: trail[trail.count / 2]) {
                                         gliderNameLabel(for: glider)
                                     }
@@ -280,6 +280,10 @@ struct CurrentMapView: View {
                 }
                 .safeAreaInset(edge: .top) {
                     VStack(spacing: 6) {
+                        if !subscriptionManager.isSubscribed, subscriptionManager.isFreePeriodActive,
+                           let freeAccessUntil = subscriptionManager.freeAccessUntil {
+                            freePeriodIndicator(until: freeAccessUntil)
+                        }
                         if !activeAlertLabels.isEmpty {
                             activeAlertsIndicator
                         }
@@ -314,7 +318,7 @@ struct CurrentMapView: View {
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
-                        if subscriptionManager.isSubscribed {
+                        if subscriptionManager.hasFullAccess {
                             toggleFavoritesOnly()
                         } else {
                             showPaywall = true
@@ -322,7 +326,7 @@ struct CurrentMapView: View {
                     } label: {
                         Image(systemName: showFavoritesOnly ? "star.circle.fill" : "star.circle")
                     }
-                    .disabled(subscriptionManager.isSubscribed && !viewModel.positions.contains { favoritesStore.isFavorite($0.imei) })
+                    .disabled(subscriptionManager.hasFullAccess && !viewModel.positions.contains { favoritesStore.isFavorite($0.imei) })
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
@@ -354,7 +358,7 @@ struct CurrentMapView: View {
                         Label("地点を追加", systemImage: "mappin.and.ellipse")
                     }
                     Button {
-                        if subscriptionManager.isSubscribed {
+                        if subscriptionManager.hasFullAccess {
                             showTurnpointHistory = true
                         } else {
                             showPaywall = true
@@ -473,7 +477,7 @@ struct CurrentMapView: View {
     /// no leg geometry to derive a sector from, and nothing is
     /// notified/recorded. A subscriber-only feature.
     private func notifyTurnpointPassages(in positions: [GliderPosition]) {
-        guard subscriptionManager.isSubscribed, competitionGuideline.showTaskCourse,
+        guard subscriptionManager.hasFullAccess, competitionGuideline.showTaskCourse,
               let selectedCourseIndex = competitionGuideline.selectedCourseIndex,
               CompetitionTaskCourseData.courses.indices.contains(selectedCourseIndex)
         else { return }
@@ -512,7 +516,7 @@ struct CurrentMapView: View {
     /// the map (`.caution`), never as a notification. A subscriber-only
     /// feature.
     private func updateProximityAlerts(in positions: [GliderPosition]) {
-        guard subscriptionManager.isSubscribed, proximityAlertSettings.isEnabled else {
+        guard subscriptionManager.hasFullAccess, proximityAlertSettings.isEnabled else {
             proximityReasonsByIMEI = [:]
             previousProximityDistancesM = [:]
             proximityWarningPairs = []
@@ -604,7 +608,7 @@ struct CurrentMapView: View {
     /// just to set), so this falls back to the base name without one.
     private func displayName(for glider: GliderPosition) -> String {
         let baseName = viewModel.nameFor(index: glider.index)
-        guard subscriptionManager.isSubscribed else { return baseName }
+        guard subscriptionManager.hasFullAccess else { return baseName }
         return nicknameStore.compactDisplayName(baseName: baseName, imei: glider.imei)
     }
 
@@ -641,6 +645,21 @@ struct CurrentMapView: View {
         withAnimation {
             cameraPosition = .region(MKCoordinateRegion(coordinates: favoritePositions.map(\.coordinate)))
         }
+    }
+
+    private func freePeriodIndicator(until freeAccessUntil: Date) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: "gift.fill")
+            Text("全機能を無料開放中(\(freeAccessUntil.formatted(.dateTime.month().day().hour().minute())) まで)")
+        }
+        .font(.caption2)
+        .foregroundStyle(.blue)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 4)
+        .background(.thinMaterial, in: Capsule())
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal)
+        .padding(.top, 4)
     }
 
     private var activeAlertsIndicator: some View {

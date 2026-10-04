@@ -45,7 +45,7 @@ struct SettingsView: View {
                 }
 
                 Section {
-                    if !subscriptionManager.isSubscribed {
+                    if !subscriptionManager.hasFullAccess {
                         Button {
                             showPaywall = true
                         } label: {
@@ -53,7 +53,7 @@ struct SettingsView: View {
                         }
                     }
                     Toggle("KK4-3を表示", isOn: $showKK43Area)
-                        .disabled(!subscriptionManager.isSubscribed)
+                        .disabled(!subscriptionManager.hasFullAccess)
                 } header: {
                     Text("民間訓練試験空域(KK4-3)")
                 } footer: {
@@ -61,7 +61,7 @@ struct SettingsView: View {
                 }
 
                 Section {
-                    if !subscriptionManager.isSubscribed {
+                    if !subscriptionManager.hasFullAccess {
                         Button {
                             showPaywall = true
                         } label: {
@@ -125,7 +125,7 @@ struct SettingsView: View {
                         }
                     }
                     }
-                    .disabled(!subscriptionManager.isSubscribed)
+                    .disabled(!subscriptionManager.hasFullAccess)
                 } header: {
                     Text("高度不足アラート(カスタム設定)")
                 } footer: {
@@ -133,7 +133,7 @@ struct SettingsView: View {
                 }
 
                 Section {
-                    if !subscriptionManager.isSubscribed {
+                    if !subscriptionManager.hasFullAccess {
                         Button {
                             showPaywall = true
                         } label: {
@@ -157,7 +157,7 @@ struct SettingsView: View {
                         }
                     }
                     }
-                    .disabled(!subscriptionManager.isSubscribed)
+                    .disabled(!subscriptionManager.hasFullAccess)
                 } header: {
                     Text("競技会ガイドライン(妻沼滑空場)")
                 } footer: {
@@ -165,7 +165,7 @@ struct SettingsView: View {
                 }
 
                 Section {
-                    if !subscriptionManager.isSubscribed {
+                    if !subscriptionManager.hasFullAccess {
                         Button {
                             showPaywall = true
                         } label: {
@@ -196,7 +196,7 @@ struct SettingsView: View {
                             .foregroundStyle(.secondary)
                     }
                     }
-                    .disabled(!subscriptionManager.isSubscribed)
+                    .disabled(!subscriptionManager.hasFullAccess)
                 } header: {
                     Text("上限高度アラート(妻沼滑空場)")
                 } footer: {
@@ -204,7 +204,7 @@ struct SettingsView: View {
                 }
 
                 Section {
-                    if !subscriptionManager.isSubscribed {
+                    if !subscriptionManager.hasFullAccess {
                         Button {
                             showPaywall = true
                         } label: {
@@ -230,7 +230,7 @@ struct SettingsView: View {
                         Text("場周除外: 高度 \(Int(proximityAlertSettings.patternExclusionCeilingM)) m 以下")
                     }
                     }
-                    .disabled(!subscriptionManager.isSubscribed)
+                    .disabled(!subscriptionManager.hasFullAccess)
                 } header: {
                     Text("機体接近アラート")
                 } footer: {

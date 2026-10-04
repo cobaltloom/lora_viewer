@@ -12,7 +12,7 @@ struct FavoriteButton: View {
 
     var body: some View {
         Button {
-            if subscriptionManager.isSubscribed {
+            if subscriptionManager.hasFullAccess {
                 favoritesStore.toggle(imei)
             } else {
                 showPaywall = true
