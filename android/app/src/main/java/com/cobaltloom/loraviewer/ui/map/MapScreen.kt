@@ -416,6 +416,23 @@ fun MapScreen(
                                 color = colorForGlider(glider.imei),
                                 width = 4f,
                             )
+                            // Only for gliders with a nickname - otherwise this would just repeat the name
+                            // already under the marker. Placed on the trail, not beside the marker, so it
+                            // doesn't crowd the marker's number/altitude/name.
+                            val nickname = if (uiState.isSubscribed) uiState.nicknames[glider.imei] else null
+                            if (nickname != null) {
+                                val midpoint = trail[trail.size / 2]
+                                val color = colorForGlider(glider.imei)
+                                key(glider.imei) {
+                                    MarkerComposable(
+                                        nickname, color,
+                                        state = MarkerState(LatLng(midpoint.latitude, midpoint.longitude)),
+                                        anchor = Offset(0.5f, 0.5f),
+                                    ) {
+                                        GliderNameLabel(name = nickname, color = color)
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -425,26 +442,21 @@ fun MapScreen(
                     val isSelected = selectedGlider?.imei == glider.imei
                     val isFavorite = uiState.isFavorite(glider.imei)
                     val alertSeverity = uiState.alertReasons(glider).overallSeverity()
-                    val trail = uiState.trails[glider.imei]
-                    val showNameLabel = uiState.showGliderTrails && trail != null && trail.size > 1
                     // MarkerComposable rasterizes its content once and only redraws it when these keys
                     // change, so every input the content reads must be listed - otherwise the marker keeps
                     // showing the altitude from its first render. key(imei) keeps each marker bound to the
                     // same glider when the list order changes between polls.
                     key(glider.imei) {
                         MarkerComposable(
-                            glider, name, isSelected, isFavorite, alertSeverity ?: "none", showNameLabel,
+                            glider, name, isSelected, isFavorite, alertSeverity ?: "none",
                             state = MarkerState(position = LatLng(glider.lat, glider.lon)),
                             title = name,
                             anchor = Offset(0.5f, 0.5f),
                             onClick = { selectedGlider = glider; true },
                         ) {
-                            // The trail-colored name tag goes under the marker rather than beside it: the
-                            // marker bitmap is sized to its content, so anything offset outside got clipped.
                             GliderMarkerContent(
                                 glider = glider,
                                 name = name,
-                                trailColor = if (showNameLabel) colorForGlider(glider.imei) else null,
                                 isSelected = isSelected,
                                 isFavorite = isFavorite,
                                 alertSeverity = alertSeverity,
