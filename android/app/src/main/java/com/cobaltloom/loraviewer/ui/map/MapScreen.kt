@@ -457,7 +457,9 @@ fun MapScreen(
                 }
             }
 
-            selectedGlider?.let { glider ->
+            // selectedGlider is a snapshot from tap time; look up the latest poll's position so the
+            // card's altitude/time keep updating along with the marker.
+            selectedGlider?.let { selected -> uiState.positions.firstOrNull { it.imei == selected.imei } ?: selected }?.let { glider ->
                 GliderDetailCard(
                     glider = glider,
                     displayName = uiState.nameFor(glider),
