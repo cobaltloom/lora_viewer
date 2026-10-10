@@ -44,6 +44,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -421,27 +422,39 @@ fun MapScreen(
                 }
 
                 uiState.displayedPositions.forEach { glider ->
-                    MarkerComposable(
-                        state = MarkerState(position = LatLng(glider.lat, glider.lon)),
-                        title = uiState.nameFor(glider),
-                        anchor = Offset(0.5f, 0.5f),
-                        onClick = { selectedGlider = glider; true },
-                    ) {
-                        Box {
-                            GliderMarkerContent(
-                                glider = glider,
-                                name = uiState.nameFor(glider),
-                                isSelected = selectedGlider?.imei == glider.imei,
-                                isFavorite = uiState.isFavorite(glider.imei),
-                                alertSeverity = uiState.alertReasons(glider).overallSeverity(),
-                            )
-                            val trail = uiState.trails[glider.imei]
-                            if (uiState.showGliderTrails && trail != null && trail.size > 1) {
-                                GliderNameLabel(
-                                    name = uiState.nameFor(glider),
-                                    color = colorForGlider(glider.imei),
-                                    modifier = Modifier.align(Alignment.TopStart).offset(x = 30.dp, y = (-4).dp),
+                    val name = uiState.nameFor(glider)
+                    val isSelected = selectedGlider?.imei == glider.imei
+                    val isFavorite = uiState.isFavorite(glider.imei)
+                    val alertSeverity = uiState.alertReasons(glider).overallSeverity()
+                    val trail = uiState.trails[glider.imei]
+                    val showNameLabel = uiState.showGliderTrails && trail != null && trail.size > 1
+                    // MarkerComposable rasterizes its content once and only redraws it when these keys
+                    // change, so every input the content reads must be listed - otherwise the marker keeps
+                    // showing the altitude from its first render. key(imei) keeps each marker bound to the
+                    // same glider when the list order changes between polls.
+                    key(glider.imei) {
+                        MarkerComposable(
+                            glider, name, isSelected, isFavorite, alertSeverity ?: "none", showNameLabel,
+                            state = MarkerState(position = LatLng(glider.lat, glider.lon)),
+                            title = name,
+                            anchor = Offset(0.5f, 0.5f),
+                            onClick = { selectedGlider = glider; true },
+                        ) {
+                            Box {
+                                GliderMarkerContent(
+                                    glider = glider,
+                                    name = name,
+                                    isSelected = isSelected,
+                                    isFavorite = isFavorite,
+                                    alertSeverity = alertSeverity,
                                 )
+                                if (showNameLabel) {
+                                    GliderNameLabel(
+                                        name = name,
+                                        color = colorForGlider(glider.imei),
+                                        modifier = Modifier.align(Alignment.TopStart).offset(x = 30.dp, y = (-4).dp),
+                                    )
+                                }
                             }
                         }
                     }
@@ -457,7 +470,9 @@ fun MapScreen(
                 }
             }
 
-            selectedGlider?.let { glider ->
+            // selectedGlider is a snapshot from tap time; look up the latest poll's position so the
+            // card's altitude/time keep updating along with the marker.
+            selectedGlider?.let { selected -> uiState.positions.firstOrNull { it.imei == selected.imei } ?: selected }?.let { glider ->
                 GliderDetailCard(
                     glider = glider,
                     displayName = uiState.nameFor(glider),

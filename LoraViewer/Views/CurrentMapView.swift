@@ -55,6 +55,14 @@ struct CurrentMapView: View {
         _viewModel = StateObject(wrappedValue: GliderTrackerViewModel(settings: settings))
     }
 
+    /// The tapped glider as of the latest poll — `selectedGlider` is a
+    /// snapshot from tap time, so reading it directly would leave the detail
+    /// card showing a stale altitude/time while the marker keeps updating.
+    private var liveSelectedGlider: GliderPosition? {
+        guard let selectedGlider else { return nil }
+        return viewModel.positions.first { $0.imei == selectedGlider.imei } ?? selectedGlider
+    }
+
     private var displayedPositions: [GliderPosition] {
         guard showFavoritesOnly else { return viewModel.positions }
         let favorites = viewModel.positions.filter { favoritesStore.isFavorite($0.imei) }
@@ -293,7 +301,7 @@ struct CurrentMapView: View {
                     }
                 }
 
-                if let selectedGlider {
+                if let selectedGlider = liveSelectedGlider {
                     GliderDetailCard(
                         glider: selectedGlider,
                         baseName: viewModel.nameFor(index: selectedGlider.index),
