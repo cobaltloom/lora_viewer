@@ -31,7 +31,7 @@ import kotlin.math.roundToInt
 
 /**
  * A glider's marker content on the map: a colored circle carrying its board index number, plus an
- * altitude badge and its LoRa-registered name underneath, a favorite star, and an alert triangle
+ * altitude badge and its name underneath, a favorite star, and an alert triangle
  * when applicable. Color encodes the position source (GPS/cell/disconnected); mirrors the iOS
  * app's GliderMarkerView.
  */

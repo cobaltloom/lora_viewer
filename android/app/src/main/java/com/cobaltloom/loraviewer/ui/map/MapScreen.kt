@@ -430,7 +430,7 @@ fun MapScreen(
                         Box {
                             GliderMarkerContent(
                                 glider = glider,
-                                name = uiState.baseNameFor(glider),
+                                name = uiState.nameFor(glider),
                                 isSelected = selectedGlider?.imei == glider.imei,
                                 isFavorite = uiState.isFavorite(glider.imei),
                                 alertSeverity = uiState.alertReasons(glider).overallSeverity(),
