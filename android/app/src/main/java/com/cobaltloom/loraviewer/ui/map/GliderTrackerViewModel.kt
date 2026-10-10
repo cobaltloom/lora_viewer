@@ -1,5 +1,6 @@
 package com.cobaltloom.loraviewer.ui.map
 
+import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.cobaltloom.loraviewer.data.alert.AlertSettings
@@ -29,6 +30,8 @@ import com.cobaltloom.loraviewer.data.notification.AlertNotifier
 import com.cobaltloom.loraviewer.data.repository.GliderRepository
 import com.cobaltloom.loraviewer.data.trail.GliderTrailRepository
 import com.cobaltloom.loraviewer.data.trail.MapDisplaySettingsRepository
+import com.cobaltloom.loraviewer.ui.common.assignGliderColorSlots
+import com.cobaltloom.loraviewer.ui.common.gliderColor
 import java.time.Instant
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -57,6 +60,8 @@ data class GliderTrackerUiState(
     val turnpointPassageRecords: List<TurnpointPassageRecord> = emptyList(),
     /** Each glider's positions for its current flight, keyed by imei - drawn on the map as a trail. */
     val trails: Map<String, List<Coordinate>> = emptyMap(),
+    /** Each trailing glider's palette slot, so simultaneous trails get distinct colors. */
+    val trailColorSlots: Map<String, Int> = emptyMap(),
     /** Whether trails are drawn on the map at all - a free, device-local display preference. */
     val showGliderTrails: Boolean = true,
     /** Whether the map shows satellite/aerial imagery instead of the standard map - a free,
@@ -87,6 +92,9 @@ data class GliderTrackerUiState(
         (if (isSubscribed) nicknames[glider.imei] else null) ?: baseNameFor(glider)
 
     fun isFavorite(imei: String): Boolean = isSubscribed && imei in favorites
+
+    /** The color of [imei]'s trail and trail name tag - distinct among gliders currently flying. */
+    fun trailColorFor(imei: String): Color = gliderColor(trailColorSlots[imei], imei)
 
     /** All positions, or just favorites when the filter is on - falling back to all if none are favorited. */
     val displayedPositions: List<GliderPosition>
@@ -216,7 +224,11 @@ class GliderTrackerViewModel(
             }
         }
         viewModelScope.launch {
-            gliderTrailRepository.trails.collect { trails -> _uiState.update { it.copy(trails = trails) } }
+            gliderTrailRepository.trails.collect { trails ->
+                _uiState.update {
+                    it.copy(trails = trails, trailColorSlots = assignGliderColorSlots(it.trailColorSlots, trails.keys))
+                }
+            }
         }
         viewModelScope.launch {
             mapDisplaySettingsRepository.showGliderTrails.collect { show ->

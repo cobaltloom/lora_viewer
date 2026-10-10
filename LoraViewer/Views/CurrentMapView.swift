@@ -600,11 +600,12 @@ struct CurrentMapView: View {
             .background(.white.opacity(0.85), in: Capsule())
     }
 
-    /// A consistent-per-glider color so multiple trails can be told apart.
+    /// A per-glider trail color, distinct among gliders currently flying
+    /// (see `GliderTrackerViewModel.trailColorSlots`) so trails can be told apart.
     private func colorFor(imei: String) -> Color {
         let palette: [Color] = [.cyan, .pink, .green, .orange, .blue, .purple, .red, .yellow]
-        let index = abs(imei.hashValue) % palette.count
-        return palette[index]
+        let index = viewModel.trailColorSlots[imei] ?? abs(imei.hashValue) % palette.count
+        return palette[index % palette.count]
     }
 
     /// The pilot's nickname, if any, otherwise the server's base name — used

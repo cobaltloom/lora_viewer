@@ -9,3 +9,21 @@ private val gliderColors = listOf(
 
 /** A consistent-per-glider color (by IMEI) so multiple trails/tracks can be told apart. */
 fun colorForGlider(imei: String): Color = gliderColors[Math.floorMod(imei.hashCode(), gliderColors.size)]
+
+/**
+ * Gives each imei in [imeis] its own palette slot, keeping the slots already in [previous] so a
+ * trail's color never changes mid-flight. New gliders take the lowest free slot, so colors only
+ * repeat once more gliders are flying than the palette has colors.
+ */
+fun assignGliderColorSlots(previous: Map<String, Int>, imeis: Collection<String>): Map<String, Int> {
+    val slots = previous.filterKeys { it in imeis }.toMutableMap()
+    for (imei in imeis.sorted()) {
+        if (imei in slots) continue
+        val used = slots.values.toSet()
+        slots[imei] = gliderColors.indices.firstOrNull { it !in used } ?: Math.floorMod(imei.hashCode(), gliderColors.size)
+    }
+    return slots
+}
+
+/** The color for a slot from [assignGliderColorSlots], or [colorForGlider] if it has none. */
+fun gliderColor(slot: Int?, imei: String): Color = slot?.let { gliderColors[it] } ?: colorForGlider(imei)
