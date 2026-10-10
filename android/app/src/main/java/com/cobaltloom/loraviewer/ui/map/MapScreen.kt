@@ -339,11 +339,14 @@ fun MapScreen(
                     CompetitionTaskCourseData.turnpointDisplayOrder.forEach { name ->
                         val point = CompetitionTaskCourseData.turnpoints[name] ?: return@forEach
                         MarkerComposable(
+                            name,
                             state = MarkerState(LatLng(point.latitude, point.longitude)),
                             title = name,
                             anchor = Offset(0.5f, 0.5f),
                         ) {
-                            Icon(Icons.Filled.Navigation, contentDescription = null, tint = Color(0xFFFF9800))
+                            LabeledMapPoint(name) {
+                                Icon(Icons.Filled.Navigation, contentDescription = null, tint = Color(0xFFFF9800))
+                            }
                         }
                     }
                     val managementPoint = CompetitionTaskCourseData.turnpoints["管理ポイント"] ?: CompetitionAltitudeGuideline.referenceCoordinate
@@ -390,18 +393,21 @@ fun MapScreen(
                 if (uiState.isSubscribed && uiState.showDistanceReferencePoints) {
                     DistanceReferencePointData.points.forEach { point ->
                         MarkerComposable(
+                            point.name,
                             state = MarkerState(LatLng(point.coordinate.latitude, point.coordinate.longitude)),
                             title = point.name,
                             anchor = Offset(0.5f, 0.5f),
                         ) {
-                            Surface(shape = CircleShape, color = Color(0xFF3F51B5)) {
-                                Text(
-                                    text = point.name.first().toString(),
-                                    color = Color.White,
-                                    fontSize = 9.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.padding(5.dp),
-                                )
+                            LabeledMapPoint(point.name) {
+                                Surface(shape = CircleShape, color = Color(0xFF3F51B5)) {
+                                    Text(
+                                        text = point.name.first().toString(),
+                                        color = Color.White,
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.padding(5.dp),
+                                    )
+                                }
                             }
                         }
                     }

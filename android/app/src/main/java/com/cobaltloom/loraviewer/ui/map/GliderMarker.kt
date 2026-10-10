@@ -121,7 +121,7 @@ fun GliderMarkerContent(
  * counterpart of the title MapKit draws under an iOS Annotation.
  */
 @Composable
-private fun MarkerTitle(text: String, modifier: Modifier = Modifier) {
+fun MarkerTitle(text: String, modifier: Modifier = Modifier) {
     val style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Bold)
     Box(modifier = modifier) {
         Text(text, style = style.copy(color = Color.White, drawStyle = Stroke(width = 6f)), maxLines = 1)
@@ -146,4 +146,18 @@ fun GliderNameLabel(name: String, color: Color, modifier: Modifier = Modifier) {
             .border(1.dp, color, RoundedCornerShape(50))
             .padding(horizontal = 6.dp, vertical = 2.dp),
     )
+}
+
+/**
+ * A fixed map point's [icon] with its [name] underneath, like the title MapKit draws under an iOS
+ * Annotation. An invisible copy of the name sits above the icon so the icon stays at the content's
+ * vertical center - i.e. exactly on the coordinate with a (0.5, 0.5) marker anchor.
+ */
+@Composable
+fun LabeledMapPoint(name: String, icon: @Composable () -> Unit) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        MarkerTitle(name, modifier = Modifier.padding(bottom = 2.dp).alpha(0f))
+        icon()
+        MarkerTitle(name, modifier = Modifier.padding(top = 2.dp))
+    }
 }
