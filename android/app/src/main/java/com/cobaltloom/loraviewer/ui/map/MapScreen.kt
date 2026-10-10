@@ -416,21 +416,18 @@ fun MapScreen(
                                 color = colorForGlider(glider.imei),
                                 width = 4f,
                             )
-                            // Only for gliders with a nickname - otherwise this would just repeat the name
-                            // already under the marker. Placed on the trail, not beside the marker, so it
-                            // doesn't crowd the marker's number/altitude/name.
-                            val nickname = if (uiState.isSubscribed) uiState.nicknames[glider.imei] else null
-                            if (nickname != null) {
-                                val midpoint = trail[trail.size / 2]
-                                val color = colorForGlider(glider.imei)
-                                key(glider.imei) {
-                                    MarkerComposable(
-                                        nickname, color,
-                                        state = MarkerState(LatLng(midpoint.latitude, midpoint.longitude)),
-                                        anchor = Offset(0.5f, 0.5f),
-                                    ) {
-                                        GliderNameLabel(name = nickname, color = color)
-                                    }
+                            // Placed on the trail, not beside the marker, so it doesn't crowd the marker's
+                            // number/altitude/name.
+                            val name = uiState.nameFor(glider)
+                            val midpoint = trail[trail.size / 2]
+                            val color = colorForGlider(glider.imei)
+                            key(glider.imei) {
+                                MarkerComposable(
+                                    name, color,
+                                    state = MarkerState(LatLng(midpoint.latitude, midpoint.longitude)),
+                                    anchor = Offset(0.5f, 0.5f),
+                                ) {
+                                    GliderNameLabel(name = name, color = color)
                                 }
                             }
                         }
