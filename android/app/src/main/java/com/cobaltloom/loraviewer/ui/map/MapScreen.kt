@@ -67,7 +67,6 @@ import com.cobaltloom.loraviewer.data.alert.UpperAltitudeGuideline
 import com.cobaltloom.loraviewer.data.alert.overallSeverity
 import com.cobaltloom.loraviewer.data.alert.pointOnCircle
 import com.cobaltloom.loraviewer.data.model.GliderPosition
-import com.cobaltloom.loraviewer.ui.common.colorForGlider
 import com.cobaltloom.loraviewer.ui.detail.GliderDetailCard
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.CameraPosition
@@ -457,14 +456,14 @@ fun MapScreen(
                         if (trail != null && trail.size > 1) {
                             Polyline(
                                 points = trail.map { LatLng(it.latitude, it.longitude) },
-                                color = colorForGlider(glider.imei),
+                                color = uiState.trailColorFor(glider.imei),
                                 width = 4f,
                             )
                             // Placed on the trail, not beside the marker, so it doesn't crowd the marker's
                             // number/altitude/name.
                             val name = uiState.nameFor(glider)
                             val midpoint = trail[trail.size / 2]
-                            val color = colorForGlider(glider.imei)
+                            val color = uiState.trailColorFor(glider.imei)
                             if ("t:${glider.imei}" in visibleLabels) key(glider.imei) {
                                 MarkerComposable(
                                     name, color,

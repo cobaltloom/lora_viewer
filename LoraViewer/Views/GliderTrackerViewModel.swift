@@ -25,7 +25,16 @@ final class GliderTrackerViewModel: ObservableObject {
     /// the app being closed mid-flight, but cleared once that glider's
     /// altitude drops to/below `groundAltitudeThresholdM` (the flight has
     /// landed), so the next takeoff starts a fresh trail.
-    @Published private(set) var trails: [String: [CLLocationCoordinate2D]] = [:]
+    @Published private(set) var trails: [String: [CLLocationCoordinate2D]] = [:] {
+        didSet { assignTrailColorSlots() }
+    }
+    /// Each trailing glider's palette slot, so simultaneous trails get
+    /// distinct colors. A slot is kept for as long as the glider's trail
+    /// lasts, so its color never changes mid-flight; new gliders take the
+    /// lowest free slot, so colors only repeat once more gliders are flying
+    /// than the palette has colors.
+    @Published private(set) var trailColorSlots: [String: Int] = [:]
+    static let trailColorCount = 8
     /// Kept in sync with `AlertSettings.minimumFlyingAltitudeM` by the view,
     /// since this view model has no environment access of its own.
     var groundAltitudeThresholdM: Double = 60
@@ -86,6 +95,17 @@ final class GliderTrackerViewModel: ObservableObject {
             trails[glider.imei] = points
         }
         saveTrails()
+    }
+
+    private func assignTrailColorSlots() {
+        var slots = trailColorSlots.filter { trails[$0.key] != nil }
+        for imei in trails.keys.sorted() where slots[imei] == nil {
+            let used = Set(slots.values)
+            slots[imei] = (0..<Self.trailColorCount).first { !used.contains($0) } ?? 0
+        }
+        if slots != trailColorSlots {
+            trailColorSlots = slots
+        }
     }
 
     private func loadTrails() {
