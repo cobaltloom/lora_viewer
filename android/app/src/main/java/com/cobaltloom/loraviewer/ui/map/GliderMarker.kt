@@ -120,15 +120,15 @@ fun GliderMarkerContent(
 }
 
 /**
- * Dark text with a white halo, readable over both the standard and the aerial map - the Android
+ * White text with a black outline, readable over both the standard and the aerial map - the Android
  * counterpart of the title MapKit draws under an iOS Annotation.
  */
 @Composable
 fun MarkerTitle(text: String, modifier: Modifier = Modifier) {
     val style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Bold)
     Box(modifier = modifier) {
-        Text(text, style = style.copy(color = Color.White, drawStyle = Stroke(width = 6f)), maxLines = 1)
-        Text(text, style = style.copy(color = Color(0xFF202020)), maxLines = 1)
+        Text(text, style = style.copy(color = Color.Black, drawStyle = Stroke(width = 6f)), maxLines = 1)
+        Text(text, style = style.copy(color = Color.White), maxLines = 1)
     }
 }
 
