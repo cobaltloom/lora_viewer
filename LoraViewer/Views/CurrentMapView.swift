@@ -253,10 +253,8 @@ struct CurrentMapView: View {
                             if let trail = viewModel.trails[glider.imei], trail.count > 1 {
                                 MapPolyline(coordinates: trail)
                                     .stroke(colorFor(imei: glider.imei), lineWidth: 2)
-                                if subscriptionManager.hasFullAccess, nicknameStore.nickname(forIMEI: glider.imei) != nil {
-                                    Annotation("", coordinate: trail[trail.count / 2]) {
-                                        gliderNameLabel(for: glider)
-                                    }
+                                Annotation("", coordinate: trail[trail.count / 2]) {
+                                    gliderNameLabel(for: glider)
                                 }
                             }
                         }
@@ -624,9 +622,8 @@ struct CurrentMapView: View {
     /// to match it, so multiple simultaneous flights can be told apart at a
     /// glance instead of only by memorizing trail colors. Placed on the
     /// trail rather than next to the marker so it doesn't crowd the
-    /// marker's own index number/altitude badge. Only shown when a nickname
-    /// is set — otherwise this would just repeat the marker's own index
-    /// number.
+    /// marker's own index number/altitude badge. Shown for every trail: the
+    /// nickname if set, otherwise the server's base name.
     private func gliderNameLabel(for glider: GliderPosition) -> some View {
         Text(displayName(for: glider))
             .font(.system(size: 10, weight: .semibold))

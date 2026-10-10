@@ -31,14 +31,14 @@ import kotlin.math.roundToInt
 
 /**
  * A glider's marker content on the map: a colored circle carrying its board index number, plus an
- * altitude badge and its name underneath, a favorite star, and an alert triangle
- * when applicable. Color encodes the position source (GPS/cell/disconnected); mirrors the iOS
+ * altitude badge and its name underneath, a favorite star, and an alert triangle when applicable. Color encodes the position source (GPS/cell/disconnected); mirrors the iOS
  * app's GliderMarkerView.
  */
 @Composable
 fun GliderMarkerContent(
     glider: GliderPosition,
     name: String? = null,
+    showName: Boolean = true,
     isSelected: Boolean = false,
     isFavorite: Boolean = false,
     alertSeverity: AlertSeverity? = null,
@@ -112,27 +112,30 @@ fun GliderMarkerContent(
             )
         }
         if (!name.isNullOrEmpty()) {
-            MarkerTitle(name, modifier = Modifier.padding(top = 2.dp))
+            // Hidden by transparency rather than removal, so the marker's size - and with it where
+            // its anchor lands - doesn't change when the name is decluttered away.
+            MarkerTitle(name, modifier = Modifier.padding(top = 2.dp).alpha(if (showName) 1f else 0f))
         }
     }
 }
 
 /**
- * Dark text with a white halo, readable over both the standard and the aerial map - the Android
+ * White text with a black outline, readable over both the standard and the aerial map - the Android
  * counterpart of the title MapKit draws under an iOS Annotation.
  */
 @Composable
-private fun MarkerTitle(text: String, modifier: Modifier = Modifier) {
+fun MarkerTitle(text: String, modifier: Modifier = Modifier) {
     val style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Bold)
     Box(modifier = modifier) {
-        Text(text, style = style.copy(color = Color.White, drawStyle = Stroke(width = 6f)), maxLines = 1)
-        Text(text, style = style.copy(color = Color(0xFF202020)), maxLines = 1)
+        Text(text, style = style.copy(color = Color.Black, drawStyle = Stroke(width = 6f)), maxLines = 1)
+        Text(text, style = style.copy(color = Color.White), maxLines = 1)
     }
 }
 
 /**
- * A small name tag next to a glider's marker, colored to match its trail, so multiple
+ * A small name tag placed at the midpoint of a glider's trail, colored to match it, so multiple
  * simultaneous flights can be told apart at a glance instead of only by memorizing trail colors.
+ * Mirrors the iOS app's gliderNameLabel.
  */
 @Composable
 fun GliderNameLabel(name: String, color: Color, modifier: Modifier = Modifier) {
@@ -146,4 +149,19 @@ fun GliderNameLabel(name: String, color: Color, modifier: Modifier = Modifier) {
             .border(1.dp, color, RoundedCornerShape(50))
             .padding(horizontal = 6.dp, vertical = 2.dp),
     )
+}
+
+/**
+ * A fixed map point's [icon] with its [name] underneath, like the title MapKit draws under an iOS
+ * Annotation. An invisible copy of the name sits above the icon so the icon stays at the content's
+ * vertical center - i.e. exactly on the coordinate with a (0.5, 0.5) marker anchor. [showName]
+ * false hides the name (see [visibleLabelIds]) without changing that layout.
+ */
+@Composable
+fun LabeledMapPoint(name: String, showName: Boolean = true, icon: @Composable () -> Unit) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        MarkerTitle(name, modifier = Modifier.padding(bottom = 2.dp).alpha(0f))
+        icon()
+        MarkerTitle(name, modifier = Modifier.padding(top = 2.dp).alpha(if (showName) 1f else 0f))
+    }
 }
