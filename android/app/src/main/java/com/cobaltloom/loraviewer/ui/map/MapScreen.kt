@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -440,22 +439,16 @@ fun MapScreen(
                             anchor = Offset(0.5f, 0.5f),
                             onClick = { selectedGlider = glider; true },
                         ) {
-                            Box {
-                                GliderMarkerContent(
-                                    glider = glider,
-                                    name = name,
-                                    isSelected = isSelected,
-                                    isFavorite = isFavorite,
-                                    alertSeverity = alertSeverity,
-                                )
-                                if (showNameLabel) {
-                                    GliderNameLabel(
-                                        name = name,
-                                        color = colorForGlider(glider.imei),
-                                        modifier = Modifier.align(Alignment.TopStart).offset(x = 30.dp, y = (-4).dp),
-                                    )
-                                }
-                            }
+                            // The trail-colored name tag goes under the marker rather than beside it: the
+                            // marker bitmap is sized to its content, so anything offset outside got clipped.
+                            GliderMarkerContent(
+                                glider = glider,
+                                name = name,
+                                trailColor = if (showNameLabel) colorForGlider(glider.imei) else null,
+                                isSelected = isSelected,
+                                isFavorite = isFavorite,
+                                alertSeverity = alertSeverity,
+                            )
                         }
                     }
                 }

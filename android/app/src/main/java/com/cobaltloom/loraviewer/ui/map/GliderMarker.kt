@@ -31,14 +31,15 @@ import kotlin.math.roundToInt
 
 /**
  * A glider's marker content on the map: a colored circle carrying its board index number, plus an
- * altitude badge and its name underneath, a favorite star, and an alert triangle
- * when applicable. Color encodes the position source (GPS/cell/disconnected); mirrors the iOS
+ * altitude badge and its name underneath (as a tag in [trailColor] while its trail is shown), a
+ * favorite star, and an alert triangle when applicable. Color encodes the position source (GPS/cell/disconnected); mirrors the iOS
  * app's GliderMarkerView.
  */
 @Composable
 fun GliderMarkerContent(
     glider: GliderPosition,
     name: String? = null,
+    trailColor: Color? = null,
     isSelected: Boolean = false,
     isFavorite: Boolean = false,
     alertSeverity: AlertSeverity? = null,
@@ -112,7 +113,11 @@ fun GliderMarkerContent(
             )
         }
         if (!name.isNullOrEmpty()) {
-            MarkerTitle(name, modifier = Modifier.padding(top = 2.dp))
+            if (trailColor != null) {
+                GliderNameLabel(name, trailColor, modifier = Modifier.padding(top = 2.dp))
+            } else {
+                MarkerTitle(name, modifier = Modifier.padding(top = 2.dp))
+            }
         }
     }
 }
@@ -131,7 +136,7 @@ private fun MarkerTitle(text: String, modifier: Modifier = Modifier) {
 }
 
 /**
- * A small name tag next to a glider's marker, colored to match its trail, so multiple
+ * A small name tag under a glider's marker, colored to match its trail, so multiple
  * simultaneous flights can be told apart at a glance instead of only by memorizing trail colors.
  */
 @Composable
