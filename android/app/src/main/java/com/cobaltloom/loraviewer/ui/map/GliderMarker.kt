@@ -38,6 +38,7 @@ import kotlin.math.roundToInt
 fun GliderMarkerContent(
     glider: GliderPosition,
     name: String? = null,
+    showName: Boolean = true,
     isSelected: Boolean = false,
     isFavorite: Boolean = false,
     alertSeverity: AlertSeverity? = null,
@@ -111,7 +112,9 @@ fun GliderMarkerContent(
             )
         }
         if (!name.isNullOrEmpty()) {
-            MarkerTitle(name, modifier = Modifier.padding(top = 2.dp))
+            // Hidden by transparency rather than removal, so the marker's size - and with it where
+            // its anchor lands - doesn't change when the name is decluttered away.
+            MarkerTitle(name, modifier = Modifier.padding(top = 2.dp).alpha(if (showName) 1f else 0f))
         }
     }
 }
@@ -151,13 +154,14 @@ fun GliderNameLabel(name: String, color: Color, modifier: Modifier = Modifier) {
 /**
  * A fixed map point's [icon] with its [name] underneath, like the title MapKit draws under an iOS
  * Annotation. An invisible copy of the name sits above the icon so the icon stays at the content's
- * vertical center - i.e. exactly on the coordinate with a (0.5, 0.5) marker anchor.
+ * vertical center - i.e. exactly on the coordinate with a (0.5, 0.5) marker anchor. [showName]
+ * false hides the name (see [visibleLabelIds]) without changing that layout.
  */
 @Composable
-fun LabeledMapPoint(name: String, icon: @Composable () -> Unit) {
+fun LabeledMapPoint(name: String, showName: Boolean = true, icon: @Composable () -> Unit) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         MarkerTitle(name, modifier = Modifier.padding(bottom = 2.dp).alpha(0f))
         icon()
-        MarkerTitle(name, modifier = Modifier.padding(top = 2.dp))
+        MarkerTitle(name, modifier = Modifier.padding(top = 2.dp).alpha(if (showName) 1f else 0f))
     }
 }

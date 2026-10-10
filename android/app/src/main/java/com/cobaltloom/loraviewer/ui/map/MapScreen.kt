@@ -42,6 +42,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
@@ -85,6 +86,7 @@ import com.google.maps.android.compose.rememberCameraPositionState
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import kotlin.math.roundToInt
 
 private val JsalMenumaFallbackCenter = LatLng(36.1994, 139.4429)
 
@@ -176,6 +178,10 @@ fun MapScreen(
     // point that can pan or zoom out of view.
     val cameraTarget = cameraPositionState.position.target
 
+    // Names are decluttered by zoom, like MapKit does on iOS. Bucketed to quarter zoom levels so
+    // markers aren't re-rasterized on every frame of a pinch.
+    val zoomBucket by remember { derivedStateOf { (cameraPositionState.position.zoom * 4).roundToInt() / 4f } }
+
     val hasAnyFavoritePosition = uiState.positions.any { uiState.isFavorite(it.imei) }
     val alertReferenceCoordinate = if (uiState.isSubscribed && uiState.alertSettings.isEnabled) {
         uiState.alertSettings.referenceCoordinate
@@ -185,6 +191,36 @@ fun MapScreen(
     val competitionGuidelineActive = uiState.isSubscribed && uiState.competitionGuidelineSettings.isEnabled
     val taskCourseActive = uiState.isSubscribed && uiState.competitionGuidelineSettings.showTaskCourse
     val upperAltitudeActive = uiState.isSubscribed && uiState.upperAltitudeSettings.isEnabled
+
+    // In priority order: gliders first, then trail tags, turnpoints, and reference points.
+    val visibleLabels = remember(zoomBucket, uiState, taskCourseActive) {
+        val labels = buildList {
+            uiState.displayedPositions.forEach {
+                add(MapLabel("g:${it.imei}", it.lat, it.lon, uiState.nameFor(it), GLIDER_NAME_OFFSET_DP))
+            }
+            if (uiState.showGliderTrails) {
+                uiState.displayedPositions.forEach { glider ->
+                    val trail = uiState.trails[glider.imei]
+                    if (trail != null && trail.size > 1) {
+                        val midpoint = trail[trail.size / 2]
+                        add(MapLabel("t:${glider.imei}", midpoint.latitude, midpoint.longitude, uiState.nameFor(glider), 0f))
+                    }
+                }
+            }
+            if (taskCourseActive) {
+                CompetitionTaskCourseData.turnpointDisplayOrder.forEach { name ->
+                    val point = CompetitionTaskCourseData.turnpoints[name] ?: return@forEach
+                    add(MapLabel("tp:$name", point.latitude, point.longitude, name, POINT_NAME_OFFSET_DP))
+                }
+            }
+            if (uiState.isSubscribed && uiState.showDistanceReferencePoints) {
+                DistanceReferencePointData.points.forEach {
+                    add(MapLabel("rp:${it.name}", it.coordinate.latitude, it.coordinate.longitude, it.name, POINT_NAME_OFFSET_DP))
+                }
+            }
+        }
+        visibleLabelIds(labels, zoomBucket)
+    }
 
     Scaffold(
         topBar = {
@@ -338,13 +374,14 @@ fun MapScreen(
                 if (taskCourseActive) {
                     CompetitionTaskCourseData.turnpointDisplayOrder.forEach { name ->
                         val point = CompetitionTaskCourseData.turnpoints[name] ?: return@forEach
+                        val showName = "tp:$name" in visibleLabels
                         MarkerComposable(
-                            name,
+                            name, showName,
                             state = MarkerState(LatLng(point.latitude, point.longitude)),
                             title = name,
                             anchor = Offset(0.5f, 0.5f),
                         ) {
-                            LabeledMapPoint(name) {
+                            LabeledMapPoint(name, showName) {
                                 Icon(Icons.Filled.Navigation, contentDescription = null, tint = Color(0xFFFF9800))
                             }
                         }
@@ -392,13 +429,14 @@ fun MapScreen(
                 }
                 if (uiState.isSubscribed && uiState.showDistanceReferencePoints) {
                     DistanceReferencePointData.points.forEach { point ->
+                        val showName = "rp:${point.name}" in visibleLabels
                         MarkerComposable(
-                            point.name,
+                            point.name, showName,
                             state = MarkerState(LatLng(point.coordinate.latitude, point.coordinate.longitude)),
                             title = point.name,
                             anchor = Offset(0.5f, 0.5f),
                         ) {
-                            LabeledMapPoint(point.name) {
+                            LabeledMapPoint(point.name, showName) {
                                 Surface(shape = CircleShape, color = Color(0xFF3F51B5)) {
                                     Text(
                                         text = point.name.first().toString(),
@@ -427,7 +465,7 @@ fun MapScreen(
                             val name = uiState.nameFor(glider)
                             val midpoint = trail[trail.size / 2]
                             val color = colorForGlider(glider.imei)
-                            key(glider.imei) {
+                            if ("t:${glider.imei}" in visibleLabels) key(glider.imei) {
                                 MarkerComposable(
                                     name, color,
                                     state = MarkerState(LatLng(midpoint.latitude, midpoint.longitude)),
@@ -445,13 +483,14 @@ fun MapScreen(
                     val isSelected = selectedGlider?.imei == glider.imei
                     val isFavorite = uiState.isFavorite(glider.imei)
                     val alertSeverity = uiState.alertReasons(glider).overallSeverity()
+                    val showName = "g:${glider.imei}" in visibleLabels
                     // MarkerComposable rasterizes its content once and only redraws it when these keys
                     // change, so every input the content reads must be listed - otherwise the marker keeps
                     // showing the altitude from its first render. key(imei) keeps each marker bound to the
                     // same glider when the list order changes between polls.
                     key(glider.imei) {
                         MarkerComposable(
-                            glider, name, isSelected, isFavorite, alertSeverity ?: "none",
+                            glider, name, showName, isSelected, isFavorite, alertSeverity ?: "none",
                             state = MarkerState(position = LatLng(glider.lat, glider.lon)),
                             title = name,
                             anchor = Offset(0.5f, 0.5f),
@@ -460,6 +499,7 @@ fun MapScreen(
                             GliderMarkerContent(
                                 glider = glider,
                                 name = name,
+                                showName = showName,
                                 isSelected = isSelected,
                                 isFavorite = isFavorite,
                                 alertSeverity = alertSeverity,
@@ -608,3 +648,9 @@ private fun DistanceLabel(km: Double) {
         )
     }
 }
+
+/** Approximate distance from a glider marker's anchor down to the center of its name. */
+private const val GLIDER_NAME_OFFSET_DP = 23f
+
+/** Approximate distance from a turnpoint/reference point's anchor down to the center of its name. */
+private const val POINT_NAME_OFFSET_DP = 21f
