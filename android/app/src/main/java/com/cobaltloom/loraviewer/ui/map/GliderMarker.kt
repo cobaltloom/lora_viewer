@@ -19,6 +19,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -29,12 +31,14 @@ import kotlin.math.roundToInt
 
 /**
  * A glider's marker content on the map: a colored circle carrying its board index number, plus an
- * altitude badge underneath, a favorite star, and an alert triangle when applicable. Color encodes
- * the position source (GPS/cell/disconnected); mirrors the iOS app's GliderMarkerView.
+ * altitude badge and its name underneath, a favorite star, and an alert triangle
+ * when applicable. Color encodes the position source (GPS/cell/disconnected); mirrors the iOS
+ * app's GliderMarkerView.
  */
 @Composable
 fun GliderMarkerContent(
     glider: GliderPosition,
+    name: String? = null,
     isSelected: Boolean = false,
     isFavorite: Boolean = false,
     alertSeverity: AlertSeverity? = null,
@@ -107,6 +111,22 @@ fun GliderMarkerContent(
                     .padding(horizontal = 4.dp, vertical = 1.dp),
             )
         }
+        if (!name.isNullOrEmpty()) {
+            MarkerTitle(name, modifier = Modifier.padding(top = 2.dp))
+        }
+    }
+}
+
+/**
+ * Dark text with a white halo, readable over both the standard and the aerial map - the Android
+ * counterpart of the title MapKit draws under an iOS Annotation.
+ */
+@Composable
+private fun MarkerTitle(text: String, modifier: Modifier = Modifier) {
+    val style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Bold)
+    Box(modifier = modifier) {
+        Text(text, style = style.copy(color = Color.White, drawStyle = Stroke(width = 6f)), maxLines = 1)
+        Text(text, style = style.copy(color = Color(0xFF202020)), maxLines = 1)
     }
 }
 
