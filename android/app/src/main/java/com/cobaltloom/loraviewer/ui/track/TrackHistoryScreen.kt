@@ -52,7 +52,7 @@ private val displayFormatter = DateTimeFormatter.ofPattern("MM/dd HH:mm").withZo
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TrackHistoryScreen(viewModel: TrackHistoryViewModel, onBack: () -> Unit) {
+fun TrackHistoryScreen(viewModel: TrackHistoryViewModel, isOgnSelected: Boolean, onBack: () -> Unit) {
     val uiState by viewModel.uiState.collectAsState()
     var startInstant by remember { mutableStateOf(LocalDate.now().atStartOfDay(ZoneId.systemDefault()).toInstant()) }
     var endInstant by remember { mutableStateOf(Instant.now()) }
@@ -71,6 +71,14 @@ fun TrackHistoryScreen(viewModel: TrackHistoryViewModel, onBack: () -> Unit) {
     ) { padding ->
         Column(modifier = Modifier.padding(padding).fillMaxSize()) {
             Column(modifier = Modifier.padding(16.dp)) {
+                if (isOgnSelected) {
+                    Text(
+                        "行動軌跡の検索はLoRaのデータのみ対応しています(OGN Japanのデータは対象外です)。",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(bottom = 8.dp),
+                    )
+                }
                 Row(modifier = Modifier.fillMaxWidth()) {
                     OutlinedButton(onClick = { editingField = TrackHistoryField.START }, modifier = Modifier.weight(1f)) {
                         Text("開始: ${displayFormatter.format(startInstant)}")

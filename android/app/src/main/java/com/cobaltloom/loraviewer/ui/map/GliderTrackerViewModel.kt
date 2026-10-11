@@ -28,6 +28,7 @@ import com.cobaltloom.loraviewer.data.nickname.NicknameRepository
 import com.cobaltloom.loraviewer.data.nickname.NicknameSyncMode
 import com.cobaltloom.loraviewer.data.notification.AlertNotifier
 import com.cobaltloom.loraviewer.data.repository.GliderRepository
+import com.cobaltloom.loraviewer.data.settings.DataSource
 import com.cobaltloom.loraviewer.data.trail.GliderTrailRepository
 import com.cobaltloom.loraviewer.data.trail.MapDisplaySettingsRepository
 import com.cobaltloom.loraviewer.ui.common.assignGliderColorSlots
@@ -82,10 +83,14 @@ data class GliderTrackerUiState(
      * this flag so a lapsed subscription stops applying those features immediately, even if their
      * underlying settings are still stored as enabled. */
     val isSubscribed: Boolean = false,
+    /** The position source actually in use (see ApiSettings.effectiveDataSource). */
+    val dataSource: DataSource = DataSource.LORA,
+    /** Whether the OGN option is offered in Settings at all (Firestore `ognEnabled`). */
+    val isOgnAvailable: Boolean = false,
 ) {
     /** The site's own board-position name (e.g. "7."), ignoring any nickname. */
     fun baseNameFor(glider: GliderPosition): String =
-        config?.nameMasterDisplayed?.get(glider.index) ?: "#${glider.index}"
+        glider.sourceName ?: config?.nameMasterDisplayed?.get(glider.index) ?: "#${glider.index}"
 
     /** Prefers the pilot-assigned nickname (by IMEI), falling back to [baseNameFor]. */
     fun nameFor(glider: GliderPosition): String =
@@ -170,6 +175,9 @@ class GliderTrackerViewModel(
 
     private var pollingJob: Job? = null
 
+    /** Null until settings first load, so that initial load isn't mistaken for a source switch. */
+    private var currentDataSource: DataSource? = null
+
     /** IMEIs alerting as of the last refresh, so notifications fire only when a glider newly enters an alert. */
     private var previouslyAlertingImeis: Set<String> = emptySet()
 
@@ -246,6 +254,18 @@ class GliderTrackerViewModel(
             }
         }
         viewModelScope.launch {
+            repository.settings
+                .catch { }
+                .collect { settings ->
+                    val previous = currentDataSource
+                    val source = settings.effectiveDataSource
+                    currentDataSource = source
+                    _uiState.update { it.copy(dataSource = source, isOgnAvailable = settings.isOgnAvailable) }
+                    // The first value is just the saved choice, not a switch: keep persisted trails.
+                    if (previous != null && source != previous) onDataSourceChanged()
+                }
+        }
+        viewModelScope.launch {
             mapDisplaySettingsRepository.showKk43Area.collect { show ->
                 _uiState.update { it.copy(showKk43Area = show) }
             }
@@ -261,6 +281,25 @@ class GliderTrackerViewModel(
                 val intervalSeconds = repository.currentRefreshIntervalSeconds().coerceAtLeast(3.0)
                 delay((intervalSeconds * 1000).toLong())
             }
+        }
+    }
+
+    fun setDataSource(source: DataSource) {
+        viewModelScope.launch { repository.setDataSource(source) }
+    }
+
+    /** Starts clean on the new source instead of mixing one source's stale gliders into the other's
+     * map, and fetches right away instead of waiting out the current interval. */
+    private suspend fun onDataSourceChanged() {
+        gliderTrailRepository.clear()
+        _uiState.update { it.copy(positions = emptyList(), proximityReasonsByImei = emptyMap()) }
+        previouslyAlertingImeis = emptySet()
+        previouslyInsideTurnpoints = emptySet()
+        previousProximityDistancesM = emptyMap()
+        proximityWarningPairs = emptySet()
+        if (pollingJob?.isActive == true) {
+            stopPolling()
+            startPolling()
         }
     }
 
@@ -336,7 +375,13 @@ class GliderTrackerViewModel(
     suspend fun refreshOnce() {
         _uiState.update { it.copy(isLoading = true) }
         try {
-            val positions = repository.fetchCurrentPositions()
+            val source = repository.currentDataSource()
+            val positions = repository.fetchCurrentPositions(source)
+            // The source may have been switched while this request was in flight.
+            if (source != repository.currentDataSource()) {
+                _uiState.update { it.copy(isLoading = false) }
+                return
+            }
             var stateWithNewPositions = _uiState.value.copy(positions = positions)
             val proximityReasons = updateProximityAlerts(stateWithNewPositions)
             stateWithNewPositions = stateWithNewPositions.copy(proximityReasonsByImei = proximityReasons)

@@ -6,6 +6,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
@@ -27,6 +28,7 @@ import com.cobaltloom.loraviewer.data.notification.AlertNotifier
 import com.cobaltloom.loraviewer.data.remote.TrailRouteApiClient
 import com.cobaltloom.loraviewer.data.repository.GliderRepository
 import com.cobaltloom.loraviewer.data.settings.ApiSettingsRepository
+import com.cobaltloom.loraviewer.data.settings.DataSource
 import com.cobaltloom.loraviewer.data.trail.GliderTrailRepository
 import com.cobaltloom.loraviewer.data.trail.MapDisplaySettingsRepository
 import com.cobaltloom.loraviewer.ui.boardscan.BoardScanScreen
@@ -168,7 +170,12 @@ private fun LoraViewerNavHost(billingRepository: BillingRepository) {
             PaywallScreen(billingRepository, onBack = { navController.popBackStack() })
         }
         composable(Routes.TRACK_HISTORY) {
-            TrackHistoryScreen(viewModel = trackHistoryViewModel, onBack = { navController.popBackStack() })
+            val uiState by viewModel.uiState.collectAsState()
+            TrackHistoryScreen(
+                viewModel = trackHistoryViewModel,
+                isOgnSelected = uiState.dataSource == DataSource.OGN,
+                onBack = { navController.popBackStack() },
+            )
         }
         composable(Routes.TURNPOINT_HISTORY) {
             TurnpointHistoryScreen(viewModel = viewModel, onBack = { navController.popBackStack() })

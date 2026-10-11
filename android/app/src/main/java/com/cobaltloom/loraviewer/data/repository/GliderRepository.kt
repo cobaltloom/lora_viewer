@@ -3,24 +3,39 @@ package com.cobaltloom.loraviewer.data.repository
 import com.cobaltloom.loraviewer.data.model.AppConfig
 import com.cobaltloom.loraviewer.data.model.GliderPosition
 import com.cobaltloom.loraviewer.data.model.TrackLogDevice
+import com.cobaltloom.loraviewer.data.remote.OgnApiClient
 import com.cobaltloom.loraviewer.data.remote.TrailRouteApiClient
+import com.cobaltloom.loraviewer.data.settings.ApiSettings
 import com.cobaltloom.loraviewer.data.settings.ApiSettingsRepository
+import com.cobaltloom.loraviewer.data.settings.DataSource
 import java.time.Instant
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 
 class GliderRepository(
     private val apiClient: TrailRouteApiClient,
     private val settingsRepository: ApiSettingsRepository,
+    private val ognApiClient: OgnApiClient = OgnApiClient(),
 ) {
+    val settings: Flow<ApiSettings> = settingsRepository.settings
+
+    suspend fun setDataSource(value: DataSource) = settingsRepository.setDataSource(value)
+
     suspend fun fetchConfig(): AppConfig {
         val settings = settingsRepository.settings.first()
         return apiClient.fetchConfig(settings.baseUrl)
     }
 
-    suspend fun fetchCurrentPositions(): List<GliderPosition> {
+    /** Fetches from [source] - the caller passes it so it can tell which source a result came from. */
+    suspend fun fetchCurrentPositions(source: DataSource): List<GliderPosition> {
         val settings = settingsRepository.settings.first()
-        return apiClient.fetchCurrentPositions(settings.baseUrl, settings.secretKey)
+        return when (source) {
+            DataSource.LORA -> apiClient.fetchCurrentPositions(settings.baseUrl, settings.secretKey)
+            DataSource.OGN -> ognApiClient.fetchCurrentPositions()
+        }
     }
+
+    suspend fun currentDataSource(): DataSource = settingsRepository.settings.first().effectiveDataSource
 
     suspend fun currentRefreshIntervalSeconds(): Double =
         settingsRepository.settings.first().refreshIntervalSeconds

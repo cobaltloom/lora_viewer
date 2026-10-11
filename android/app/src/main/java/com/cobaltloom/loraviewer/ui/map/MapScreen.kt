@@ -59,14 +59,16 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import com.cobaltloom.loraviewer.data.alert.AlertSeverity
 import com.cobaltloom.loraviewer.data.alert.AltitudeCalculationMode
-import com.cobaltloom.loraviewer.data.alert.CompetitionAltitudeGuideline
 import com.cobaltloom.loraviewer.data.alert.CivilTrainingAreaKK43
+import com.cobaltloom.loraviewer.data.alert.CompetitionAltitudeGuideline
 import com.cobaltloom.loraviewer.data.alert.CompetitionTaskCourseData
 import com.cobaltloom.loraviewer.data.alert.DistanceReferencePointData
 import com.cobaltloom.loraviewer.data.alert.UpperAltitudeGuideline
 import com.cobaltloom.loraviewer.data.alert.overallSeverity
 import com.cobaltloom.loraviewer.data.alert.pointOnCircle
 import com.cobaltloom.loraviewer.data.model.GliderPosition
+import com.cobaltloom.loraviewer.data.remote.OgnApiClient
+import com.cobaltloom.loraviewer.data.settings.DataSource
 import com.cobaltloom.loraviewer.ui.detail.GliderDetailCard
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.CameraPosition
@@ -224,7 +226,12 @@ fun MapScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(uiState.config?.siteTitle?.ifEmpty { null } ?: "LoRa妻沼") },
+                title = {
+                    Text(
+                        if (uiState.dataSource == DataSource.OGN) DataSource.OGN.displayName
+                        else uiState.config?.siteTitle?.ifEmpty { null } ?: "LoRa妻沼",
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = onOpenList) {
                         Icon(Icons.Filled.List, contentDescription = "メンバー一覧")
@@ -505,6 +512,20 @@ fun MapScreen(
                             )
                         }
                     }
+                }
+            }
+
+            if (uiState.dataSource == DataSource.OGN) {
+                Surface(
+                    modifier = Modifier.align(Alignment.BottomStart).padding(start = 8.dp, bottom = 36.dp),
+                    shape = MaterialTheme.shapes.small,
+                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
+                ) {
+                    Text(
+                        OgnApiClient.ATTRIBUTION,
+                        style = MaterialTheme.typography.labelSmall,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                    )
                 }
             }
 

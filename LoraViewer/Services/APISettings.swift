@@ -2,6 +2,21 @@ import Foundation
 import Combine
 import FirebaseFirestore
 
+/// Where glider positions come from.
+enum DataSource: String, CaseIterable {
+    /// The club's LoRa trackers, via trailrouteview.com.
+    case lora
+    /// OGN Japan (ogn.ezoe.net) - FLARM/OGN-tracker equipped aircraft.
+    case ogn
+
+    var displayName: String {
+        switch self {
+        case .lora: return "LoRa"
+        case .ogn: return "OGN Japan"
+        }
+    }
+}
+
 /// User-configurable connection settings, persisted to UserDefaults.
 ///
 /// The site's `mapapi.php` expects a `key` query parameter that is baked
@@ -21,6 +36,16 @@ final class APISettings: ObservableObject {
     }
     @Published var secretKey: String {
         didSet { UserDefaults.standard.set(secretKey, forKey: Keys.secretKey) }
+    }
+    @Published var dataSource: DataSource {
+        didSet { UserDefaults.standard.set(dataSource.rawValue, forKey: Keys.dataSource) }
+    }
+    /// Whether OGN may be offered at all, from `meta/serverConfig.ognEnabled`. Off until the
+    /// ogn.ezoe.net operator agrees to app access, and doubles as a kill switch if they later
+    /// ask us to stop - so it's controlled from Firestore rather than baked into a release.
+    @Published private(set) var isOGNAvailable: Bool {
+        // Cached so launch doesn't briefly poll LoRa before the Firestore snapshot arrives.
+        didSet { UserDefaults.standard.set(isOGNAvailable, forKey: Keys.ognEnabledCached) }
     }
     @Published var refreshIntervalSeconds: Double {
         didSet { UserDefaults.standard.set(refreshIntervalSeconds, forKey: Keys.refreshInterval) }
@@ -44,6 +69,8 @@ final class APISettings: ObservableObject {
         static let secretKey = "apiSecretKey"
         static let refreshInterval = "refreshIntervalSeconds"
         static let baseURLCustomized = "apiBaseURLCustomized"
+        static let dataSource = "dataSource"
+        static let ognEnabledCached = "ognEnabledCached"
     }
 
     init() {
@@ -51,6 +78,8 @@ final class APISettings: ObservableObject {
         let storedBaseURL = defaults.string(forKey: Keys.baseURL)
         baseURLString = storedBaseURL ?? Self.defaultBaseURLString
         secretKey = defaults.string(forKey: Keys.secretKey) ?? ""
+        dataSource = defaults.string(forKey: Keys.dataSource).flatMap(DataSource.init(rawValue:)) ?? .lora
+        isOGNAvailable = defaults.bool(forKey: Keys.ognEnabledCached)
         let storedInterval = defaults.double(forKey: Keys.refreshInterval)
         refreshIntervalSeconds = storedInterval > 0 ? storedInterval : 10
         if defaults.object(forKey: Keys.baseURLCustomized) != nil {
@@ -70,6 +99,11 @@ final class APISettings: ObservableObject {
 
     var baseURL: URL? { URL(string: baseURLString) }
 
+    /// The source actually in use: a saved OGN choice falls back to LoRa while OGN is switched off.
+    var effectiveDataSource: DataSource {
+        dataSource == .ogn && !isOGNAvailable ? .lora : dataSource
+    }
+
     /// Discards a manually-entered URL and goes back to following the server-provided default.
     func resetBaseURLToServerDefault() {
         isBaseURLCustomized = false
@@ -83,6 +117,12 @@ final class APISettings: ObservableObject {
         remoteConfigListener = db.collection("meta").document("serverConfig")
             .addSnapshotListener { [weak self] snapshot, _ in
                 guard let self else { return }
+                if let snapshot {
+                    let ognEnabled = snapshot.data()?["ognEnabled"] as? Bool ?? false
+                    if ognEnabled != self.isOGNAvailable {
+                        self.isOGNAvailable = ognEnabled
+                    }
+                }
                 guard let url = snapshot?.data()?["baseUrl"] as? String, !url.isEmpty else { return }
                 guard !self.isBaseURLCustomized, url != self.baseURLString else { return }
                 self.isApplyingProgrammaticUpdate = true

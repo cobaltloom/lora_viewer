@@ -18,6 +18,21 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
+                if settings.isOGNAvailable {
+                    Section {
+                        Picker("データ元", selection: $settings.dataSource) {
+                            ForEach(DataSource.allCases, id: \.self) { source in
+                                Text(source.displayName).tag(source)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+                    } header: {
+                        Text("位置情報のデータ元")
+                    } footer: {
+                        Text("LoRa: クラブのLoRa発信機を積んだ機体を表示します。\nOGN Japan: FLARMやOGNトラッカーを積み、OGN受信機の範囲内にいる機体を表示します(\(OGNAPI.attribution))。追跡拒否・匿名設定の機体は表示しません。過去の行動軌跡の検索はLoRaのみ対応です。")
+                    }
+                }
+
                 Section {
                     Toggle("軌跡を表示", isOn: $showGliderTrails)
                 } header: {

@@ -5,19 +5,24 @@ enum PositionSource: String {
     case gps = "1"
     case cell = "2"
     case unknown = "0"
+    /// Not a LoRa tracker field value: marks positions that came from OGN Japan.
+    case ogn = "ogn"
 
     var label: String {
         switch self {
         case .gps: return "GPS"
         case .cell: return "セル"
         case .unknown: return "不明"
+        case .ogn: return "OGN"
         }
     }
 }
 
-/// One glider's current position, as returned by `mapapi.php`.
+/// One glider's current position, as returned by `mapapi.php` (or built from OGN Japan data).
 struct GliderPosition: Identifiable, Decodable {
+    /// The tracker's unique id: the LoRa tracker's IMEI, or the OGN device id (e.g. "FLR3F1A2B").
     let imei: String
+    /// Short label drawn inside the map marker.
     let index: String
     let lat: Double
     let lon: Double
@@ -25,6 +30,9 @@ struct GliderPosition: Identifiable, Decodable {
     let source: PositionSource
     let isDisconnected: Bool
     let positionDateTimeUTC: Date?
+    /// Name supplied by the source itself (OGN registration/competition no.). LoRa positions
+    /// leave this nil and are named via the site config's `name_master_displayed`.
+    var sourceName: String? = nil
 
     var id: String { imei }
 
@@ -36,6 +44,19 @@ struct GliderPosition: Identifiable, Decodable {
         case imei, index, lat, lon, alt, source
         case dcFlag = "dc_flag"
         case positionDatetime = "position_datetime"
+    }
+
+    init(imei: String, index: String, lat: Double, lon: Double, alt: Double?, source: PositionSource,
+         isDisconnected: Bool, positionDateTimeUTC: Date?, sourceName: String?) {
+        self.imei = imei
+        self.index = index
+        self.lat = lat
+        self.lon = lon
+        self.alt = alt
+        self.source = source
+        self.isDisconnected = isDisconnected
+        self.positionDateTimeUTC = positionDateTimeUTC
+        self.sourceName = sourceName
     }
 
     init(from decoder: Decoder) throws {

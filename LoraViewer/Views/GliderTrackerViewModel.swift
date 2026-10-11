@@ -43,7 +43,11 @@ final class GliderTrackerViewModel: ObservableObject {
     private let trailsStorageKey = "gliderTrails"
 
     private let api: TrailRouteAPI
+    private let ognAPI = OGNAPI()
     private let settings: APISettings
+    /// The source the current `positions`/`trails` came from, so switching sources starts clean
+    /// instead of mixing one source's stale gliders into the other's map.
+    private var lastDataSource: DataSource?
     private var pollingTask: Task<Void, Never>?
 
     init(settings: APISettings) {
@@ -52,8 +56,10 @@ final class GliderTrackerViewModel: ObservableObject {
         loadTrails()
     }
 
-    func nameFor(index: String) -> String {
-        config?.nameMasterDisplayed[index] ?? "#\(index)"
+    var dataSource: DataSource { settings.effectiveDataSource }
+
+    func nameFor(_ glider: GliderPosition) -> String {
+        glider.sourceName ?? config?.nameMasterDisplayed[glider.index] ?? "#\(glider.index)"
     }
 
     func loadConfigIfNeeded() async {
@@ -68,8 +74,22 @@ final class GliderTrackerViewModel: ObservableObject {
     func refreshOnce() async {
         isLoading = true
         defer { isLoading = false }
+        let source = settings.effectiveDataSource
+        if let lastDataSource, lastDataSource != source {
+            positions = []
+            trails = [:]
+            saveTrails()
+        }
+        lastDataSource = source
         do {
-            positions = try await api.fetchCurrentPositions()
+            let fetched: [GliderPosition]
+            switch source {
+            case .lora: fetched = try await api.fetchCurrentPositions()
+            case .ogn: fetched = try await ognAPI.fetchCurrentPositions()
+            }
+            // The source may have been switched while this request was in flight.
+            guard source == settings.effectiveDataSource else { return }
+            positions = fetched
             recordTrailPoints(from: positions)
             lastUpdated = Date()
             errorMessage = nil

@@ -21,6 +21,11 @@ struct TrackHistoryView: View {
     var body: some View {
         VStack(spacing: 0) {
             Form {
+                if settings.effectiveDataSource == .ogn {
+                    Text("行動軌跡の検索はLoRaのデータのみ対応しています(OGN Japanのデータは対象外です)。")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
                 DatePicker("開始", selection: $startDate)
                 DatePicker("終了", selection: $endDate)
                 Button {
