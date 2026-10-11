@@ -55,6 +55,8 @@ class OgnApiClientTest {
             """
             {"device_id":"FLR333333","lat":36.2,"lon":139.3,"ts":"2026-10-11T03:00:00Z","no_tracking":true},
             {"device_id":"FLR444444","lat":36.2,"lon":139.3,"ts":"2026-10-11T03:00:00Z","hidden":true},
+            {"device_id":"FLR777777","lat":36.2,"lon":139.3,"ts":"2026-10-11T03:00:00Z","stealth":true},
+            {"device_id":"FLR888888","lat":36.2,"lon":139.3,"ts":"2026-10-11T03:00:00Z","anon":true},
             {"device_id":"FLR555555","lat":null,"lon":null,"ts":"2026-10-11T03:00:00Z"},
             {"device_id":"FLR666666","lat":36.2,"lon":139.3,"ts":"2026-10-11T03:00:00Z"}
             """,

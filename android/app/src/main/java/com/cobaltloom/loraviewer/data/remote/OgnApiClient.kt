@@ -53,9 +53,10 @@ class OgnApiClient(
         private const val SINCE_SECONDS = 90
 
         /**
-         * The response holds every fix in the window; keep each aircraft's newest one. Aircraft whose
-         * owners opted out of tracking are dropped (the server already leaves random-id aircraft out
-         * of "aircraft" and lists them separately under "anon", which we never read).
+         * The response holds every fix in the window; keep each aircraft's newest one. Aircraft with
+         * any privacy flag (hidden, no-tracking, stealth, or DDB-anonymous) are dropped, per OGN's rule
+         * that redistributors follow DDB privacy choices (the server already leaves random-id aircraft
+         * out of "aircraft" and lists them separately under "anon", which we never read).
          */
         fun latestPositions(fixes: List<JsonObject>): List<GliderPosition> =
             fixes.asSequence()
@@ -68,7 +69,8 @@ class OgnApiClient(
         private fun JsonObject.flag(key: String): Boolean = (this[key] as? JsonPrimitive)?.booleanOrNull ?: false
 
         private fun JsonObject.isTrackingRefused(): Boolean =
-            flag("hidden") || flag("no_tracking") || lenientString("device_id").isEmpty()
+            flag("hidden") || flag("no_tracking") || flag("stealth") || flag("anon") ||
+                lenientString("device_id").isEmpty()
 
         private fun JsonObject.timestamp(): Instant? =
             lenientString("ts").takeIf { it.isNotEmpty() }?.let { runCatching { Instant.parse(it) }.getOrNull() }

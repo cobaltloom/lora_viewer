@@ -32,9 +32,10 @@ final class OGNAPI {
         return Self.latestPositions(from: decoded.aircraft)
     }
 
-    /// The response holds every fix in the window; keep each aircraft's newest one. Aircraft whose
-    /// owners opted out of tracking are dropped (the server already leaves random-id aircraft out
-    /// of `aircraft` and lists them separately under `anon`, which we never read).
+    /// The response holds every fix in the window; keep each aircraft's newest one. Aircraft with any
+    /// privacy flag (hidden, no-tracking, stealth, or DDB-anonymous) are dropped, per OGN's rule that
+    /// redistributors follow DDB privacy choices (the server already leaves random-id aircraft out of
+    /// `aircraft` and lists them separately under `anon`, which we never read).
     static func latestPositions(from fixes: [OGNFix]) -> [GliderPosition] {
         var latest: [String: OGNFix] = [:]
         for fix in fixes where fix.lat != nil && fix.lon != nil && !fix.isTrackingRefused {
@@ -67,6 +68,8 @@ struct OGNFix: Decodable {
     let competitionID: String?
     let hidden: Bool
     let noTracking: Bool
+    let stealth: Bool
+    let anonymous: Bool
 
     enum CodingKeys: String, CodingKey {
         case deviceID = "device_id"
@@ -77,6 +80,8 @@ struct OGNFix: Decodable {
         case competitionID = "cn"
         case hidden
         case noTracking = "no_tracking"
+        case stealth
+        case anonymous = "anon"
     }
 
     init(from decoder: Decoder) throws {
@@ -90,9 +95,11 @@ struct OGNFix: Decodable {
         competitionID = (try? c.decode(String.self, forKey: .competitionID)).flatMap { $0.isEmpty ? nil : $0 }
         hidden = (try? c.decode(Bool.self, forKey: .hidden)) ?? false
         noTracking = (try? c.decode(Bool.self, forKey: .noTracking)) ?? false
+        stealth = (try? c.decode(Bool.self, forKey: .stealth)) ?? false
+        anonymous = (try? c.decode(Bool.self, forKey: .anonymous)) ?? false
     }
 
-    var isTrackingRefused: Bool { hidden || noTracking || deviceID.isEmpty }
+    var isTrackingRefused: Bool { hidden || noTracking || stealth || anonymous || deviceID.isEmpty }
 
     var date: Date? { timestamp.flatMap(OGNFix.parseDate) }
 
