@@ -6,6 +6,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
@@ -24,9 +25,11 @@ import com.cobaltloom.loraviewer.data.billing.BillingRepository
 import com.cobaltloom.loraviewer.data.favorites.FavoritesRepository
 import com.cobaltloom.loraviewer.data.nickname.NicknameRepository
 import com.cobaltloom.loraviewer.data.notification.AlertNotifier
+import com.cobaltloom.loraviewer.data.remote.OgnApiClient
 import com.cobaltloom.loraviewer.data.remote.TrailRouteApiClient
 import com.cobaltloom.loraviewer.data.repository.GliderRepository
 import com.cobaltloom.loraviewer.data.settings.ApiSettingsRepository
+import com.cobaltloom.loraviewer.data.settings.DataSource
 import com.cobaltloom.loraviewer.data.trail.GliderTrailRepository
 import com.cobaltloom.loraviewer.data.trail.MapDisplaySettingsRepository
 import com.cobaltloom.loraviewer.ui.boardscan.BoardScanScreen
@@ -37,8 +40,6 @@ import com.cobaltloom.loraviewer.ui.paywall.PaywallScreen
 import com.cobaltloom.loraviewer.ui.settings.AdvancedSettingsScreen
 import com.cobaltloom.loraviewer.ui.settings.SettingsScreen
 import com.cobaltloom.loraviewer.ui.theme.LoraViewerTheme
-import com.cobaltloom.loraviewer.ui.track.TrackHistoryScreen
-import com.cobaltloom.loraviewer.ui.track.TrackHistoryViewModel
 import com.cobaltloom.loraviewer.ui.turnpoint.TurnpointHistoryScreen
 
 class MainActivity : ComponentActivity() {
@@ -57,7 +58,6 @@ private object Routes {
     const val MAP = "map"
     const val LIST = "list"
     const val SETTINGS = "settings"
-    const val TRACK_HISTORY = "trackHistory"
     const val BOARD_SCAN = "boardScan"
     const val PAYWALL = "paywall"
     const val TURNPOINT_HISTORY = "turnpointHistory"
@@ -88,7 +88,7 @@ private fun LoraViewerNavHost(billingRepository: BillingRepository) {
     val isSubscribed = true
     val apiSettingsRepository = remember { ApiSettingsRepository(context) }
     val gliderRepository = remember {
-        GliderRepository(TrailRouteApiClient(), apiSettingsRepository)
+        GliderRepository(TrailRouteApiClient(), apiSettingsRepository, OgnApiClient(context.cacheDir))
     }
 
     val trackerFactory = remember {
@@ -123,11 +123,6 @@ private fun LoraViewerNavHost(billingRepository: BillingRepository) {
     val viewModel: GliderTrackerViewModel = viewModel(factory = trackerFactory)
     LaunchedEffect(isSubscribed) { viewModel.updateSubscriptionStatus(isSubscribed) }
 
-    val trackHistoryFactory = remember {
-        viewModelFactory { initializer { TrackHistoryViewModel(gliderRepository) } }
-    }
-    val trackHistoryViewModel: TrackHistoryViewModel = viewModel(factory = trackHistoryFactory)
-
     val navController = rememberNavController()
     val onRequireSubscription: () -> Unit = { navController.navigate(Routes.PAYWALL) }
 
@@ -137,7 +132,6 @@ private fun LoraViewerNavHost(billingRepository: BillingRepository) {
                 viewModel = viewModel,
                 onOpenList = { navController.navigate(Routes.LIST) },
                 onOpenSettings = { navController.navigate(Routes.SETTINGS) },
-                onOpenTrackHistory = { navController.navigate(Routes.TRACK_HISTORY) },
                 onOpenTurnpointHistory = { navController.navigate(Routes.TURNPOINT_HISTORY) },
                 onRequireSubscription = onRequireSubscription,
             )
@@ -166,9 +160,6 @@ private fun LoraViewerNavHost(billingRepository: BillingRepository) {
         }
         composable(Routes.PAYWALL) {
             PaywallScreen(billingRepository, onBack = { navController.popBackStack() })
-        }
-        composable(Routes.TRACK_HISTORY) {
-            TrackHistoryScreen(viewModel = trackHistoryViewModel, onBack = { navController.popBackStack() })
         }
         composable(Routes.TURNPOINT_HISTORY) {
             TurnpointHistoryScreen(viewModel = viewModel, onBack = { navController.popBackStack() })

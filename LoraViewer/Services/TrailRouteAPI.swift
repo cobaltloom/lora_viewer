@@ -67,37 +67,9 @@ final class TrailRouteAPI {
         return decoded.positions
     }
 
-    func fetchTrackLog(start: Date?, end: Date?) async throws -> [String: TrackLogDevice] {
-        guard let base = settings.baseURL else { throw TrailRouteAPIError.invalidBaseURL }
-        let url = base.appendingPathComponent("query_position_log.php")
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
-
-        let startStr = start.map { TrailRouteDateFormatter.utc.string(from: $0) } ?? ""
-        let endStr = end.map { TrailRouteDateFormatter.utc.string(from: $0) } ?? ""
-        let body = "datetimeStart=\(startStr.urlFormEncoded)&datetimeEnd=\(endStr.urlFormEncoded)"
-        request.httpBody = body.data(using: .utf8)
-
-        let (data, response) = try await session.data(for: request)
-        try Self.validateHTTP(response)
-
-        let decoded = try JSONDecoder().decode(TrackLogResponse.self, from: data)
-        guard decoded.result == "0" else {
-            throw TrailRouteAPIError.serverError(decoded.message ?? decoded.result)
-        }
-        return decoded.positionData
-    }
-
     private static func validateHTTP(_ response: URLResponse) throws {
         guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
             throw TrailRouteAPIError.invalidResponse
         }
-    }
-}
-
-private extension String {
-    var urlFormEncoded: String {
-        addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? self
     }
 }

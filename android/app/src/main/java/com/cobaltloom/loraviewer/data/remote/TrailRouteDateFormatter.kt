@@ -4,7 +4,7 @@ import java.time.Instant
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 
-/** TrailRouteView sends/receives all timestamps as "yyyy-MM-dd HH:mm:ss" in UTC. */
+/** TrailRouteView sends all timestamps as "yyyy-MM-dd HH:mm:ss" in UTC. */
 object TrailRouteDateFormatter {
     private val formatter: DateTimeFormatter =
         DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(ZoneOffset.UTC)
@@ -15,6 +15,4 @@ object TrailRouteDateFormatter {
         } catch (e: Exception) {
             null
         }
-
-    fun format(instant: Instant): String = formatter.format(instant)
 }

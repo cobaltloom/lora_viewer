@@ -3,9 +3,6 @@ package com.cobaltloom.loraviewer.data.remote
 import com.cobaltloom.loraviewer.data.model.AppConfig
 import com.cobaltloom.loraviewer.data.model.GliderPosition
 import com.cobaltloom.loraviewer.data.model.PositionSource
-import com.cobaltloom.loraviewer.data.model.TrackLogDevice
-import com.cobaltloom.loraviewer.data.model.TrackPoint
-import java.time.Instant
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
@@ -14,7 +11,6 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
-import okhttp3.FormBody
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -57,22 +53,6 @@ class TrailRouteApiClient(
             requireSuccess(root)
             val positions = root["positions"]?.jsonArray ?: throw TrailRouteApiException.InvalidResponse()
             positions.map { it.jsonObject.toGliderPosition() }
-        }
-
-    suspend fun fetchTrackLog(baseUrl: String, start: Instant?, end: Instant?): Map<String, TrackLogDevice> =
-        withContext(Dispatchers.IO) {
-            val url = baseUrl.toHttpUrlOrNull()?.newBuilder()?.addPathSegment("query_position_log.php")?.build()
-                ?: throw TrailRouteApiException.InvalidBaseUrl()
-            val body = FormBody.Builder()
-                .add("datetimeStart", start?.let { TrailRouteDateFormatter.format(it) } ?: "")
-                .add("datetimeEnd", end?.let { TrailRouteDateFormatter.format(it) } ?: "")
-                .build()
-            val request = Request.Builder().url(url).post(body).build()
-
-            val root = execute(request)
-            requireSuccess(root)
-            val positionData = root["position_data"]?.jsonObject ?: throw TrailRouteApiException.InvalidResponse()
-            positionData.mapValues { (_, v) -> v.jsonObject.toTrackLogDevice() }
         }
 
     private fun execute(request: Request): JsonObject {
@@ -120,22 +100,5 @@ private fun JsonObject.toGliderPosition(): GliderPosition {
         source = PositionSource.fromRaw(lenientString("source")),
         isDisconnected = lenientString("dc_flag") == "1",
         positionDateTimeUtc = dtStr?.let { TrailRouteDateFormatter.parse(it) },
-    )
-}
-
-private fun JsonObject.toTrackLogDevice(): TrackLogDevice {
-    val positionCount = lenientDouble("position_count")?.toInt() ?: 0
-    val positionLog = this["position_log"]?.jsonArray?.map { it.jsonObject.toTrackPoint() } ?: emptyList()
-    return TrackLogDevice(positionCount = positionCount, positionLog = positionLog)
-}
-
-private fun JsonObject.toTrackPoint(): TrackPoint {
-    val dtStr = (this["create_datetime"] as? JsonPrimitive)?.contentOrNull
-    return TrackPoint(
-        lat = lenientDouble("lat") ?: 0.0,
-        lon = lenientDouble("lon") ?: 0.0,
-        alt = lenientDouble("alt"),
-        source = PositionSource.fromRaw(lenientString("source")),
-        createDateTimeUtc = dtStr?.let { TrailRouteDateFormatter.parse(it) },
     )
 }

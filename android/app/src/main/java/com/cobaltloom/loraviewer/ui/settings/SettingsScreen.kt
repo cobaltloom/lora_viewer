@@ -45,6 +45,8 @@ import com.cobaltloom.loraviewer.data.alert.AltitudeStep
 import com.cobaltloom.loraviewer.data.alert.CompetitionTaskCourseData
 import com.cobaltloom.loraviewer.data.alert.UpperAltitudeGuideline
 import com.cobaltloom.loraviewer.data.alert.UpperCeilingMode
+import com.cobaltloom.loraviewer.data.remote.OgnApiClient
+import com.cobaltloom.loraviewer.data.settings.DataSource
 import com.cobaltloom.loraviewer.ui.map.GliderTrackerViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -74,6 +76,27 @@ fun SettingsScreen(
         },
     ) { padding ->
         LazyColumn(modifier = Modifier.padding(padding).padding(horizontal = 16.dp)) {
+            if (uiState.isOgnAvailable) {
+                item {
+                    SettingsSectionHeader("位置情報のデータ元")
+                    Row(modifier = Modifier.fillMaxWidth()) {
+                        DataSource.entries.forEachIndexed { i, source ->
+                            FilterChip(
+                                selected = uiState.dataSource == source,
+                                onClick = { viewModel.setDataSource(source) },
+                                label = { Text(source.displayName) },
+                                modifier = Modifier.weight(1f).padding(start = if (i == 0) 0.dp else 8.dp),
+                            )
+                        }
+                    }
+                    Text(
+                        "LoRa: クラブのLoRa発信機を積んだ機体を表示します。\nOGN: FLARMやOGNトラッカーを積み、OGN受信機の範囲内(妻沼から約150km)にいる機体を表示します(${OgnApiClient.ATTRIBUTION})。追跡拒否・匿名・ステルス設定の機体と旅客機は表示しません。",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
+                }
+            }
             item {
                 SettingsSectionHeader("地図表示")
                 SwitchRow(

@@ -21,6 +21,9 @@ struct GliderMarkerView: View {
                 Text(glider.index)
                     .font(.caption.bold())
                     .foregroundStyle(.white)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.5)
+                    .padding(.horizontal, 2)
             }
             .overlay(alignment: .topTrailing) {
                 if isFavorite {
@@ -78,6 +81,7 @@ struct GliderMarkerView: View {
         switch glider.source {
         case .gps: return .blue
         case .cell: return .orange
+        case .ogn: return .teal
         case .unknown: return .gray
         }
     }

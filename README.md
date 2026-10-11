@@ -6,7 +6,6 @@ SwiftUI アプリです。
 
 - 現在位置画面: 地図上にグライダーごとのアイコンと高度を表示し、一定間隔で自動更新
 - メンバー一覧画面: 全機の高度・受信時刻・通信種別(GPS/セル)を一覧表示
-- 行動軌跡画面: 期間を指定して過去の飛行軌跡を地図上に表示
 
 ## 必要環境
 
@@ -33,7 +32,7 @@ LoraViewer/
   LoraViewerApp.swift          エントリポイント
   Models/                      JSONレスポンスのモデルとデコード処理
   Services/                    APIクライアントと設定(APISettings)
-  Views/                       地図・一覧・設定・行動軌跡のSwiftUI画面
+  Views/                       地図・一覧・設定のSwiftUI画面
   Utilities/                   地図範囲計算などの補助
 ```
 

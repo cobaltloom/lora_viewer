@@ -20,7 +20,6 @@ import androidx.compose.material.icons.filled.ListAlt
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.Navigation
 import androidx.compose.material.icons.filled.NotificationsActive
-import androidx.compose.material.icons.filled.Route
 import androidx.compose.material.icons.filled.Satellite
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SportsScore
@@ -59,14 +58,16 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import com.cobaltloom.loraviewer.data.alert.AlertSeverity
 import com.cobaltloom.loraviewer.data.alert.AltitudeCalculationMode
-import com.cobaltloom.loraviewer.data.alert.CompetitionAltitudeGuideline
 import com.cobaltloom.loraviewer.data.alert.CivilTrainingAreaKK43
+import com.cobaltloom.loraviewer.data.alert.CompetitionAltitudeGuideline
 import com.cobaltloom.loraviewer.data.alert.CompetitionTaskCourseData
 import com.cobaltloom.loraviewer.data.alert.DistanceReferencePointData
 import com.cobaltloom.loraviewer.data.alert.UpperAltitudeGuideline
 import com.cobaltloom.loraviewer.data.alert.overallSeverity
 import com.cobaltloom.loraviewer.data.alert.pointOnCircle
 import com.cobaltloom.loraviewer.data.model.GliderPosition
+import com.cobaltloom.loraviewer.data.remote.OgnApiClient
+import com.cobaltloom.loraviewer.data.settings.DataSource
 import com.cobaltloom.loraviewer.ui.detail.GliderDetailCard
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.CameraPosition
@@ -125,7 +126,6 @@ fun MapScreen(
     viewModel: GliderTrackerViewModel,
     onOpenList: () -> Unit,
     onOpenSettings: () -> Unit,
-    onOpenTrackHistory: () -> Unit,
     onOpenTurnpointHistory: () -> Unit,
     onRequireSubscription: () -> Unit,
 ) {
@@ -224,7 +224,12 @@ fun MapScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(uiState.config?.siteTitle?.ifEmpty { null } ?: "LoRa妻沼") },
+                title = {
+                    Text(
+                        if (uiState.dataSource == DataSource.OGN) DataSource.OGN.displayName
+                        else uiState.config?.siteTitle?.ifEmpty { null } ?: "LoRa妻沼",
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = onOpenList) {
                         Icon(Icons.Filled.List, contentDescription = "メンバー一覧")
@@ -273,10 +278,6 @@ fun MapScreen(
                     ) {
                         Icon(Icons.Filled.ListAlt, contentDescription = null, modifier = Modifier.size(18.dp))
                         Text("通過履歴")
-                    }
-                    TextButton(onClick = onOpenTrackHistory) {
-                        Icon(Icons.Filled.Route, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Text("行動軌跡")
                     }
                 }
             }
@@ -505,6 +506,20 @@ fun MapScreen(
                             )
                         }
                     }
+                }
+            }
+
+            if (uiState.dataSource == DataSource.OGN) {
+                Surface(
+                    modifier = Modifier.align(Alignment.BottomStart).padding(start = 8.dp, bottom = 36.dp),
+                    shape = MaterialTheme.shapes.small,
+                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
+                ) {
+                    Text(
+                        OgnApiClient.ATTRIBUTION,
+                        style = MaterialTheme.typography.labelSmall,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                    )
                 }
             }
 

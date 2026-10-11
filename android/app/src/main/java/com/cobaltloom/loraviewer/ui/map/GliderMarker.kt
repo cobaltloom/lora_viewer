@@ -47,6 +47,7 @@ fun GliderMarkerContent(
         glider.isDisconnected -> Color.Gray
         glider.source == PositionSource.GPS -> Color(0xFF2E7DFF)
         glider.source == PositionSource.CELL -> Color(0xFFFF9500)
+        glider.source == PositionSource.OGN -> Color(0xFF30B0C7)
         else -> Color.Gray
     }
     val ringColor = when (alertSeverity) {
@@ -74,7 +75,14 @@ fun GliderMarkerContent(
                     .background(circleColor, CircleShape)
                     .border(ringWidth, ringColor, CircleShape),
             ) {
-                Text(glider.index, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Text(
+                    glider.index,
+                    color = Color.White,
+                    // OGN labels (competition no./registration) can run to 4 characters.
+                    fontSize = if (glider.index.length > 2) 9.sp else 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                )
             }
             if (isFavorite) {
                 Box(

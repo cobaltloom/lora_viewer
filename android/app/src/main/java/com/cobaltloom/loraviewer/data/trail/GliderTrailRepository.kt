@@ -53,6 +53,10 @@ class GliderTrailRepository(private val context: Context) {
         }
     }
 
+    suspend fun clear() {
+        context.gliderTrailsDataStore.edit { it.remove(key) }
+    }
+
     private fun decode(raw: String?): Map<String, List<Coordinate>> =
         raw?.let { runCatching { json.decodeFromString<Map<String, List<Coordinate>>>(it) }.getOrNull() } ?: emptyMap()
 }

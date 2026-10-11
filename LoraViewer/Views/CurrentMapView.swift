@@ -284,6 +284,17 @@ struct CurrentMapView: View {
                 .onMapCameraChange(frequency: .continuous) { context in
                     visibleRegionCenter = context.region.center
                 }
+                .overlay(alignment: .bottomLeading) {
+                    if viewModel.dataSource == .ogn {
+                        Text(OGNAPI.attribution)
+                            .font(.caption2)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(.thinMaterial, in: Capsule())
+                            .padding(.leading, 8)
+                            .padding(.bottom, 28)
+                    }
+                }
                 .safeAreaInset(edge: .top) {
                     VStack(spacing: 6) {
                         if !subscriptionManager.isSubscribed, subscriptionManager.isFreePeriodActive,
@@ -302,7 +313,7 @@ struct CurrentMapView: View {
                 if let selectedGlider = liveSelectedGlider {
                     GliderDetailCard(
                         glider: selectedGlider,
-                        baseName: viewModel.nameFor(index: selectedGlider.index),
+                        baseName: viewModel.nameFor(selectedGlider),
                         alertReasons: alertReasons(for: selectedGlider)
                     )
                         .padding()
@@ -312,7 +323,7 @@ struct CurrentMapView: View {
                         }
                 }
             }
-            .navigationTitle(viewModel.config?.settings.siteTitle ?? "LoRa妻沼")
+            .navigationTitle(viewModel.dataSource == .ogn ? DataSource.ogn.displayName : (viewModel.config?.settings.siteTitle ?? "LoRa妻沼"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
@@ -372,11 +383,6 @@ struct CurrentMapView: View {
                     } label: {
                         Label("通過履歴", systemImage: "list.bullet.clipboard")
                     }
-                    NavigationLink {
-                        TrackHistoryView(settings: settings)
-                    } label: {
-                        Label("行動軌跡", systemImage: "clock.arrow.circlepath")
-                    }
                 }
             }
             .sheet(isPresented: $showSettings) {
@@ -427,6 +433,7 @@ struct CurrentMapView: View {
             }
             .task {
                 viewModel.groundAltitudeThresholdM = alertSettings.minimumFlyingAltitudeM
+                favoritesStore.dataSource = settings.effectiveDataSource
                 viewModel.startPolling()
                 locationManager.requestAuthorizationIfNeeded()
                 alertNotifier.requestAuthorizationIfNeeded()
@@ -436,6 +443,12 @@ struct CurrentMapView: View {
             }
             .onChange(of: alertSettings.minimumFlyingAltitudeM) { _, newValue in
                 viewModel.groundAltitudeThresholdM = newValue
+            }
+            .onChange(of: settings.effectiveDataSource) {
+                favoritesStore.dataSource = settings.effectiveDataSource
+                // Fetch from the new source right away instead of waiting out the current interval.
+                selectedGlider = nil
+                viewModel.startPolling()
             }
             .onChange(of: viewModel.positions) { _, newPositions in
                 centerMapIfNeeded(on: newPositions)
@@ -614,7 +627,7 @@ struct CurrentMapView: View {
     /// glider list does. Nicknames are a subscriber-only perk to view (not
     /// just to set), so this falls back to the base name without one.
     private func displayName(for glider: GliderPosition) -> String {
-        let baseName = viewModel.nameFor(index: glider.index)
+        let baseName = viewModel.nameFor(glider)
         guard subscriptionManager.hasFullAccess else { return baseName }
         return nicknameStore.compactDisplayName(baseName: baseName, imei: glider.imei)
     }
