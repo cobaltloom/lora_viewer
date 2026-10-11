@@ -81,7 +81,7 @@ fun AdvancedSettingsScreen(
                 )
                 HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
 
-                SettingsSectionHeader("更新間隔")
+                SettingsSectionHeader(if (apiSettings.isOgnAvailable) "更新間隔(LoRa)" else "更新間隔")
                 NumberStepper(
                     label = "${apiSettings.refreshIntervalSeconds.toInt()} 秒ごとに更新",
                     onDecrement = {
@@ -101,6 +101,39 @@ fun AdvancedSettingsScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 8.dp, bottom = 24.dp),
                 )
+
+                if (apiSettings.isOgnAvailable) {
+                    HorizontalDivider(modifier = Modifier.padding(bottom = 12.dp))
+                    SettingsSectionHeader("更新間隔(OGN)")
+                    NumberStepper(
+                        label = "${apiSettings.ognRefreshIntervalSeconds.toInt()} 秒ごとに更新",
+                        onDecrement = {
+                            scope.launch {
+                                apiSettingsRepository.setOgnRefreshIntervalSeconds((apiSettings.ognRefreshIntervalSeconds - 1).coerceAtLeast(1.0))
+                            }
+                        },
+                        onIncrement = {
+                            scope.launch {
+                                apiSettingsRepository.setOgnRefreshIntervalSeconds((apiSettings.ognRefreshIntervalSeconds + 1).coerceAtMost(60.0))
+                            }
+                        },
+                    )
+                    if (apiSettings.ognRefreshIntervalSeconds != ApiSettings.DEFAULT_OGN_REFRESH_INTERVAL_SECONDS) {
+                        TextButton(
+                            onClick = {
+                                scope.launch { apiSettingsRepository.setOgnRefreshIntervalSeconds(ApiSettings.DEFAULT_OGN_REFRESH_INTERVAL_SECONDS) }
+                            },
+                        ) {
+                            Text("既定値(${ApiSettings.DEFAULT_OGN_REFRESH_INTERVAL_SECONDS.toInt()}秒)に戻す")
+                        }
+                    }
+                    Text(
+                        "OGNは受信した位置が常に端末に届いているため、短くしてもサーバーに負荷はかかりません。短くするほど地図の動きは滑らかになりますが、電池の消費が増え、地図上の軌跡は短くなります(軌跡は更新ごとに1点、1機につき最大500点)。",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 8.dp, bottom = 24.dp),
+                    )
+                }
             }
         }
     }

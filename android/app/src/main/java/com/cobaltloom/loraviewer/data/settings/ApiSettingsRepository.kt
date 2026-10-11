@@ -41,16 +41,28 @@ data class ApiSettings(
      * feature has been checked against live traffic, and doubles as a remote kill switch - so it's
      * controlled from Firestore rather than baked into a release. */
     val isOgnAvailable: Boolean = false,
+    /** The refresh interval while OGN is selected, separate from LoRa's. A refresh only reads
+     * beacons already streamed in over the open connection - it asks no server anything - so it can
+     * be much shorter; trails get a point per refresh, so they cover a shorter span than with LoRa. */
+    val ognRefreshIntervalSeconds: Double = DEFAULT_OGN_REFRESH_INTERVAL_SECONDS,
 ) {
     /** The source actually in use: a saved OGN choice falls back to LoRa while OGN is switched off. */
     val effectiveDataSource: DataSource
         get() = if (dataSource == DataSource.OGN && !isOgnAvailable) DataSource.LORA else dataSource
+
+    /** The polling interval for the source actually in use. */
+    val currentRefreshIntervalSeconds: Double
+        get() = when (effectiveDataSource) {
+            DataSource.LORA -> refreshIntervalSeconds.coerceAtLeast(3.0)
+            DataSource.OGN -> ognRefreshIntervalSeconds.coerceAtLeast(1.0)
+        }
 
     companion object {
         // Same default as the iOS app: the site's own per-account map path is the
         // real access control, so no key is required by default.
         const val DEFAULT_BASE_URL = "https://www.trailrouteview.com/user/jsal/gmap/"
         const val DEFAULT_REFRESH_INTERVAL_SECONDS = 10.0
+        const val DEFAULT_OGN_REFRESH_INTERVAL_SECONDS = 2.0
     }
 }
 
@@ -72,6 +84,7 @@ class ApiSettingsRepository(
         val REFRESH_INTERVAL = doublePreferencesKey("refreshIntervalSeconds")
         val BASE_URL_CUSTOMIZED = booleanPreferencesKey("apiBaseURLCustomized")
         val DATA_SOURCE = stringPreferencesKey("dataSource")
+        val OGN_REFRESH_INTERVAL = doublePreferencesKey("ognRefreshIntervalSeconds")
         /** Last `ognEnabled` seen from Firestore, so launch doesn't briefly poll LoRa before the
          * snapshot arrives. */
         val OGN_ENABLED_CACHED = booleanPreferencesKey("ognEnabledCached")
@@ -92,6 +105,8 @@ class ApiSettingsRepository(
             isBaseUrlCustomized = isCustomized(prefs[Keys.BASE_URL], prefs[Keys.BASE_URL_CUSTOMIZED]),
             dataSource = DataSource.fromRaw(prefs[Keys.DATA_SOURCE]),
             isOgnAvailable = isOgnAvailable,
+            ognRefreshIntervalSeconds = prefs[Keys.OGN_REFRESH_INTERVAL]?.takeIf { it > 0 }
+                ?: ApiSettings.DEFAULT_OGN_REFRESH_INTERVAL_SECONDS,
         )
     }
 
@@ -116,6 +131,10 @@ class ApiSettingsRepository(
 
     suspend fun setRefreshIntervalSeconds(value: Double) {
         context.dataStore.edit { it[Keys.REFRESH_INTERVAL] = value }
+    }
+
+    suspend fun setOgnRefreshIntervalSeconds(value: Double) {
+        context.dataStore.edit { it[Keys.OGN_REFRESH_INTERVAL] = value }
     }
 
     /** Discards a manually-entered URL and goes back to following the server-provided default. */

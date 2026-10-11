@@ -42,6 +42,6 @@ class GliderRepository(
     suspend fun currentDataSource(): DataSource = settingsRepository.settings.first().effectiveDataSource
 
     suspend fun currentRefreshIntervalSeconds(): Double =
-        settingsRepository.settings.first().refreshIntervalSeconds
+        settingsRepository.settings.first().currentRefreshIntervalSeconds
 
 }

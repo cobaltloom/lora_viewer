@@ -28,9 +28,26 @@ struct AdvancedSettingsView: View {
                     Text("\(Int(settings.refreshIntervalSeconds)) 秒ごとに更新")
                 }
             } header: {
-                Text("更新間隔")
+                Text(settings.isOGNAvailable ? "更新間隔(LoRa)" : "更新間隔")
             } footer: {
                 Text("接続先のサーバーに負荷をかけるため、短くしすぎないでください。機体側の送信間隔もこれより速くはならないため、短くしても位置情報が特に速く更新されるわけではありません。")
+            }
+
+            if settings.isOGNAvailable {
+                Section {
+                    Stepper(value: $settings.ognRefreshIntervalSeconds, in: 1...60, step: 1) {
+                        Text("\(Int(settings.ognRefreshIntervalSeconds)) 秒ごとに更新")
+                    }
+                    if settings.ognRefreshIntervalSeconds != APISettings.defaultOGNRefreshIntervalSeconds {
+                        Button("既定値(\(Int(APISettings.defaultOGNRefreshIntervalSeconds))秒)に戻す") {
+                            settings.ognRefreshIntervalSeconds = APISettings.defaultOGNRefreshIntervalSeconds
+                        }
+                    }
+                } header: {
+                    Text("更新間隔(OGN)")
+                } footer: {
+                    Text("OGNは受信した位置が常に端末に届いているため、短くしてもサーバーに負荷はかかりません。短くするほど地図の動きは滑らかになりますが、電池の消費が増え、地図上の軌跡は短くなります(軌跡は更新ごとに1点、1機につき最大500点)。")
+                }
             }
         }
         .navigationTitle("高度な設定")
