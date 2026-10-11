@@ -4,21 +4,33 @@ import android.content.Context
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.cobaltloom.loraviewer.data.settings.DataSource
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
 private val Context.favoritesDataStore by preferencesDataStore(name = "favorites")
 
-/** IMEIs of gliders the pilot has marked as favorites, persisted locally on this device. */
+/**
+ * IDs of gliders the pilot has marked as favorites, persisted locally on this device. LoRa (IMEI) and
+ * OGN (FLARM etc.) ids differ for the same glider, so each source keeps its own list.
+ */
 class FavoritesRepository(private val context: Context) {
-    private val key = stringSetPreferencesKey("favoriteGliderIMEIs")
+    /** The LoRa key predates OGN support and is kept as-is so existing favorites survive. */
+    private fun key(source: DataSource) = stringSetPreferencesKey(
+        when (source) {
+            DataSource.LORA -> "favoriteGliderIMEIs"
+            DataSource.OGN -> "favoriteOGNGliders"
+        },
+    )
 
-    val favoriteImeis: Flow<Set<String>> = context.favoritesDataStore.data.map { it[key] ?: emptySet() }
+    val favoritesBySource: Flow<Map<DataSource, Set<String>>> = context.favoritesDataStore.data.map { prefs ->
+        DataSource.entries.associateWith { prefs[key(it)] ?: emptySet() }
+    }
 
-    suspend fun toggle(imei: String) {
+    suspend fun toggle(source: DataSource, id: String) {
         context.favoritesDataStore.edit { prefs ->
-            val current = prefs[key] ?: emptySet()
-            prefs[key] = if (imei in current) current - imei else current + imei
+            val current = prefs[key(source)] ?: emptySet()
+            prefs[key(source)] = if (id in current) current - id else current + id
         }
     }
 }

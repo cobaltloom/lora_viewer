@@ -175,6 +175,9 @@ class GliderTrackerViewModel(
 
     private var pollingJob: Job? = null
 
+    /** Each source's favorites; [GliderTrackerUiState.favorites] is the current source's. */
+    private var favoritesBySource: Map<DataSource, Set<String>> = emptyMap()
+
     /** Null until settings first load, so that initial load isn't mistaken for a source switch. */
     private var currentDataSource: DataSource? = null
 
@@ -206,7 +209,10 @@ class GliderTrackerViewModel(
             nicknameRepository.syncMode.collect { mode -> _uiState.update { it.copy(nicknameSyncMode = mode) } }
         }
         viewModelScope.launch {
-            favoritesRepository.favoriteImeis.collect { favorites -> _uiState.update { it.copy(favorites = favorites) } }
+            favoritesRepository.favoritesBySource.collect { bySource ->
+                favoritesBySource = bySource
+                _uiState.update { it.copy(favorites = bySource[it.dataSource].orEmpty()) }
+            }
         }
         viewModelScope.launch {
             alertSettingsRepository.settings.collect { settings -> _uiState.update { it.copy(alertSettings = settings) } }
@@ -260,7 +266,13 @@ class GliderTrackerViewModel(
                     val previous = currentDataSource
                     val source = settings.effectiveDataSource
                     currentDataSource = source
-                    _uiState.update { it.copy(dataSource = source, isOgnAvailable = settings.isOgnAvailable) }
+                    _uiState.update {
+                        it.copy(
+                            dataSource = source,
+                            isOgnAvailable = settings.isOgnAvailable,
+                            favorites = favoritesBySource[source].orEmpty(),
+                        )
+                    }
                     // The first value is just the saved choice, not a switch: keep persisted trails.
                     if (previous != null && source != previous) onDataSourceChanged()
                 }
@@ -330,7 +342,7 @@ class GliderTrackerViewModel(
     }
 
     fun toggleFavorite(imei: String) {
-        viewModelScope.launch { favoritesRepository.toggle(imei) }
+        viewModelScope.launch { favoritesRepository.toggle(_uiState.value.dataSource, imei) }
     }
 
     fun toggleFavoritesOnly() {
