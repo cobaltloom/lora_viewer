@@ -29,7 +29,7 @@ struct SettingsView: View {
                     } header: {
                         Text("位置情報のデータ元")
                     } footer: {
-                        Text("LoRa: クラブのLoRa発信機を積んだ機体を表示します。\nOGN: FLARMやOGNトラッカーを積み、OGN受信機の範囲内(妻沼から約150km)にいる機体を表示します(\(OGNAPI.attribution))。追跡拒否・匿名・ステルス設定の機体と旅客機は表示しません。過去の行動軌跡の検索はLoRaのみ対応です。")
+                        Text("LoRa: クラブのLoRa発信機を積んだ機体を表示します。\nOGN: FLARMやOGNトラッカーを積み、OGN受信機の範囲内(妻沼から約150km)にいる機体を表示します(\(OGNAPI.attribution))。追跡拒否・匿名・ステルス設定の機体と旅客機は表示しません。")
                     }
                 }
 

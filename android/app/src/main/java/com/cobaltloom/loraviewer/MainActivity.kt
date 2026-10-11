@@ -40,8 +40,6 @@ import com.cobaltloom.loraviewer.ui.paywall.PaywallScreen
 import com.cobaltloom.loraviewer.ui.settings.AdvancedSettingsScreen
 import com.cobaltloom.loraviewer.ui.settings.SettingsScreen
 import com.cobaltloom.loraviewer.ui.theme.LoraViewerTheme
-import com.cobaltloom.loraviewer.ui.track.TrackHistoryScreen
-import com.cobaltloom.loraviewer.ui.track.TrackHistoryViewModel
 import com.cobaltloom.loraviewer.ui.turnpoint.TurnpointHistoryScreen
 
 class MainActivity : ComponentActivity() {
@@ -60,7 +58,6 @@ private object Routes {
     const val MAP = "map"
     const val LIST = "list"
     const val SETTINGS = "settings"
-    const val TRACK_HISTORY = "trackHistory"
     const val BOARD_SCAN = "boardScan"
     const val PAYWALL = "paywall"
     const val TURNPOINT_HISTORY = "turnpointHistory"
@@ -126,11 +123,6 @@ private fun LoraViewerNavHost(billingRepository: BillingRepository) {
     val viewModel: GliderTrackerViewModel = viewModel(factory = trackerFactory)
     LaunchedEffect(isSubscribed) { viewModel.updateSubscriptionStatus(isSubscribed) }
 
-    val trackHistoryFactory = remember {
-        viewModelFactory { initializer { TrackHistoryViewModel(gliderRepository) } }
-    }
-    val trackHistoryViewModel: TrackHistoryViewModel = viewModel(factory = trackHistoryFactory)
-
     val navController = rememberNavController()
     val onRequireSubscription: () -> Unit = { navController.navigate(Routes.PAYWALL) }
 
@@ -140,7 +132,6 @@ private fun LoraViewerNavHost(billingRepository: BillingRepository) {
                 viewModel = viewModel,
                 onOpenList = { navController.navigate(Routes.LIST) },
                 onOpenSettings = { navController.navigate(Routes.SETTINGS) },
-                onOpenTrackHistory = { navController.navigate(Routes.TRACK_HISTORY) },
                 onOpenTurnpointHistory = { navController.navigate(Routes.TURNPOINT_HISTORY) },
                 onRequireSubscription = onRequireSubscription,
             )
@@ -169,14 +160,6 @@ private fun LoraViewerNavHost(billingRepository: BillingRepository) {
         }
         composable(Routes.PAYWALL) {
             PaywallScreen(billingRepository, onBack = { navController.popBackStack() })
-        }
-        composable(Routes.TRACK_HISTORY) {
-            val uiState by viewModel.uiState.collectAsState()
-            TrackHistoryScreen(
-                viewModel = trackHistoryViewModel,
-                isOgnSelected = uiState.dataSource == DataSource.OGN,
-                onBack = { navController.popBackStack() },
-            )
         }
         composable(Routes.TURNPOINT_HISTORY) {
             TurnpointHistoryScreen(viewModel = viewModel, onBack = { navController.popBackStack() })

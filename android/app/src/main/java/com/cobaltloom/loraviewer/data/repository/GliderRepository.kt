@@ -2,13 +2,11 @@ package com.cobaltloom.loraviewer.data.repository
 
 import com.cobaltloom.loraviewer.data.model.AppConfig
 import com.cobaltloom.loraviewer.data.model.GliderPosition
-import com.cobaltloom.loraviewer.data.model.TrackLogDevice
 import com.cobaltloom.loraviewer.data.remote.OgnApiClient
 import com.cobaltloom.loraviewer.data.remote.TrailRouteApiClient
 import com.cobaltloom.loraviewer.data.settings.ApiSettings
 import com.cobaltloom.loraviewer.data.settings.ApiSettingsRepository
 import com.cobaltloom.loraviewer.data.settings.DataSource
-import java.time.Instant
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 
@@ -46,8 +44,4 @@ class GliderRepository(
     suspend fun currentRefreshIntervalSeconds(): Double =
         settingsRepository.settings.first().refreshIntervalSeconds
 
-    suspend fun fetchTrackLog(start: Instant?, end: Instant?): Map<String, TrackLogDevice> {
-        val settings = settingsRepository.settings.first()
-        return apiClient.fetchTrackLog(settings.baseUrl, start, end)
-    }
 }

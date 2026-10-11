@@ -20,7 +20,6 @@ import androidx.compose.material.icons.filled.ListAlt
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.Navigation
 import androidx.compose.material.icons.filled.NotificationsActive
-import androidx.compose.material.icons.filled.Route
 import androidx.compose.material.icons.filled.Satellite
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SportsScore
@@ -127,7 +126,6 @@ fun MapScreen(
     viewModel: GliderTrackerViewModel,
     onOpenList: () -> Unit,
     onOpenSettings: () -> Unit,
-    onOpenTrackHistory: () -> Unit,
     onOpenTurnpointHistory: () -> Unit,
     onRequireSubscription: () -> Unit,
 ) {
@@ -280,10 +278,6 @@ fun MapScreen(
                     ) {
                         Icon(Icons.Filled.ListAlt, contentDescription = null, modifier = Modifier.size(18.dp))
                         Text("通過履歴")
-                    }
-                    TextButton(onClick = onOpenTrackHistory) {
-                        Icon(Icons.Filled.Route, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Text("行動軌跡")
                     }
                 }
             }

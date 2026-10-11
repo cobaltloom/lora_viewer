@@ -383,11 +383,6 @@ struct CurrentMapView: View {
                     } label: {
                         Label("通過履歴", systemImage: "list.bullet.clipboard")
                     }
-                    NavigationLink {
-                        TrackHistoryView(settings: settings)
-                    } label: {
-                        Label("行動軌跡", systemImage: "clock.arrow.circlepath")
-                    }
                 }
             }
             .sheet(isPresented: $showSettings) {
