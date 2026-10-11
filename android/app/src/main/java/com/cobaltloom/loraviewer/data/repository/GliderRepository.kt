@@ -41,7 +41,12 @@ class GliderRepository(
 
     suspend fun currentDataSource(): DataSource = settingsRepository.settings.first().effectiveDataSource
 
-    suspend fun currentRefreshIntervalSeconds(): Double =
-        settingsRepository.settings.first().refreshIntervalSeconds
+    suspend fun currentRefreshIntervalSeconds(): Double {
+        val settings = settingsRepository.settings.first()
+        return when (settings.effectiveDataSource) {
+            DataSource.LORA -> settings.refreshIntervalSeconds
+            DataSource.OGN -> OgnApiClient.REFRESH_INTERVAL_SECONDS
+        }
+    }
 
 }

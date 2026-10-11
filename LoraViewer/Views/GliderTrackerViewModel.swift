@@ -150,7 +150,9 @@ final class GliderTrackerViewModel: ObservableObject {
             await self.loadConfigIfNeeded()
             while !Task.isCancelled {
                 await self.refreshOnce()
-                let interval = max(self.settings.refreshIntervalSeconds, 3)
+                let interval = self.settings.effectiveDataSource == .ogn
+                    ? OGNAPI.refreshIntervalSeconds
+                    : max(self.settings.refreshIntervalSeconds, 3)
                 try? await Task.sleep(nanoseconds: UInt64(interval * 1_000_000_000))
             }
         }

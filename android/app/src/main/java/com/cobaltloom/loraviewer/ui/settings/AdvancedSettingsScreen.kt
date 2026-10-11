@@ -22,6 +22,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import com.cobaltloom.loraviewer.data.remote.OgnApiClient
 import com.cobaltloom.loraviewer.data.settings.ApiSettings
 import com.cobaltloom.loraviewer.data.settings.ApiSettingsRepository
 import kotlinx.coroutines.launch
@@ -96,7 +97,7 @@ fun AdvancedSettingsScreen(
                     },
                 )
                 Text(
-                    "接続先のサーバーに負荷をかけるため、短くしすぎないでください。機体側の送信間隔もこれより速くはならないため、短くしても位置情報が特に速く更新されるわけではありません。",
+                    "接続先のサーバーに負荷をかけるため、短くしすぎないでください。機体側の送信間隔もこれより速くはならないため、短くしても位置情報が特に速く更新されるわけではありません。データ元がOGNのときは、この設定に関わらず${OgnApiClient.REFRESH_INTERVAL_SECONDS.toInt()}秒ごとに更新します。",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 8.dp, bottom = 24.dp),

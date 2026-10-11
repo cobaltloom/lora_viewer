@@ -11,6 +11,10 @@ import Network
 final class OGNAPI {
     static let attribution = "データ提供: Open Glider Network (OGN)"
     static let userAgent: String = "LoraViewer/\(appVersion) (iOS)"
+    /// How often the map reads the latest beacons while OGN is selected. Unlike LoRa this asks no
+    /// server anything (beacons are already streaming in), so it can be short; trails get a point
+    /// per refresh, so they cover a shorter span than with LoRa's default.
+    static let refreshIntervalSeconds: Double = 3
 
     private static let host = NWEndpoint.Host("aprs.glidernet.org")
     private static let port = NWEndpoint.Port(rawValue: 14580)!
