@@ -94,7 +94,7 @@ data class GliderTrackerUiState(
 
     /** Prefers the pilot-assigned nickname (by IMEI), falling back to [baseNameFor]. */
     fun nameFor(glider: GliderPosition): String =
-        (if (isSubscribed) nicknames[glider.imei] else null) ?: baseNameFor(glider)
+        (if (isSubscribed && !glider.isAnonymous) nicknames[glider.imei] else null) ?: baseNameFor(glider)
 
     fun isFavorite(imei: String): Boolean = isSubscribed && imei in favorites
 

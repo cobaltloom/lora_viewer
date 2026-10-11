@@ -7,6 +7,8 @@ import SwiftUI
 struct EditableGliderName: View {
     let imei: String
     let baseName: String
+    /// false for anonymous OGN aircraft: just the base name, no nickname and no editing.
+    var isEditable = true
 
     @EnvironmentObject private var nicknameStore: NicknameStore
     @EnvironmentObject private var subscriptionManager: SubscriptionManager
@@ -20,6 +22,14 @@ struct EditableGliderName: View {
     }
 
     var body: some View {
+        if isEditable {
+            editableName
+        } else {
+            Text(baseName)
+        }
+    }
+
+    private var editableName: some View {
         Button {
             if subscriptionManager.hasFullAccess {
                 draft = nicknameStore.nickname(forIMEI: imei) ?? ""

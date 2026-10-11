@@ -43,8 +43,10 @@ struct GliderListView: View {
                 ForEach(sortedPositions) { glider in
                     VStack(alignment: .leading, spacing: 4) {
                         HStack {
-                            FavoriteButton(imei: glider.imei)
-                            EditableGliderName(imei: glider.imei, baseName: viewModel.nameFor(glider))
+                            if !glider.isAnonymous {
+                                FavoriteButton(imei: glider.imei)
+                            }
+                            EditableGliderName(imei: glider.imei, baseName: viewModel.nameFor(glider), isEditable: !glider.isAnonymous)
                                 .font(.headline)
                             Spacer()
                             if glider.isDisconnected {

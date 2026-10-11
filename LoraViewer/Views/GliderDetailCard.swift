@@ -17,8 +17,10 @@ struct GliderDetailCard: View {
                     .background(severity == .warning ? .red : .orange, in: RoundedRectangle(cornerRadius: 8))
             }
             HStack {
-                FavoriteButton(imei: glider.imei)
-                EditableGliderName(imei: glider.imei, baseName: baseName)
+                if !glider.isAnonymous {
+                    FavoriteButton(imei: glider.imei)
+                }
+                EditableGliderName(imei: glider.imei, baseName: baseName, isEditable: !glider.isAnonymous)
                     .font(.headline)
                 Spacer()
                 Text(glider.source.label)

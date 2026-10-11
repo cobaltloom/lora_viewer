@@ -79,7 +79,8 @@ class OgnApiClientTest {
             """{"devices":[
               {"device_type":"F","device_id":"111111","registration":"JA21MA","cn":"MA","tracked":"Y","identified":"Y","aircraft_type":1},
               {"device_type":"F","device_id":"222222","registration":"JA2345","cn":"","tracked":"Y","identified":"Y","aircraft_type":1},
-              {"device_type":"F","device_id":"333333","registration":"JA9999","cn":"","tracked":"N","identified":"Y","aircraft_type":1}
+              {"device_type":"F","device_id":"333333","registration":"JA9999","cn":"","tracked":"N","identified":"Y","aircraft_type":1},
+              {"device_type":"F","device_id":"444444","registration":"JA8888","cn":"ZZ","tracked":"Y","identified":"N","aircraft_type":1}
             ]}""",
         )
         assertFalse(db.getValue("333333").isTracked)
@@ -92,6 +93,13 @@ class OgnApiClientTest {
         assertEquals("FLR111111", p.imei)
         assertEquals(PositionSource.OGN, p.source)
         assertEquals("2345", b.toGliderPosition(db["222222"]).index)
+        // Not identified: position only, no registration/competition no. anywhere.
+        val anonymous = b.toGliderPosition(db["444444"])
+        assertTrue(anonymous.isAnonymous)
+        assertEquals("?", anonymous.index)
+        assertEquals(OgnApiClient.ANONYMOUS_NAME, anonymous.sourceName)
+        assertEquals(36 + 12.68 / 60, anonymous.lat, 1e-9)
+        assertFalse(p.isAnonymous)
         val unknown = b.toGliderPosition(null)
         assertEquals("1111", unknown.index)
         assertEquals("FLR111111", unknown.sourceName)
