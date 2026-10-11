@@ -90,7 +90,7 @@ fun SettingsScreen(
                         }
                     }
                     Text(
-                        "LoRa: クラブのLoRa発信機を積んだ機体を表示します。\nOGN: FLARMやOGNトラッカーを積み、OGN受信機の範囲内(妻沼から約150km)にいる機体を表示します(${OgnApiClient.ATTRIBUTION})。追跡拒否・匿名・ステルス設定の機体と旅客機は表示しません。",
+                        "LoRa: クラブのLoRa発信機を積んだ機体を表示します。\nOGN: FLARMやOGNトラッカーを積み、OGN受信機の範囲内(妻沼から約150km)にいる機体を表示します(${OgnApiClient.ATTRIBUTION})。追跡拒否・匿名・ステルス設定の機体と旅客機は表示しません。機体名の非公開を希望している機体は「非公開機」として位置のみ表示します。",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

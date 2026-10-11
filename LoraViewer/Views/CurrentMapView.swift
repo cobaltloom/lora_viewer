@@ -628,7 +628,7 @@ struct CurrentMapView: View {
     /// just to set), so this falls back to the base name without one.
     private func displayName(for glider: GliderPosition) -> String {
         let baseName = viewModel.nameFor(glider)
-        guard subscriptionManager.hasFullAccess else { return baseName }
+        guard subscriptionManager.hasFullAccess, !glider.isAnonymous else { return baseName }
         return nicknameStore.compactDisplayName(baseName: baseName, imei: glider.imei)
     }
 

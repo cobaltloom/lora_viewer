@@ -70,19 +70,22 @@ fun GliderDetailCard(
             }
 
             Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onToggleFavorite) {
-                    Icon(
-                        imageVector = if (isFavorite) Icons.Filled.Star else Icons.Outlined.Star,
-                        contentDescription = "お気に入り",
-                        tint = if (isFavorite) Color(0xFFFFC107) else MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                // Anonymous OGN aircraft get no favorite or nickname that could single them out.
+                if (!glider.isAnonymous) {
+                    IconButton(onClick = onToggleFavorite) {
+                        Icon(
+                            imageVector = if (isFavorite) Icons.Filled.Star else Icons.Outlined.Star,
+                            contentDescription = "お気に入り",
+                            tint = if (isFavorite) Color(0xFFFFC107) else MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
                 Text(
                     text = displayName,
                     style = MaterialTheme.typography.titleMedium,
                     modifier = Modifier
                         .weight(1f)
-                        .clickable(onClick = onEditName),
+                        .then(if (glider.isAnonymous) Modifier else Modifier.clickable(onClick = onEditName)),
                 )
                 Text(
                     text = glider.source.label,

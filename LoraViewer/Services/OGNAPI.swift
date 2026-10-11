@@ -7,7 +7,8 @@ import Network
 /// aircraft, so the rest of the app can keep polling exactly as it does for LoRa.
 ///
 /// Follows OGN's data usage rules (https://www.glidernet.org/ogn-data-usage/): stealth/no-tracking/
-/// random-address aircraft and DDB entries marked not tracked or not identified are never shown.
+/// random-address aircraft and DDB entries marked not tracked are never shown; DDB entries marked not
+/// identified are shown by position only, as "非公開機" with no name, nickname or favorite.
 final class OGNAPI {
     static let attribution = "データ提供: Open Glider Network (OGN)"
     static let userAgent: String = "LoraViewer/\(appVersion) (iOS)"
@@ -54,7 +55,7 @@ final class OGNAPI {
         }
         return beacons.compactMap { beacon in
             let device = devices[beacon.address]
-            if let device, !device.isTracked || !device.isIdentified { return nil }
+            if let device, !device.isTracked { return nil }
             return Self.gliderPosition(from: beacon, device: device)
         }
     }
@@ -67,7 +68,23 @@ final class OGNAPI {
         }
     }
 
+    static let anonymousName = "非公開機"
+
     static func gliderPosition(from beacon: OGNBeacon, device: OGNDevice?) -> GliderPosition {
+        if let device, !device.isIdentified {
+            return GliderPosition(
+                imei: beacon.callsign,
+                index: "?",
+                lat: beacon.lat,
+                lon: beacon.lon,
+                alt: beacon.altitudeM,
+                source: .ogn,
+                isDisconnected: false,
+                positionDateTimeUTC: beacon.timestamp,
+                sourceName: anonymousName,
+                isAnonymous: true
+            )
+        }
         let registration = device?.registration
         let competitionID = device?.competitionID
         // Marker label: the competition no. if set, else the registration without the "JA" prefix

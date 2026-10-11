@@ -26,7 +26,8 @@ import okhttp3.OkHttpClient
  * aircraft, so the rest of the app can keep polling exactly as it does for LoRa.
  *
  * Follows OGN's data usage rules (https://www.glidernet.org/ogn-data-usage/): stealth/no-tracking/
- * random-address aircraft and DDB entries marked not tracked or not identified are never shown.
+ * random-address aircraft and DDB entries marked not tracked are never shown; DDB entries marked not
+ * identified are shown by position only, as "非公開機" with no name, nickname or favorite.
  */
 class OgnApiClient(
     cacheDir: File,
@@ -48,7 +49,7 @@ class OgnApiClient(
         latestBeacons.values.removeIf { it.timestamp < cutoff }
         return latestBeacons.values.mapNotNull { beacon ->
             val device = devices[beacon.address]
-            if (device != null && (!device.isTracked || !device.isIdentified)) return@mapNotNull null
+            if (device != null && !device.isTracked) return@mapNotNull null
             beacon.toGliderPosition(device)
         }
     }
@@ -122,7 +123,23 @@ class OgnApiClient(
         private const val KEEPALIVE_MS = 60_000L
         private const val CALLSIGN_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 
+        const val ANONYMOUS_NAME = "非公開機"
+
         fun OgnBeacon.toGliderPosition(device: OgnDevice?): GliderPosition {
+            if (device != null && !device.isIdentified) {
+                return GliderPosition(
+                    imei = callsign,
+                    index = "?",
+                    lat = lat,
+                    lon = lon,
+                    alt = altitudeM,
+                    source = PositionSource.OGN,
+                    isDisconnected = false,
+                    positionDateTimeUtc = timestamp,
+                    sourceName = ANONYMOUS_NAME,
+                    isAnonymous = true,
+                )
+            }
             val registration = device?.registration
             val competitionId = device?.competitionId
             // Marker label: the competition no. if set, else the registration without the "JA"

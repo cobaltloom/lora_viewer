@@ -33,6 +33,9 @@ struct GliderPosition: Identifiable, Decodable {
     /// Name supplied by the source itself (OGN registration/competition no.). LoRa positions
     /// leave this nil and are named via the site config's `name_master_displayed`.
     var sourceName: String? = nil
+    /// An OGN aircraft whose owner asked not to be identified (DDB identified=N): shown by position
+    /// only, with no name, nickname or favorite that could single it out.
+    var isAnonymous = false
 
     var id: String { imei }
 
@@ -47,7 +50,7 @@ struct GliderPosition: Identifiable, Decodable {
     }
 
     init(imei: String, index: String, lat: Double, lon: Double, alt: Double?, source: PositionSource,
-         isDisconnected: Bool, positionDateTimeUTC: Date?, sourceName: String?) {
+         isDisconnected: Bool, positionDateTimeUTC: Date?, sourceName: String?, isAnonymous: Bool = false) {
         self.imei = imei
         self.index = index
         self.lat = lat
@@ -57,6 +60,7 @@ struct GliderPosition: Identifiable, Decodable {
         self.isDisconnected = isDisconnected
         self.positionDateTimeUTC = positionDateTimeUTC
         self.sourceName = sourceName
+        self.isAnonymous = isAnonymous
     }
 
     init(from decoder: Decoder) throws {

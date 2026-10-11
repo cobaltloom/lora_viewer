@@ -20,7 +20,7 @@ data class OgnDevice(
     val competitionId: String?,
     /** false = the owner asked not to be shown at all. */
     val isTracked: Boolean,
-    /** false = the owner asked not to be identified; we don't show these either. */
+    /** false = the owner asked not to be identified; shown by position only, without any name. */
     val isIdentified: Boolean,
 )
 

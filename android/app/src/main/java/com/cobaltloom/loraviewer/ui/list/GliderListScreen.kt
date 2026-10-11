@@ -122,27 +122,36 @@ fun GliderListScreen(
                         .fillMaxWidth()
                         .padding(horizontal = 12.dp, vertical = 8.dp),
                 ) {
-                    IconButton(
-                        onClick = {
-                            if (uiState.isSubscribed) viewModel.toggleFavorite(glider.imei) else onRequireSubscription()
-                        },
-                    ) {
-                        val isFavorite = uiState.isFavorite(glider.imei)
-                        Icon(
-                            imageVector = if (isFavorite) Icons.Filled.Star else Icons.Outlined.Star,
-                            contentDescription = "お気に入り",
-                            tint = if (isFavorite) Color(0xFFFFC107) else MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+                    // Anonymous OGN aircraft get no favorite or nickname that could single them out.
+                    if (!glider.isAnonymous) {
+                        IconButton(
+                            onClick = {
+                                if (uiState.isSubscribed) viewModel.toggleFavorite(glider.imei) else onRequireSubscription()
+                            },
+                        ) {
+                            val isFavorite = uiState.isFavorite(glider.imei)
+                            Icon(
+                                imageVector = if (isFavorite) Icons.Filled.Star else Icons.Outlined.Star,
+                                contentDescription = "お気に入り",
+                                tint = if (isFavorite) Color(0xFFFFC107) else MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                     }
                     Column(
                         modifier = Modifier
                             .weight(1f)
-                            .clickable {
-                                if (uiState.isSubscribed) editingGlider = glider else onRequireSubscription()
-                            },
+                            .then(
+                                if (glider.isAnonymous) {
+                                    Modifier
+                                } else {
+                                    Modifier.clickable {
+                                        if (uiState.isSubscribed) editingGlider = glider else onRequireSubscription()
+                                    }
+                                },
+                            ),
                     ) {
                         val baseName = uiState.baseNameFor(glider)
-                        val nickname = if (uiState.isSubscribed) uiState.nicknames[glider.imei] else null
+                        val nickname = if (uiState.isSubscribed && !glider.isAnonymous) uiState.nicknames[glider.imei] else null
                         Text(
                             if (nickname != null) "$baseName $nickname" else baseName,
                             style = MaterialTheme.typography.titleMedium,

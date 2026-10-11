@@ -6,7 +6,7 @@ struct OGNDevice {
     let competitionID: String?
     /// false = the owner asked not to be shown at all.
     let isTracked: Bool
-    /// false = the owner asked not to be identified; we don't show these either.
+    /// false = the owner asked not to be identified; shown by position only, without any name.
     let isIdentified: Bool
 }
 
