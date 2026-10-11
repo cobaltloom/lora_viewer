@@ -109,11 +109,6 @@ class OgnApiClient(
 
     companion object {
         const val ATTRIBUTION = "データ提供: Open Glider Network (OGN)"
-
-        /** How often the map reads the latest beacons while OGN is selected. Unlike LoRa this asks
-         * no server anything (beacons are already streaming in), so it can be short; trails get a
-         * point per refresh, so they cover a shorter span than with LoRa's default. */
-        const val REFRESH_INTERVAL_SECONDS = 3.0
         val USER_AGENT = "LoraViewer/${BuildConfig.VERSION_NAME} (Android)"
 
         private const val HOST = "aprs.glidernet.org"

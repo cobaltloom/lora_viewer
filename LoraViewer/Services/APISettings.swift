@@ -50,6 +50,13 @@ final class APISettings: ObservableObject {
     @Published var refreshIntervalSeconds: Double {
         didSet { UserDefaults.standard.set(refreshIntervalSeconds, forKey: Keys.refreshInterval) }
     }
+    /// The refresh interval while OGN is selected, separate from LoRa's. A refresh only reads beacons
+    /// already streamed in over the open connection - it asks no server anything - so it can be much
+    /// shorter; trails get a point per refresh, so they cover a shorter span than with LoRa.
+    @Published var ognRefreshIntervalSeconds: Double {
+        didSet { UserDefaults.standard.set(ognRefreshIntervalSeconds, forKey: Keys.ognRefreshInterval) }
+    }
+    static let defaultOGNRefreshIntervalSeconds: Double = 2
 
     /// Whether this device has typed its own base URL into Settings, as opposed to following the
     /// server-provided default from `listenForRemoteBaseURL`. `resetBaseURLToServerDefault` is
@@ -68,6 +75,7 @@ final class APISettings: ObservableObject {
         static let baseURL = "apiBaseURL"
         static let secretKey = "apiSecretKey"
         static let refreshInterval = "refreshIntervalSeconds"
+        static let ognRefreshInterval = "ognRefreshIntervalSeconds"
         static let baseURLCustomized = "apiBaseURLCustomized"
         static let dataSource = "dataSource"
         static let ognEnabledCached = "ognEnabledCached"
@@ -82,6 +90,8 @@ final class APISettings: ObservableObject {
         isOGNAvailable = defaults.bool(forKey: Keys.ognEnabledCached)
         let storedInterval = defaults.double(forKey: Keys.refreshInterval)
         refreshIntervalSeconds = storedInterval > 0 ? storedInterval : 10
+        let storedOGNInterval = defaults.double(forKey: Keys.ognRefreshInterval)
+        ognRefreshIntervalSeconds = storedOGNInterval > 0 ? storedOGNInterval : Self.defaultOGNRefreshIntervalSeconds
         if defaults.object(forKey: Keys.baseURLCustomized) != nil {
             isBaseURLCustomized = defaults.bool(forKey: Keys.baseURLCustomized)
         } else {
@@ -102,6 +112,14 @@ final class APISettings: ObservableObject {
     /// The source actually in use: a saved OGN choice falls back to LoRa while OGN is switched off.
     var effectiveDataSource: DataSource {
         dataSource == .ogn && !isOGNAvailable ? .lora : dataSource
+    }
+
+    /// The polling interval for the source actually in use.
+    var currentRefreshIntervalSeconds: Double {
+        switch effectiveDataSource {
+        case .lora: return max(refreshIntervalSeconds, 3)
+        case .ogn: return max(ognRefreshIntervalSeconds, 1)
+        }
     }
 
     /// Discards a manually-entered URL and goes back to following the server-provided default.

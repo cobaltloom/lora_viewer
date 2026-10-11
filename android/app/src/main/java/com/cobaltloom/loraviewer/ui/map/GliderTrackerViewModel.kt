@@ -290,7 +290,7 @@ class GliderTrackerViewModel(
             loadConfigIfNeeded()
             while (isActive) {
                 refreshOnce()
-                val intervalSeconds = repository.currentRefreshIntervalSeconds().coerceAtLeast(3.0)
+                val intervalSeconds = repository.currentRefreshIntervalSeconds()
                 delay((intervalSeconds * 1000).toLong())
             }
         }
