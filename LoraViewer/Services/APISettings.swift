@@ -6,13 +6,13 @@ import FirebaseFirestore
 enum DataSource: String, CaseIterable {
     /// The club's LoRa trackers, via trailrouteview.com.
     case lora
-    /// OGN Japan (ogn.ezoe.net) - FLARM/OGN-tracker equipped aircraft.
+    /// The Open Glider Network - FLARM/OGN-tracker equipped aircraft, received live from OGN.
     case ogn
 
     var displayName: String {
         switch self {
         case .lora: return "LoRa"
-        case .ogn: return "OGN Japan"
+        case .ogn: return "OGN"
         }
     }
 }
@@ -41,8 +41,8 @@ final class APISettings: ObservableObject {
         didSet { UserDefaults.standard.set(dataSource.rawValue, forKey: Keys.dataSource) }
     }
     /// Whether OGN may be offered at all, from `meta/serverConfig.ognEnabled`. Off until the
-    /// ogn.ezoe.net operator agrees to app access, and doubles as a kill switch if they later
-    /// ask us to stop - so it's controlled from Firestore rather than baked into a release.
+    /// feature has been checked against live traffic, and doubles as a remote kill switch - so
+    /// it's controlled from Firestore rather than baked into a release.
     @Published private(set) var isOGNAvailable: Bool {
         // Cached so launch doesn't briefly poll LoRa before the Firestore snapshot arrives.
         didSet { UserDefaults.standard.set(isOGNAvailable, forKey: Keys.ognEnabledCached) }

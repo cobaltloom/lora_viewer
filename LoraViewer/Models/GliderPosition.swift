@@ -5,7 +5,7 @@ enum PositionSource: String {
     case gps = "1"
     case cell = "2"
     case unknown = "0"
-    /// Not a LoRa tracker field value: marks positions that came from OGN Japan.
+    /// Not a LoRa tracker field value: marks positions that came from the Open Glider Network.
     case ogn = "ogn"
 
     var label: String {
@@ -18,9 +18,9 @@ enum PositionSource: String {
     }
 }
 
-/// One glider's current position, as returned by `mapapi.php` (or built from OGN Japan data).
+/// One glider's current position, as returned by `mapapi.php` (or built from an OGN beacon).
 struct GliderPosition: Identifiable, Decodable {
-    /// The tracker's unique id: the LoRa tracker's IMEI, or the OGN device id (e.g. "FLR3F1A2B").
+    /// The tracker's unique id: the LoRa tracker's IMEI, or the OGN APRS callsign (e.g. "FLRDDE626").
     let imei: String
     /// Short label drawn inside the map marker.
     let index: String

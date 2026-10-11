@@ -15,7 +15,7 @@ import kotlinx.coroutines.flow.first
 class GliderRepository(
     private val apiClient: TrailRouteApiClient,
     private val settingsRepository: ApiSettingsRepository,
-    private val ognApiClient: OgnApiClient = OgnApiClient(),
+    private val ognApiClient: OgnApiClient,
 ) {
     val settings: Flow<ApiSettings> = settingsRepository.settings
 
@@ -30,10 +30,16 @@ class GliderRepository(
     suspend fun fetchCurrentPositions(source: DataSource): List<GliderPosition> {
         val settings = settingsRepository.settings.first()
         return when (source) {
-            DataSource.LORA -> apiClient.fetchCurrentPositions(settings.baseUrl, settings.secretKey)
+            DataSource.LORA -> {
+                ognApiClient.stop() // no-op unless we just switched away from OGN
+                apiClient.fetchCurrentPositions(settings.baseUrl, settings.secretKey)
+            }
             DataSource.OGN -> ognApiClient.fetchCurrentPositions()
         }
     }
+
+    /** Closes the OGN live connection, if open - for when the map stops polling. */
+    fun stopStreaming() = ognApiClient.stop()
 
     suspend fun currentDataSource(): DataSource = settingsRepository.settings.first().effectiveDataSource
 

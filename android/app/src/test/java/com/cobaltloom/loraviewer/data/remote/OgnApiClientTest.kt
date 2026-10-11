@@ -1,66 +1,99 @@
 package com.cobaltloom.loraviewer.data.remote
 
 import com.cobaltloom.loraviewer.data.model.PositionSource
+import com.cobaltloom.loraviewer.data.remote.OgnApiClient.Companion.toGliderPosition
 import java.time.Instant
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.jsonArray
-import kotlinx.serialization.json.jsonObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class OgnApiClientTest {
-    private fun parse(aircraft: String) =
-        OgnApiClient.latestPositions(
-            Json.parseToJsonElement("""{"aircraft":[$aircraft],"anon":[]}""")
-                .jsonObject["aircraft"]!!.jsonArray.map { it.jsonObject },
-        )
+    private val now = Instant.parse("2026-10-12T03:00:30Z")
 
     @Test
-    fun keepsOnlyNewestFixPerDevice() {
-        val positions = parse(
-            """
-            {"device_id":"FLR111111","lat":36.20,"lon":139.30,"altitude_m":800,"ts":"2026-10-11T03:00:02.000Z","registration":"JA21MA","cn":"MA"},
-            {"device_id":"FLR111111","lat":36.21,"lon":139.31,"altitude_m":820,"ts":"2026-10-11T03:00:04.500Z","registration":"JA21MA","cn":"MA"}
-            """,
+    fun parsesWikiExampleBeacon() {
+        val b = OgnBeaconParser.parse(
+            "FLRDDE626>APRS,qAS,EGHL:/074548h5111.32N/00102.04W'086/007/A=000607 id0ADDE626 -019fpm +0.0rot 5.5dB 3e -4.3kHz",
+            Instant.parse("2026-10-12T07:46:00Z"),
+        )!!
+        assertEquals("FLRDDE626", b.callsign)
+        assertEquals("DDE626", b.address)
+        assertEquals(51 + 11.32 / 60, b.lat, 1e-9)
+        assertEquals(-(1 + 2.04 / 60), b.lon, 1e-9)
+        assertEquals(607 * 0.3048, b.altitudeM, 1e-9)
+        assertEquals(Instant.parse("2026-10-12T07:45:48Z"), b.timestamp)
+        // 0x0A = 0b00001010: not stealth, tracking allowed, aircraft type 2 (tow plane), FLARM address.
+        assertEquals(2, b.aircraftType)
+        assertEquals(2, b.addressType)
+        assertFalse(b.isStealth)
+        assertFalse(b.isNoTracking)
+        assertTrue(OgnBeaconParser.isDisplayable(b))
+    }
+
+    @Test
+    fun appliesPrecisionEnhancementAndSouthEast() {
+        val b = OgnBeaconParser.parse(
+            "OGN123456>OGNTRK,qAS,Menuma:/030020h3612.68S/13925.13E'000/000/A=-00012 !W52! id07123456 +000fpm",
+            now,
+        )!!
+        assertEquals(-(36 + 12.685 / 60), b.lat, 1e-9)
+        assertEquals(139 + 25.132 / 60, b.lon, 1e-9)
+        assertEquals(-12 * 0.3048, b.altitudeM, 1e-9)
+        assertEquals(1, b.aircraftType) // glider
+        assertEquals(3, b.addressType) // OGN tracker
+    }
+
+    @Test
+    fun ignoresReceiverBeaconsAndComments() {
+        assertNull(OgnBeaconParser.parse("Menuma>OGNSDR,TCPIP*,qAC,GLIDERN2:/141709h3612.68NI13925.13E&/A=000075", now))
+        assertNull(OgnBeaconParser.parse("# aprsc 2.1.20-gf.5-g0178a1b", now))
+    }
+
+    @Test
+    fun excludesPrivacyFlaggedRandomAndAirlinerTraffic() {
+        fun beacon(idFlags: String, dest: String = "OGFLR") = OgnBeaconParser.parse(
+            "FLR111111>$dest,qAS,Menuma:/030020h3612.68N/13925.13E'000/000/A=001000 id${idFlags}111111", now,
+        )!!
+        assertTrue(OgnBeaconParser.isDisplayable(beacon("06"))) // glider, FLARM
+        assertFalse(OgnBeaconParser.isDisplayable(beacon("86"))) // stealth
+        assertFalse(OgnBeaconParser.isDisplayable(beacon("46"))) // no-tracking
+        assertFalse(OgnBeaconParser.isDisplayable(beacon("04"))) // random address
+        assertFalse(OgnBeaconParser.isDisplayable(beacon("25"))) // type 9 = jet
+        assertFalse(OgnBeaconParser.isDisplayable(beacon("06", dest = "OGADSB")))
+    }
+
+    @Test
+    fun timestampJustBeforeMidnightBelongsToPreviousDay() {
+        val b = OgnBeaconParser.parse(
+            "FLR111111>OGFLR,qAS,Menuma:/235959h3612.68N/13925.13E'000/000/A=001000 id06111111",
+            Instant.parse("2026-10-12T00:00:05Z"),
+        )!!
+        assertEquals(Instant.parse("2026-10-11T23:59:59Z"), b.timestamp)
+    }
+
+    @Test
+    fun namesFromDeviceDatabase() {
+        val db = OgnDeviceDatabase.parse(
+            """{"devices":[
+              {"device_type":"F","device_id":"111111","registration":"JA21MA","cn":"MA","tracked":"Y","identified":"Y","aircraft_type":1},
+              {"device_type":"F","device_id":"222222","registration":"JA2345","cn":"","tracked":"Y","identified":"Y","aircraft_type":1},
+              {"device_type":"F","device_id":"333333","registration":"JA9999","cn":"","tracked":"N","identified":"Y","aircraft_type":1}
+            ]}""",
         )
-        assertEquals(1, positions.size)
-        val p = positions.single()
-        assertEquals(36.21, p.lat, 1e-9)
-        assertEquals(820.0, p.alt!!, 1e-9)
-        assertEquals(Instant.parse("2026-10-11T03:00:04.500Z"), p.positionDateTimeUtc)
+        assertFalse(db.getValue("333333").isTracked)
+        val b = OgnBeaconParser.parse(
+            "FLR111111>OGFLR,qAS,Menuma:/030020h3612.68N/13925.13E'000/000/A=001000 id06111111", now,
+        )!!
+        val p = b.toGliderPosition(db["111111"])
         assertEquals("MA", p.index)
         assertEquals("MA JA21MA", p.sourceName)
+        assertEquals("FLR111111", p.imei)
         assertEquals(PositionSource.OGN, p.source)
-    }
-
-    @Test
-    fun labelsFallBackToRegistrationThenDeviceId() {
-        val positions = parse(
-            """
-            {"device_id":"FLR222222","lat":36.2,"lon":139.3,"altitude_m":500,"ts":"2026-10-11T03:00:00Z","registration":"JA2345"},
-            {"device_id":"OGN3F1A2B","lat":36.2,"lon":139.3,"altitude_m":null,"ts":"2026-10-11T03:00:00Z","registration":"","cn":""}
-            """,
-        ).associateBy { it.imei }
-        assertEquals("2345", positions["FLR222222"]!!.index)
-        assertEquals("JA2345", positions["FLR222222"]!!.sourceName)
-        assertEquals("1A2B", positions["OGN3F1A2B"]!!.index)
-        assertEquals("OGN3F1A2B", positions["OGN3F1A2B"]!!.sourceName)
-        assertNull(positions["OGN3F1A2B"]!!.alt)
-    }
-
-    @Test
-    fun dropsOptedOutAndPositionlessAircraft() {
-        val positions = parse(
-            """
-            {"device_id":"FLR333333","lat":36.2,"lon":139.3,"ts":"2026-10-11T03:00:00Z","no_tracking":true},
-            {"device_id":"FLR444444","lat":36.2,"lon":139.3,"ts":"2026-10-11T03:00:00Z","hidden":true},
-            {"device_id":"FLR777777","lat":36.2,"lon":139.3,"ts":"2026-10-11T03:00:00Z","stealth":true},
-            {"device_id":"FLR888888","lat":36.2,"lon":139.3,"ts":"2026-10-11T03:00:00Z","anon":true},
-            {"device_id":"FLR555555","lat":null,"lon":null,"ts":"2026-10-11T03:00:00Z"},
-            {"device_id":"FLR666666","lat":36.2,"lon":139.3,"ts":"2026-10-11T03:00:00Z"}
-            """,
-        )
-        assertEquals(listOf("FLR666666"), positions.map { it.imei })
+        assertEquals("2345", b.toGliderPosition(db["222222"]).index)
+        val unknown = b.toGliderPosition(null)
+        assertEquals("1111", unknown.index)
+        assertEquals("FLR111111", unknown.sourceName)
     }
 }

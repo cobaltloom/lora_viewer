@@ -3,10 +3,10 @@ package com.cobaltloom.loraviewer.data.model
 import java.time.Instant
 
 /**
- * One glider's current position, as returned by mapapi.php (or built from OGN Japan data).
+ * One glider's current position, as returned by mapapi.php (or built from an OGN beacon).
  */
 data class GliderPosition(
-    /** The tracker's unique id: the LoRa tracker's IMEI, or the OGN device id (e.g. "FLR3F1A2B"). */
+    /** The tracker's unique id: the LoRa tracker's IMEI, or the OGN APRS callsign (e.g. "FLRDDE626"). */
     val imei: String,
     /** Short label drawn inside the map marker. */
     val index: String,

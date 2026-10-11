@@ -73,7 +73,7 @@ fun TrackHistoryScreen(viewModel: TrackHistoryViewModel, isOgnSelected: Boolean,
             Column(modifier = Modifier.padding(16.dp)) {
                 if (isOgnSelected) {
                     Text(
-                        "行動軌跡の検索はLoRaのデータのみ対応しています(OGN Japanのデータは対象外です)。",
+                        "行動軌跡の検索はLoRaのデータのみ対応しています(OGNのデータは対象外です)。",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(bottom = 8.dp),

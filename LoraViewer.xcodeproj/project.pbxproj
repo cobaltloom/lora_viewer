@@ -22,6 +22,8 @@
 		721B530E305E330479A49FD7 /* APISettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED6720C2DA25E1D21F40FB2F /* APISettings.swift */; };
 		1C536BDBFBCC5B9F7B90CB58 /* TrailRouteAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3C793299BC7448D8E4E4F42 /* TrailRouteAPI.swift */; };
 		CC42462453F08C4785290D38 /* OGNAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AB189D999E67F16934B528B /* OGNAPI.swift */; };
+		6BAB41A7A7C9E73053037880 /* OGNDeviceDatabase.swift in Sources */ = {isa = PBXBuildFile; fileRef = B21B34B3F457464C2729DB0E /* OGNDeviceDatabase.swift */; };
+		133311094C75EB46DDCFB00D /* OGNBeaconParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6254C35C51A59358706F82E0 /* OGNBeaconParser.swift */; };
 		3CE25F0309930A2C1C7C7373 /* NicknameStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABC09A8539EBCCD902299D87 /* NicknameStore.swift */; };
 		3D6F8B086B9A7213E50DECAB /* BoardOCR.swift in Sources */ = {isa = PBXBuildFile; fileRef = 56BCCB3F66E9E34B053FF54B /* BoardOCR.swift */; };
 		4E37BBA59B579B9AA91C8856 /* FavoritesStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B853E9A0E8182644D8EB963 /* FavoritesStore.swift */; };
@@ -74,6 +76,8 @@
 		ED6720C2DA25E1D21F40FB2F /* APISettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "APISettings.swift"; sourceTree = "<group>"; };
 		F3C793299BC7448D8E4E4F42 /* TrailRouteAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TrailRouteAPI.swift"; sourceTree = "<group>"; };
 		1AB189D999E67F16934B528B /* OGNAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "OGNAPI.swift"; sourceTree = "<group>"; };
+		B21B34B3F457464C2729DB0E /* OGNDeviceDatabase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "OGNDeviceDatabase.swift"; sourceTree = "<group>"; };
+		6254C35C51A59358706F82E0 /* OGNBeaconParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "OGNBeaconParser.swift"; sourceTree = "<group>"; };
 		ABC09A8539EBCCD902299D87 /* NicknameStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NicknameStore.swift"; sourceTree = "<group>"; };
 		56BCCB3F66E9E34B053FF54B /* BoardOCR.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "BoardOCR.swift"; sourceTree = "<group>"; };
 		7B853E9A0E8182644D8EB963 /* FavoritesStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "FavoritesStore.swift"; sourceTree = "<group>"; };
@@ -179,6 +183,8 @@
 				ED6720C2DA25E1D21F40FB2F /* APISettings.swift */,
 				F3C793299BC7448D8E4E4F42 /* TrailRouteAPI.swift */,
 				1AB189D999E67F16934B528B /* OGNAPI.swift */,
+				B21B34B3F457464C2729DB0E /* OGNDeviceDatabase.swift */,
+				6254C35C51A59358706F82E0 /* OGNBeaconParser.swift */,
 				ABC09A8539EBCCD902299D87 /* NicknameStore.swift */,
 				56BCCB3F66E9E34B053FF54B /* BoardOCR.swift */,
 				7B853E9A0E8182644D8EB963 /* FavoritesStore.swift */,
@@ -327,6 +333,8 @@
 				721B530E305E330479A49FD7 /* APISettings.swift in Sources */,
 				1C536BDBFBCC5B9F7B90CB58 /* TrailRouteAPI.swift in Sources */,
 				CC42462453F08C4785290D38 /* OGNAPI.swift in Sources */,
+				6BAB41A7A7C9E73053037880 /* OGNDeviceDatabase.swift in Sources */,
+				133311094C75EB46DDCFB00D /* OGNBeaconParser.swift in Sources */,
 				3CE25F0309930A2C1C7C7373 /* NicknameStore.swift in Sources */,
 				3D6F8B086B9A7213E50DECAB /* BoardOCR.swift in Sources */,
 				4E37BBA59B579B9AA91C8856 /* FavoritesStore.swift in Sources */,

@@ -23,8 +23,8 @@ private val Context.dataStore by preferencesDataStore(name = "api_settings")
 enum class DataSource(val raw: String, val displayName: String) {
     /** The club's LoRa trackers, via trailrouteview.com. */
     LORA("lora", "LoRa"),
-    /** OGN Japan (ogn.ezoe.net) - FLARM/OGN-tracker equipped aircraft. */
-    OGN("ogn", "OGN Japan");
+    /** The Open Glider Network - FLARM/OGN-tracker equipped aircraft, received live from OGN. */
+    OGN("ogn", "OGN");
 
     companion object {
         fun fromRaw(raw: String?): DataSource = entries.firstOrNull { it.raw == raw } ?: LORA
@@ -38,8 +38,8 @@ data class ApiSettings(
     val isBaseUrlCustomized: Boolean,
     val dataSource: DataSource = DataSource.LORA,
     /** Whether OGN may be offered at all, from `meta/serverConfig.ognEnabled`. Off until the
-     * ogn.ezoe.net operator agrees to app access, and doubles as a kill switch if they later ask
-     * us to stop - so it's controlled from Firestore rather than baked into a release. */
+     * feature has been checked against live traffic, and doubles as a remote kill switch - so it's
+     * controlled from Firestore rather than baked into a release. */
     val isOgnAvailable: Boolean = false,
 ) {
     /** The source actually in use: a saved OGN choice falls back to LoRa while OGN is switched off. */

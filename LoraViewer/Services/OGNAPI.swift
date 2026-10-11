@@ -1,150 +1,174 @@
 import Foundation
+import Network
 
-/// Talks to OGN Japan (https://ogn.ezoe.net), using the same `/api/positions` endpoint the
-/// site's own `app.js` polls. Only used once `APISettings.isOGNAvailable` is on.
+/// Live positions straight from the Open Glider Network: a read-only APRS-IS connection to
+/// aprs.glidernet.org, filtered to a radius around Menuma, kept open while the OGN source is in use.
+/// Beacons are collected as they stream in and `fetchCurrentPositions` returns the latest per
+/// aircraft, so the rest of the app can keep polling exactly as it does for LoRa.
+///
+/// Follows OGN's data usage rules (https://www.glidernet.org/ogn-data-usage/): stealth/no-tracking/
+/// random-address aircraft and DDB entries marked not tracked or not identified are never shown.
 final class OGNAPI {
-    static let baseURL = URL(string: "https://ogn.ezoe.net/")!
-    static let attribution = "データ提供: OGN Japan (ogn.ezoe.net)"
-    /// How far back the server should look. The site itself asks for 90s; we only need each
-    /// aircraft's latest fix, but a shorter window would drop aircraft between sparse fixes.
-    private static let sinceSeconds = 90
+    static let attribution = "データ提供: Open Glider Network (OGN)"
+    static let userAgent: String = "LoraViewer/\(appVersion) (iOS)"
 
-    private let session: URLSession
+    private static let host = NWEndpoint.Host("aprs.glidernet.org")
+    private static let port = NWEndpoint.Port(rawValue: 14580)!
+    /// 150 km around the Menuma OGN receiver - all of Kanto, without the whole country's traffic.
+    private static let filter = "r/36.2113/139.4188/150"
+    private static let maxFixAge: TimeInterval = 90
+    /// Some trackers' clocks are hours off; such a fix would linger past `maxFixAge` or vanish at
+    /// once, so it's dropped rather than shown at a misleading time.
+    private static let maxClockSkew: TimeInterval = 300
+    private static let reconnectDelay: TimeInterval = 5
+    private static let keepaliveInterval: TimeInterval = 60
+    /// The server sends a "#" comment every ~20s, so this much silence means a dead link.
+    private static let silenceTimeout: TimeInterval = 90
+    private static let appVersion = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?"
 
-    init(session: URLSession = .shared) {
-        self.session = session
+    private let deviceDatabase = OGNDeviceDatabase()
+    /// Everything below is only touched on `queue`.
+    private let queue = DispatchQueue(label: "OGNAPI")
+    private var connection: NWConnection?
+    private var keepaliveTimer: DispatchSourceTimer?
+    private var receiveBuffer = Data()
+    private var latestBeacons: [String: OGNBeacon] = [:]
+    private var lastReceived = Date.distantPast
+    private var lastConnectAttempt = Date.distantPast
+
+    /// A read-only APRS login still needs a callsign; OGN asks that it be unique per client.
+    private let callsign = "LV" + String((0..<7).map { _ in "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789".randomElement()! })
+
+    deinit {
+        connection?.cancel()
+        keepaliveTimer?.cancel()
     }
 
     func fetchCurrentPositions() async throws -> [GliderPosition] {
-        var components = URLComponents(url: Self.baseURL.appendingPathComponent("api/positions"), resolvingAgainstBaseURL: false)
-        components?.queryItems = [URLQueryItem(name: "since", value: String(Self.sinceSeconds))]
-        guard let url = components?.url else { throw TrailRouteAPIError.invalidBaseURL }
-
-        var request = URLRequest(url: url)
-        // Identify ourselves so the operator can tell app traffic apart from browsers.
-        request.setValue(Self.userAgent, forHTTPHeaderField: "User-Agent")
-
-        let (data, response) = try await session.data(for: request)
-        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
-            throw TrailRouteAPIError.invalidResponse
+        let devices = try await deviceDatabase.get()
+        let beacons: [OGNBeacon] = queue.sync {
+            ensureStreaming()
+            let cutoff = Date().addingTimeInterval(-Self.maxFixAge)
+            latestBeacons = latestBeacons.filter { $0.value.timestamp >= cutoff }
+            return Array(latestBeacons.values)
         }
-        let decoded = try JSONDecoder().decode(OGNPositionsResponse.self, from: data)
-        return Self.latestPositions(from: decoded.aircraft)
-    }
-
-    /// The response holds every fix in the window; keep each aircraft's newest one. Aircraft with any
-    /// privacy flag (hidden, no-tracking, stealth, or DDB-anonymous) are dropped, per OGN's rule that
-    /// redistributors follow DDB privacy choices (the server already leaves random-id aircraft out of
-    /// `aircraft` and lists them separately under `anon`, which we never read).
-    static func latestPositions(from fixes: [OGNFix]) -> [GliderPosition] {
-        var latest: [String: OGNFix] = [:]
-        for fix in fixes where fix.lat != nil && fix.lon != nil && !fix.isTrackingRefused {
-            if let current = latest[fix.deviceID], (current.date ?? .distantPast) >= (fix.date ?? .distantPast) {
-                continue
-            }
-            latest[fix.deviceID] = fix
-        }
-        return latest.values.compactMap { $0.gliderPosition }
-    }
-
-    private static let userAgent: String = {
-        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?"
-        return "LoraViewer/\(version) (iOS)"
-    }()
-}
-
-struct OGNPositionsResponse: Decodable {
-    let aircraft: [OGNFix]
-}
-
-/// One position report from `/api/positions`.
-struct OGNFix: Decodable {
-    let deviceID: String
-    let lat: Double?
-    let lon: Double?
-    let altitudeM: Double?
-    let timestamp: String?
-    let registration: String?
-    let competitionID: String?
-    let hidden: Bool
-    let noTracking: Bool
-    let stealth: Bool
-    let anonymous: Bool
-
-    enum CodingKeys: String, CodingKey {
-        case deviceID = "device_id"
-        case lat, lon
-        case altitudeM = "altitude_m"
-        case timestamp = "ts"
-        case registration
-        case competitionID = "cn"
-        case hidden
-        case noTracking = "no_tracking"
-        case stealth
-        case anonymous = "anon"
-    }
-
-    init(from decoder: Decoder) throws {
-        let c = try decoder.container(keyedBy: CodingKeys.self)
-        deviceID = try c.decodeLenientString(forKey: .deviceID)
-        lat = try c.decodeLenientDouble(forKey: .lat)
-        lon = try c.decodeLenientDouble(forKey: .lon)
-        altitudeM = try c.decodeLenientDouble(forKey: .altitudeM)
-        timestamp = try? c.decode(String.self, forKey: .timestamp)
-        registration = (try? c.decode(String.self, forKey: .registration)).flatMap { $0.isEmpty ? nil : $0 }
-        competitionID = (try? c.decode(String.self, forKey: .competitionID)).flatMap { $0.isEmpty ? nil : $0 }
-        hidden = (try? c.decode(Bool.self, forKey: .hidden)) ?? false
-        noTracking = (try? c.decode(Bool.self, forKey: .noTracking)) ?? false
-        stealth = (try? c.decode(Bool.self, forKey: .stealth)) ?? false
-        anonymous = (try? c.decode(Bool.self, forKey: .anonymous)) ?? false
-    }
-
-    var isTrackingRefused: Bool { hidden || noTracking || stealth || anonymous || deviceID.isEmpty }
-
-    var date: Date? { timestamp.flatMap(OGNFix.parseDate) }
-
-    /// Marker label: the competition no. if set, else the registration without the "JA" prefix
-    /// (e.g. "JA21MA" -> "21MA"), else the tail of the device id.
-    var markerLabel: String {
-        if let competitionID { return competitionID }
-        if let registration {
-            return registration.hasPrefix("JA") ? String(registration.dropFirst(2)) : registration
-        }
-        return String(deviceID.suffix(4))
-    }
-
-    var displayName: String {
-        switch (competitionID, registration) {
-        case let (cn?, reg?): return "\(cn) \(reg)"
-        case let (cn?, nil): return cn
-        case let (nil, reg?): return reg
-        case (nil, nil): return deviceID
+        return beacons.compactMap { beacon in
+            let device = devices[beacon.address]
+            if let device, !device.isTracked || !device.isIdentified { return nil }
+            return Self.gliderPosition(from: beacon, device: device)
         }
     }
 
-    var gliderPosition: GliderPosition? {
-        guard let lat, let lon else { return nil }
+    /// Closes the stream; the next `fetchCurrentPositions` reconnects.
+    func stop() {
+        queue.sync {
+            disconnect()
+            latestBeacons = [:]
+        }
+    }
+
+    static func gliderPosition(from beacon: OGNBeacon, device: OGNDevice?) -> GliderPosition {
+        let registration = device?.registration
+        let competitionID = device?.competitionID
+        // Marker label: the competition no. if set, else the registration without the "JA" prefix
+        // (e.g. "JA21MA" -> "21MA"), else the tail of the device address.
+        let markerLabel = competitionID
+            ?? registration.map { $0.hasPrefix("JA") ? String($0.dropFirst(2)) : $0 }
+            ?? String(beacon.address.suffix(4))
+        let name = [competitionID, registration].compactMap { $0 }.joined(separator: " ")
         return GliderPosition(
-            imei: deviceID,
+            imei: beacon.callsign,
             index: markerLabel,
-            lat: lat,
-            lon: lon,
-            alt: altitudeM,
+            lat: beacon.lat,
+            lon: beacon.lon,
+            alt: beacon.altitudeM,
             source: .ogn,
             isDisconnected: false,
-            positionDateTimeUTC: date,
-            sourceName: displayName
+            positionDateTimeUTC: beacon.timestamp,
+            sourceName: name.isEmpty ? beacon.callsign : name
         )
     }
 
-    private static let isoWithFraction: ISO8601DateFormatter = {
-        let f = ISO8601DateFormatter()
-        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        return f
-    }()
-    private static let iso = ISO8601DateFormatter()
+    // MARK: - Streaming (on `queue`)
 
-    static func parseDate(_ string: String) -> Date? {
-        isoWithFraction.date(from: string) ?? iso.date(from: string)
+    private func ensureStreaming() {
+        if connection != nil, Date().timeIntervalSince(lastReceived) > Self.silenceTimeout,
+           Date().timeIntervalSince(lastConnectAttempt) > Self.silenceTimeout {
+            disconnect()
+        }
+        guard connection == nil, Date().timeIntervalSince(lastConnectAttempt) >= Self.reconnectDelay else { return }
+        lastConnectAttempt = Date()
+        receiveBuffer = Data()
+
+        let connection = NWConnection(host: Self.host, port: Self.port, using: .tcp)
+        self.connection = connection
+        connection.stateUpdateHandler = { [weak self, weak connection] state in
+            guard let self, let connection, connection === self.connection else { return }
+            switch state {
+            case .ready:
+                self.lastReceived = Date()
+                self.send("user \(self.callsign) pass -1 vers LoraViewer \(Self.appVersion) filter \(Self.filter)\r\n")
+                self.startKeepalive()
+                self.receive(on: connection)
+            case .failed, .cancelled:
+                self.disconnect()
+            default:
+                break
+            }
+        }
+        connection.start(queue: queue)
+    }
+
+    private func receive(on connection: NWConnection) {
+        connection.receive(minimumIncompleteLength: 1, maximumLength: 65536) { [weak self] data, _, isComplete, error in
+            guard let self, connection === self.connection else { return }
+            if let data, !data.isEmpty {
+                self.lastReceived = Date()
+                self.receiveBuffer.append(data)
+                self.processLines()
+            }
+            if isComplete || error != nil {
+                self.disconnect()
+            } else {
+                self.receive(on: connection)
+            }
+        }
+    }
+
+    private func processLines() {
+        let newline = UInt8(ascii: "\n")
+        while let end = receiveBuffer.firstIndex(of: newline) {
+            let lineData = receiveBuffer[receiveBuffer.startIndex..<end]
+            receiveBuffer.removeSubrange(receiveBuffer.startIndex...end)
+            guard let line = String(data: lineData, encoding: .isoLatin1)?
+                .trimmingCharacters(in: .whitespacesAndNewlines) else { continue }
+            let now = Date()
+            guard let beacon = OGNBeaconParser.parse(line, now: now),
+                  OGNBeaconParser.isDisplayable(beacon),
+                  abs(beacon.timestamp.timeIntervalSince(now)) <= Self.maxClockSkew else { continue }
+            if let previous = latestBeacons[beacon.callsign], previous.timestamp > beacon.timestamp { continue }
+            latestBeacons[beacon.callsign] = beacon
+        }
+    }
+
+    private func startKeepalive() {
+        keepaliveTimer?.cancel()
+        let timer = DispatchSource.makeTimerSource(queue: queue)
+        timer.schedule(deadline: .now() + Self.keepaliveInterval, repeating: Self.keepaliveInterval)
+        timer.setEventHandler { [weak self] in self?.send("#keepalive\r\n") }
+        timer.resume()
+        keepaliveTimer = timer
+    }
+
+    private func send(_ text: String) {
+        connection?.send(content: text.data(using: .utf8), completion: .contentProcessed { _ in })
+    }
+
+    private func disconnect() {
+        keepaliveTimer?.cancel()
+        keepaliveTimer = nil
+        let old = connection
+        connection = nil
+        old?.cancel()
     }
 }

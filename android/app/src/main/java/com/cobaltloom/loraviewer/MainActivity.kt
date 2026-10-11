@@ -25,6 +25,7 @@ import com.cobaltloom.loraviewer.data.billing.BillingRepository
 import com.cobaltloom.loraviewer.data.favorites.FavoritesRepository
 import com.cobaltloom.loraviewer.data.nickname.NicknameRepository
 import com.cobaltloom.loraviewer.data.notification.AlertNotifier
+import com.cobaltloom.loraviewer.data.remote.OgnApiClient
 import com.cobaltloom.loraviewer.data.remote.TrailRouteApiClient
 import com.cobaltloom.loraviewer.data.repository.GliderRepository
 import com.cobaltloom.loraviewer.data.settings.ApiSettingsRepository
@@ -90,7 +91,7 @@ private fun LoraViewerNavHost(billingRepository: BillingRepository) {
     val isSubscribed = true
     val apiSettingsRepository = remember { ApiSettingsRepository(context) }
     val gliderRepository = remember {
-        GliderRepository(TrailRouteApiClient(), apiSettingsRepository)
+        GliderRepository(TrailRouteApiClient(), apiSettingsRepository, OgnApiClient(context.cacheDir))
     }
 
     val trackerFactory = remember {

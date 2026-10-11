@@ -306,6 +306,7 @@ class GliderTrackerViewModel(
     fun stopPolling() {
         pollingJob?.cancel()
         pollingJob = null
+        repository.stopStreaming()
     }
 
     override fun onCleared() {

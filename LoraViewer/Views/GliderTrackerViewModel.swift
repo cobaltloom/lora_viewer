@@ -84,7 +84,9 @@ final class GliderTrackerViewModel: ObservableObject {
         do {
             let fetched: [GliderPosition]
             switch source {
-            case .lora: fetched = try await api.fetchCurrentPositions()
+            case .lora:
+                ognAPI.stop() // no-op unless we just switched away from OGN
+                fetched = try await api.fetchCurrentPositions()
             case .ogn: fetched = try await ognAPI.fetchCurrentPositions()
             }
             // The source may have been switched while this request was in flight.
@@ -157,5 +159,6 @@ final class GliderTrackerViewModel: ObservableObject {
     func stopPolling() {
         pollingTask?.cancel()
         pollingTask = nil
+        ognAPI.stop()
     }
 }

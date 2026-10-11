@@ -22,7 +22,7 @@ struct TrackHistoryView: View {
         VStack(spacing: 0) {
             Form {
                 if settings.effectiveDataSource == .ogn {
-                    Text("行動軌跡の検索はLoRaのデータのみ対応しています(OGN Japanのデータは対象外です)。")
+                    Text("行動軌跡の検索はLoRaのデータのみ対応しています(OGNのデータは対象外です)。")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
