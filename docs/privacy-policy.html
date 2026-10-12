@@ -81,6 +81,12 @@
     利用者個人を特定する情報や端末の位置情報は送信しません。OGNは開発者が管理するものではなく、データはOGNの利用規約(ODbL)に基づき利用しています。
   </li>
   <li>
+    <strong>航跡サーバー(開発者が Google Cloud 上で運用)</strong><br>
+    アプリを起動する前からの飛行軌跡を表示するため、開発者が運用するサーバーが OGN および trailrouteview.com からグライダーの位置・高度を取得し、
+    直近24時間分のみ保存しています。本アプリは起動時などにこのサーバーから飛行中の機体の軌跡を取得します。
+    この通信で利用者個人を特定する情報や端末の位置情報を送信することはありません。
+  </li>
+  <li>
     <strong>Google Firebase (Cloud Firestore)</strong><br>
     グライダーのニックネーム共有機能のために利用しています。Google社のプライバシーポリシーが適用されます。
     詳細は <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Google プライバシーポリシー</a> をご確認ください。

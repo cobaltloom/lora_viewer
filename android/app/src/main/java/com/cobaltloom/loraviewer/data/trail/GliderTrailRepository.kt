@@ -24,16 +24,17 @@ private val Context.gliderTrailsDataStore by preferencesDataStore(name = "glider
 class GliderTrailRepository(private val context: Context) {
     private val key = stringPreferencesKey("gliderTrailsJson")
     private val json = Json { ignoreUnknownKeys = true }
-    private val maxPointsPerGlider = 500
+    private val maxPointsPerGlider = 2000
 
     val trails: Flow<Map<String, List<Coordinate>>> = context.gliderTrailsDataStore.data.map { prefs -> decode(prefs[key]) }
 
     /**
      * Appends [positions] above [groundAltitudeThresholdM] to their glider's trail (deduping an
      * unchanged position), and drops a glider's trail entirely once it's back at/below that
-     * altitude.
+     * altitude. Returns whether any glider started a new trail (first seen flying).
      */
-    suspend fun recordPositions(positions: List<GliderPosition>, groundAltitudeThresholdM: Double) {
+    suspend fun recordPositions(positions: List<GliderPosition>, groundAltitudeThresholdM: Double): Boolean {
+        var startedNewTrail = false
         context.gliderTrailsDataStore.edit { prefs ->
             val trails = decode(prefs[key]).toMutableMap()
             for (glider in positions) {
@@ -42,6 +43,7 @@ class GliderTrailRepository(private val context: Context) {
                     trails.remove(glider.imei)
                     continue
                 }
+                if (glider.imei !in trails) startedNewTrail = true
                 val points = trails[glider.imei].orEmpty().toMutableList()
                 val last = points.lastOrNull()
                 if (last != null && last.latitude == glider.lat && last.longitude == glider.lon) continue
@@ -50,6 +52,28 @@ class GliderTrailRepository(private val context: Context) {
                 trails[glider.imei] = points
             }
             prefs[key] = json.encodeToString(trails)
+        }
+        return startedNewTrail
+    }
+
+    /**
+     * Replaces trails with the track server's whole flight where it knows more than we drew live
+     * (e.g. the app was opened mid-flight). Only gliders that still have a live trail - i.e. are
+     * flying here - are touched, and the newest live point is kept if the server lags behind it.
+     */
+    suspend fun backfill(flights: Map<String, List<Coordinate>>) {
+        context.gliderTrailsDataStore.edit { prefs ->
+            val trails = decode(prefs[key]).toMutableMap()
+            var changed = false
+            for ((id, points) in flights) {
+                val live = trails[id] ?: continue
+                if (points.size <= live.size) continue
+                val newest = live.lastOrNull()
+                val merged = if (newest != null && newest != points.lastOrNull()) points + newest else points
+                trails[id] = merged.takeLast(maxPointsPerGlider)
+                changed = true
+            }
+            if (changed) prefs[key] = json.encodeToString(trails)
         }
     }
 

@@ -33,6 +33,7 @@ import com.cobaltloom.loraviewer.data.trail.GliderTrailRepository
 import com.cobaltloom.loraviewer.data.trail.MapDisplaySettingsRepository
 import com.cobaltloom.loraviewer.ui.common.assignGliderColorSlots
 import com.cobaltloom.loraviewer.ui.common.gliderColor
+import java.time.Duration
 import java.time.Instant
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -170,6 +171,10 @@ class GliderTrackerViewModel(
     private val mapDisplaySettingsRepository: MapDisplaySettingsRepository,
     private val alertNotifier: AlertNotifier,
 ) : ViewModel() {
+    private companion object {
+        val MIN_BACKFILL_INTERVAL: Duration = Duration.ofSeconds(60)
+    }
+
     private val _uiState = MutableStateFlow(GliderTrackerUiState())
     val uiState: StateFlow<GliderTrackerUiState> = _uiState.asStateFlow()
 
@@ -177,6 +182,11 @@ class GliderTrackerViewModel(
 
     /** Each source's favorites; [GliderTrackerUiState.favorites] is the current source's. */
     private var favoritesBySource: Map<DataSource, Set<String>> = emptyMap()
+
+    /** Set when the next refresh should backfill trails from the track server: at start, after a
+     * source switch, and when a glider is first seen already flying. */
+    private var needsTrailBackfill = true
+    private var lastTrailBackfill = Instant.EPOCH
 
     /** Null until settings first load, so that initial load isn't mistaken for a source switch. */
     private var currentDataSource: DataSource? = null
@@ -304,6 +314,8 @@ class GliderTrackerViewModel(
      * map, and fetches right away instead of waiting out the current interval. */
     private suspend fun onDataSourceChanged() {
         gliderTrailRepository.clear()
+        needsTrailBackfill = true
+        lastTrailBackfill = Instant.EPOCH
         _uiState.update { it.copy(positions = emptyList(), proximityReasonsByImei = emptyMap()) }
         previouslyAlertingImeis = emptySet()
         previouslyInsideTurnpoints = emptySet()
@@ -400,7 +412,12 @@ class GliderTrackerViewModel(
             stateWithNewPositions = stateWithNewPositions.copy(proximityReasonsByImei = proximityReasons)
             notifyNewAlerts(stateWithNewPositions)
             notifyTurnpointPassages(stateWithNewPositions)
-            gliderTrailRepository.recordPositions(positions, stateWithNewPositions.alertSettings.minimumFlyingAltitudeM)
+            val groundAltitudeM = stateWithNewPositions.alertSettings.minimumFlyingAltitudeM
+            if (gliderTrailRepository.recordPositions(positions, groundAltitudeM)) {
+                needsTrailBackfill = true // newly seen in flight: its earlier part may be on the server
+            }
+            // Launched separately: a slow track server must never hold up the live refresh loop.
+            viewModelScope.launch { backfillTrailsIfNeeded(source, groundAltitudeM) }
             _uiState.update {
                 it.copy(
                     positions = positions,
@@ -413,6 +430,19 @@ class GliderTrackerViewModel(
         } catch (e: Exception) {
             _uiState.update { it.copy(errorMessage = e.message, isLoading = false) }
         }
+    }
+
+    /** Fills in trails from the track server so they reach back to takeoff even if the app was
+     * opened mid-flight. Best effort: without a configured server, or on any error, trails stay
+     * live-only. */
+    private suspend fun backfillTrailsIfNeeded(source: DataSource, groundAltitudeM: Double) {
+        val now = Instant.now()
+        if (!needsTrailBackfill || Duration.between(lastTrailBackfill, now) < MIN_BACKFILL_INTERVAL) return
+        needsTrailBackfill = false
+        lastTrailBackfill = now
+        val flights = runCatching { repository.fetchTrackServerFlights(source, groundAltitudeM) }.getOrNull() ?: return
+        if (source != repository.currentDataSource()) return
+        gliderTrailRepository.backfill(flights)
     }
 
     private suspend fun loadConfigIfNeeded() {

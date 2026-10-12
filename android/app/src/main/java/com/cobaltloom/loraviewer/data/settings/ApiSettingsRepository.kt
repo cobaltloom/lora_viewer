@@ -31,6 +31,9 @@ enum class DataSource(val raw: String, val displayName: String) {
     }
 }
 
+/** The club's track server, from Firestore `meta/serverConfig` (`trackServerUrl` / `trackServerKey`). */
+data class TrackServerConfig(val url: String, val key: String)
+
 data class ApiSettings(
     val baseUrl: String,
     val secretKey: String,
@@ -45,6 +48,8 @@ data class ApiSettings(
      * beacons already streamed in over the open connection - it asks no server anything - so it can
      * be much shorter; trails get a point per refresh, so they cover a shorter span than with LoRa. */
     val ognRefreshIntervalSeconds: Double = DEFAULT_OGN_REFRESH_INTERVAL_SECONDS,
+    /** null until both Firestore fields are set, which keeps trail backfill off. */
+    val trackServer: TrackServerConfig? = null,
 ) {
     /** The source actually in use: a saved OGN choice falls back to LoRa while OGN is switched off. */
     val effectiveDataSource: DataSource
@@ -94,8 +99,9 @@ class ApiSettingsRepository(
     private var remoteConfigListener: ListenerRegistration? = null
     /** Null until the first Firestore snapshot; until then the cached value applies. */
     private val ognAvailable = MutableStateFlow<Boolean?>(null)
+    private val trackServer = MutableStateFlow<TrackServerConfig?>(null)
 
-    val settings: Flow<ApiSettings> = combine(context.dataStore.data, ognAvailable) { prefs, remoteOgnAvailable ->
+    val settings: Flow<ApiSettings> = combine(context.dataStore.data, ognAvailable, trackServer) { prefs, remoteOgnAvailable, server ->
         val isOgnAvailable = remoteOgnAvailable ?: prefs[Keys.OGN_ENABLED_CACHED] ?: false
         ApiSettings(
             baseUrl = prefs[Keys.BASE_URL] ?: ApiSettings.DEFAULT_BASE_URL,
@@ -107,6 +113,7 @@ class ApiSettingsRepository(
             isOgnAvailable = isOgnAvailable,
             ognRefreshIntervalSeconds = prefs[Keys.OGN_REFRESH_INTERVAL]?.takeIf { it > 0 }
                 ?: ApiSettings.DEFAULT_OGN_REFRESH_INTERVAL_SECONDS,
+            trackServer = server,
         )
     }
 
@@ -153,6 +160,9 @@ class ApiSettingsRepository(
         remoteConfigListener = firestore.collection("meta").document("serverConfig")
             .addSnapshotListener { snapshot, _ ->
                 if (snapshot != null) {
+                    val url = snapshot.getString("trackServerUrl")?.takeIf { it.isNotBlank() }
+                    val key = snapshot.getString("trackServerKey")?.takeIf { it.isNotBlank() }
+                    trackServer.value = if (url != null && key != null) TrackServerConfig(url, key) else null
                     val ognEnabled = snapshot.getBoolean("ognEnabled") ?: false
                     ognAvailable.value = ognEnabled
                     repositoryScope.launch { context.dataStore.edit { it[Keys.OGN_ENABLED_CACHED] = ognEnabled } }

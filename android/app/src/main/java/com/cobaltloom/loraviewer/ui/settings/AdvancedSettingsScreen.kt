@@ -128,7 +128,7 @@ fun AdvancedSettingsScreen(
                         }
                     }
                     Text(
-                        "OGNは受信した位置が常に端末に届いているため、短くしてもサーバーに負荷はかかりません。短くするほど地図の動きは滑らかになりますが、電池の消費が増え、地図上の軌跡は短くなります(軌跡は更新ごとに1点、1機につき最大500点)。",
+                        "OGNは受信した位置が常に端末に届いているため、短くしてもサーバーに負荷はかかりません。短くするほど地図の動きは滑らかになりますが、電池の消費が増え、地図上の軌跡は短くなります(軌跡は更新ごとに1点、1機につき最大2000点)。",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(top = 8.dp, bottom = 24.dp),
