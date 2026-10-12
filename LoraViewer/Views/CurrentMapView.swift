@@ -24,6 +24,10 @@ struct CurrentMapView: View {
     @State private var pointOfInterestPendingDeletion: PointOfInterest?
     @State private var cameraPosition: MapCameraPosition = .automatic
     @State private var selectedGlider: GliderPosition?
+    /// Each timed glider's progress around the selected task course (see `updateLapStatuses`).
+    @State private var lapStatuses: [String: TaskLapStatus] = [:]
+    /// "imei|time" of starts/finishes already logged (finishes also notified), so each is reported once.
+    @State private var reportedLapEvents: Set<String> = []
     @State private var showSettings = false
     @State private var showPaywall = false
     @State private var showTurnpointHistory = false
@@ -316,7 +320,10 @@ struct CurrentMapView: View {
                     GliderDetailCard(
                         glider: selectedGlider,
                         baseName: viewModel.nameFor(selectedGlider),
-                        alertReasons: alertReasons(for: selectedGlider)
+                        alertReasons: alertReasons(for: selectedGlider),
+                        lapSummary: selectedTaskCourse.flatMap { course in
+                            lapStatuses[selectedGlider.imei]?.summary(courseDistanceKm: course.distanceKm, now: Date())
+                        }
                     )
                         .padding()
                         .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -456,12 +463,14 @@ struct CurrentMapView: View {
                 if let backfilled = viewModel.backfilledFlights {
                     recordPastTurnpointPassages(backfilled)
                 }
+                updateLapStatuses()
             }
             .onChange(of: viewModel.positions) { _, newPositions in
                 centerMapIfNeeded(on: newPositions)
                 updateProximityAlerts(in: newPositions)
                 notifyNewAlerts(in: newPositions)
                 notifyTurnpointPassages(in: newPositions)
+                updateLapStatuses()
             }
         }
     }
@@ -522,6 +531,41 @@ struct CurrentMapView: View {
             }
         }
         glidersInsideTurnpoints = currentlyInside
+    }
+
+    /// The task course chosen in the competition guideline settings, if the course is shown.
+    private var selectedTaskCourse: CompetitionTaskCourse? {
+        guard subscriptionManager.hasFullAccess, competitionGuideline.showTaskCourse,
+              let index = competitionGuideline.selectedCourseIndex,
+              CompetitionTaskCourseData.courses.indices.contains(index) else { return nil }
+        return CompetitionTaskCourseData.courses[index]
+    }
+
+    /// Re-times every flying glider around the selected course and logs/announces new starts and
+    /// finishes. Reference only: official timing uses each glider's 1-second IGC logger.
+    private func updateLapStatuses() {
+        guard let course = selectedTaskCourse else {
+            lapStatuses = [:]
+            return
+        }
+        let now = Date()
+        let statuses = viewModel.timedTracks.mapValues { TaskLapCalculator.evaluate($0, course: course) }
+        for (id, status) in statuses {
+            guard let glider = viewModel.positions.first(where: { $0.imei == id }) else { continue }
+            let gliderName = displayName(for: glider)
+            if let start = status.start, reportedLapEvents.insert("\(id)|start|\(start.timeIntervalSince1970)").inserted {
+                turnpointPassageLog.recordPastPassage(gliderName: gliderName, turnpointName: "スタート", altitudeM: status.startAltitudeM, timestamp: start)
+            }
+            guard let finish = status.finish,
+                  reportedLapEvents.insert("\(id)|finish|\(finish.timeIntervalSince1970)").inserted else { continue }
+            let summary = String(status.summary(courseDistanceKm: course.distanceKm, now: now).dropFirst("周回: ".count))
+            turnpointPassageLog.recordPastPassage(gliderName: gliderName, turnpointName: "ゴール \(summary)", altitudeM: status.finishAltitudeM, timestamp: finish)
+            // Only announce a finish that just happened - not one found in history on reopening.
+            if now.timeIntervalSince(finish) < 5 * 60 {
+                alertNotifier.notifyTaskFinish(gliderName: gliderName, summary: summary)
+            }
+        }
+        lapStatuses = statuses
     }
 
     /// Names of the selected course's turnpoints whose 90° sector (within the turnpoint radius)

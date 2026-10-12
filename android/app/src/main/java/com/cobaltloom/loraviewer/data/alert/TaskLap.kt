@@ -14,6 +14,7 @@ data class TimedPoint(val timeMillis: Long, val lat: Double, val lon: Double, va
 data class TaskLapStatus(
     /** When the glider crossed the start line, or null if it hasn't yet. */
     val startMillis: Long?,
+    val startAltitudeM: Double? = null,
     /** Turnpoints reached in course order, with the time each was reached. */
     val passedTurnpoints: List<Pair<String, Long>>,
     val totalTurnpoints: Int,
@@ -50,7 +51,7 @@ object TaskLapCalculator {
         val turnpoints = course.turnpointNames.drop(1).dropLast(1)
         val start = firstCrossing(points, 0, startLineA, startLineB)
         if (start == null) {
-            return TaskLapStatus(null, emptyList(), turnpoints.size, null, null)
+            return TaskLapStatus(null, null, emptyList(), turnpoints.size, null, null)
         }
         val passed = mutableListOf<Pair<String, Long>>()
         var index = start.afterIndex
@@ -63,10 +64,10 @@ object TaskLapCalculator {
             index++
         }
         if (passed.size < turnpoints.size) {
-            return TaskLapStatus(start.timeMillis, passed, turnpoints.size, null, null)
+            return TaskLapStatus(start.timeMillis, start.altitudeM, passed, turnpoints.size, null, null)
         }
         val finish = firstCrossing(points, index - 1, goalLineA, goalLineB)
-        return TaskLapStatus(start.timeMillis, passed, turnpoints.size, finish?.timeMillis, finish?.altitudeM)
+        return TaskLapStatus(start.timeMillis, start.altitudeM, passed, turnpoints.size, finish?.timeMillis, finish?.altitudeM)
     }
 
     private fun isInSector(p: TimedPoint, course: CompetitionTaskCourse, name: String): Boolean {

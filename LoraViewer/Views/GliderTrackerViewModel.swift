@@ -34,6 +34,10 @@ final class GliderTrackerViewModel: ObservableObject {
     /// lowest free slot, so colors only repeat once more gliders are flying
     /// than the palette has colors.
     @Published private(set) var trailColorSlots: [String: Int] = [:]
+    /// Each flying glider's timed positions this flight (live, plus any backfilled from the track
+    /// server), kept for lap timing. Dropped when the glider lands, like its trail.
+    @Published private(set) var timedTracks: [String: [TimedPoint]] = [:]
+    private static let maxTimedPoints = 7200
     /// The latest flights fetched from the track server (see `backfillTrailsIfNeeded`).
     @Published private(set) var backfilledFlights: BackfilledFlights?
     static let trailColorCount = 8
@@ -86,6 +90,7 @@ final class GliderTrackerViewModel: ObservableObject {
         if let lastDataSource, lastDataSource != source {
             positions = []
             trails = [:]
+            timedTracks = [:]
             saveTrails()
             needsTrailBackfill = true
             lastTrailBackfill = .distantPast
@@ -101,6 +106,7 @@ final class GliderTrackerViewModel: ObservableObject {
             }
             // The source may have been switched while this request was in flight.
             guard source == settings.effectiveDataSource else { return }
+            recordTimedPoints(from: fetched) // before `positions`, which the view's lap timing reacts to
             positions = fetched
             let hadTrail = Set(trails.keys)
             recordTrailPoints(from: positions)
@@ -127,6 +133,13 @@ final class GliderTrackerViewModel: ObservableObject {
         guard let flights = try? await trackServerAPI.fetchFlights(
             server: server, source: source, groundAltitudeM: groundAltitudeThresholdM
         ), source == settings.effectiveDataSource else { return }
+        var tracks = timedTracks
+        for (id, points) in flights {
+            guard let live = tracks[id], let lastServerTime = points.last?.time else { continue }
+            let server = points.map { TimedPoint(time: $0.time, coordinate: $0.coordinate, altitudeM: $0.altitudeM) }
+            tracks[id] = Array((server + live.filter { $0.time > lastServerTime }).suffix(Self.maxTimedPoints))
+        }
+        timedTracks = tracks
         backfilledFlights = BackfilledFlights(flights: flights)
         var updated = trails
         var changed = false
@@ -146,6 +159,23 @@ final class GliderTrackerViewModel: ObservableObject {
         guard changed else { return }
         trails = updated
         saveTrails()
+    }
+
+    private func recordTimedPoints(from positions: [GliderPosition]) {
+        var tracks = timedTracks.filter { id, _ in positions.contains { $0.imei == id } }
+        let now = Date()
+        for glider in positions {
+            guard let alt = glider.alt, alt > groundAltitudeThresholdM else {
+                tracks.removeValue(forKey: glider.imei)
+                continue
+            }
+            let time = glider.positionDateTimeUTC ?? now
+            var track = tracks[glider.imei] ?? []
+            if let last = track.last, time <= last.time { continue }
+            track.append(TimedPoint(time: time, coordinate: glider.coordinate, altitudeM: alt))
+            tracks[glider.imei] = Array(track.suffix(Self.maxTimedPoints))
+        }
+        timedTracks = tracks
     }
 
     private func recordTrailPoints(from positions: [GliderPosition]) {

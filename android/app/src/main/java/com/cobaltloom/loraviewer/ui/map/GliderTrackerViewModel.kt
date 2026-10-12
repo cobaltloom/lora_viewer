@@ -651,7 +651,7 @@ class GliderTrackerViewModel(
             val gliderName = state.nameFor(glider)
             status.startMillis?.let { start ->
                 if (reportedStarts.add("$id|$start")) {
-                    turnpointPassageLogRepository.recordPastPassage(gliderName, "スタート", null, start)
+                    turnpointPassageLogRepository.recordPastPassage(gliderName, "スタート", status.startAltitudeM, start)
                 }
             }
             val finish = status.finishMillis ?: continue
