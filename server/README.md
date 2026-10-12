@@ -17,8 +17,11 @@ Runs on a Google Cloud **Always Free e2-micro** VM in the Firebase project `lora
 Prerequisite: the `loramenuma` project must have a billing account linked (required even for
 the free tier). Set a budget alert (e.g. ¥100) under Billing → Budgets & alerts.
 
-Open Cloud Shell from https://console.cloud.google.com (the `>_` button top right), upload
-`trackserver.py` and `deploy/startup.sh` (⋮ menu → Upload), then run:
+Easiest: open Cloud Shell from https://console.cloud.google.com (the `>_` button top right),
+upload `trackserver.py`, `deploy/startup.sh` and `deploy/create.sh` (⋮ menu → Upload), and run
+`bash create.sh` - it does everything below and prints the two Firestore values.
+
+Or step by step, after uploading `trackserver.py` and `deploy/startup.sh`:
 
 ```sh
 gcloud config set project loramenuma
