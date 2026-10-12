@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -27,6 +28,7 @@ import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -563,6 +565,13 @@ fun MapScreen(
         }
     }
 
+    if (uiState.shouldOfferDataSourcePrompt && !viewModel.hasOfferedDataSourcePrompt) {
+        DataSourcePromptDialog(
+            current = uiState.dataSource,
+            onFinish = { source, dontShowAgain -> viewModel.finishDataSourcePrompt(source, dontShowAgain) },
+        )
+    }
+
     uiState.errorMessage?.let { message ->
         AlertDialog(
             onDismissRequest = viewModel::dismissError,
@@ -681,3 +690,49 @@ private const val POINT_NAME_OFFSET_DP = 21f
 
 private val lapTimeFormatter: java.time.format.DateTimeFormatter =
     java.time.format.DateTimeFormatter.ofPattern("HH:mm:ss").withZone(java.time.ZoneId.systemDefault())
+
+/**
+ * Asks which position source to use, shown at launch while OGN is available so people notice it.
+ * Dismissing without choosing keeps the current source.
+ */
+@Composable
+private fun DataSourcePromptDialog(current: DataSource, onFinish: (DataSource?, Boolean) -> Unit) {
+    var dontShowAgain by remember { mutableStateOf(false) }
+    AlertDialog(
+        onDismissRequest = { onFinish(null, dontShowAgain) },
+        title = { Text("位置情報のデータ元を選んでください") },
+        text = {
+            Column {
+                Text(
+                    "LoRa: クラブのLoRa発信機を積んだ機体を表示します。",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Text(
+                    "OGN: FLARMやOGNトラッカーを積み、OGN受信機の範囲内(妻沼から約150km)にいる機体を表示します。",
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
+                Text(
+                    "現在: ${current.displayName}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(top = 8.dp).clickable { dontShowAgain = !dontShowAgain },
+                ) {
+                    Checkbox(checked = dontShowAgain, onCheckedChange = { dontShowAgain = it })
+                    Text("次回から表示しない")
+                }
+                Text(
+                    "設定画面の「位置情報のデータ元」からいつでも変更できます。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        },
+        confirmButton = { TextButton(onClick = { onFinish(DataSource.OGN, dontShowAgain) }) { Text("OGN") } },
+        dismissButton = { TextButton(onClick = { onFinish(DataSource.LORA, dontShowAgain) }) { Text("LoRa") } },
+    )
+}

@@ -1,5 +1,8 @@
 package com.cobaltloom.loraviewer.ui.map
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -94,6 +97,9 @@ data class GliderTrackerUiState(
     val dataSource: DataSource = DataSource.LORA,
     /** Whether the OGN option is offered in Settings at all (Firestore `ognEnabled`). */
     val isOgnAvailable: Boolean = false,
+    /** Whether to offer the launch-time LoRa/OGN chooser: OGN is available and the person hasn't
+     * turned it off. Starts false so it can't flash up before the saved settings load. */
+    val shouldOfferDataSourcePrompt: Boolean = false,
     /** Each flying glider's progress around the selected task course (reference timing). */
     val lapStatuses: Map<String, TaskLapStatus> = emptyMap(),
 ) {
@@ -308,6 +314,7 @@ class GliderTrackerViewModel(
                         it.copy(
                             dataSource = source,
                             isOgnAvailable = settings.isOgnAvailable,
+                            shouldOfferDataSourcePrompt = settings.isOgnAvailable && !settings.isDataSourcePromptSuppressed,
                             favorites = favoritesBySource[source].orEmpty(),
                         )
                     }
@@ -336,6 +343,19 @@ class GliderTrackerViewModel(
 
     fun setDataSource(source: DataSource) {
         viewModelScope.launch { repository.setDataSource(source) }
+    }
+
+    /** Whether the launch-time chooser has been shown (or dismissed) in this app session. */
+    var hasOfferedDataSourcePrompt by mutableStateOf(false)
+        private set
+
+    /** Closes the launch-time chooser, applying [source] if one was picked. */
+    fun finishDataSourcePrompt(source: DataSource?, dontShowAgain: Boolean) {
+        hasOfferedDataSourcePrompt = true
+        viewModelScope.launch {
+            if (source != null) repository.setDataSource(source)
+            if (dontShowAgain) repository.setDataSourcePromptSuppressed(true)
+        }
     }
 
     /** Starts clean on the new source instead of mixing one source's stale gliders into the other's

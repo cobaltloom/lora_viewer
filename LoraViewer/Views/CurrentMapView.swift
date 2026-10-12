@@ -29,6 +29,11 @@ struct CurrentMapView: View {
     /// "imei|time" of starts/finishes already logged (finishes also notified), so each is reported once.
     @State private var reportedLapEvents: Set<String> = []
     @State private var showSettings = false
+    /// Launch-time LoRa/OGN chooser, so people notice OGN is available at all. Shown once per launch
+    /// until "次回から表示しない" is checked.
+    @AppStorage(DataSourcePromptView.suppressedKey) private var dataSourcePromptSuppressed = false
+    @State private var showDataSourcePrompt = false
+    @State private var hasOfferedDataSourcePrompt = false
     @State private var showPaywall = false
     @State private var showTurnpointHistory = false
     @State private var didCenterInitially = false
@@ -395,6 +400,10 @@ struct CurrentMapView: View {
                     }
                 }
             }
+            .sheet(isPresented: $showDataSourcePrompt) {
+                DataSourcePromptView()
+                    .environmentObject(settings)
+            }
             .sheet(isPresented: $showSettings) {
                 SettingsView()
                     .environmentObject(settings)
@@ -445,6 +454,7 @@ struct CurrentMapView: View {
                 viewModel.groundAltitudeThresholdM = alertSettings.minimumFlyingAltitudeM
                 favoritesStore.dataSource = settings.effectiveDataSource
                 viewModel.startPolling()
+                offerDataSourcePromptIfNeeded()
                 locationManager.requestAuthorizationIfNeeded()
                 alertNotifier.requestAuthorizationIfNeeded()
             }
@@ -453,6 +463,10 @@ struct CurrentMapView: View {
             }
             .onChange(of: alertSettings.minimumFlyingAltitudeM) { _, newValue in
                 viewModel.groundAltitudeThresholdM = newValue
+            }
+            .onChange(of: settings.isOGNAvailable) {
+                // OGN availability comes from Firestore and can arrive after launch.
+                offerDataSourcePromptIfNeeded()
             }
             .onChange(of: settings.effectiveDataSource) {
                 favoritesStore.dataSource = settings.effectiveDataSource
@@ -532,6 +546,12 @@ struct CurrentMapView: View {
             }
         }
         glidersInsideTurnpoints = currentlyInside
+    }
+
+    private func offerDataSourcePromptIfNeeded() {
+        guard settings.isOGNAvailable, !dataSourcePromptSuppressed, !hasOfferedDataSourcePrompt else { return }
+        hasOfferedDataSourcePrompt = true
+        showDataSourcePrompt = true
     }
 
     /// The task course chosen in the competition guideline settings, if the course is shown.
@@ -808,5 +828,60 @@ struct CurrentMapView: View {
         .background(worstSeverity == .warning ? .red : .orange, in: RoundedRectangle(cornerRadius: 12))
         .padding(.horizontal)
         .padding(.top, 4)
+    }
+}
+
+/// Asks which position source to use, shown at launch while OGN is available (see
+/// `CurrentMapView.offerDataSourcePromptIfNeeded`). Closing it without choosing keeps the current one.
+struct DataSourcePromptView: View {
+    static let suppressedKey = "dataSourcePromptSuppressed"
+
+    @EnvironmentObject private var settings: APISettings
+    @AppStorage(suppressedKey) private var suppressed = false
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("位置情報のデータ元を選んでください")
+                .font(.headline)
+            choice(.lora, description: "クラブのLoRa発信機を積んだ機体を表示します。")
+            choice(.ogn, description: "FLARMやOGNトラッカーを積み、OGN受信機の範囲内(妻沼から約150km)にいる機体を表示します。")
+            Button {
+                suppressed.toggle()
+            } label: {
+                Label("次回から表示しない", systemImage: suppressed ? "checkmark.square.fill" : "square")
+            }
+            .buttonStyle(.plain)
+            Text("設定画面の「位置情報のデータ元」からいつでも変更できます。")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+        }
+        .padding(24)
+        .presentationDetents([.medium, .large])
+    }
+
+    private func choice(_ source: DataSource, description: String) -> some View {
+        Button {
+            settings.dataSource = source
+            dismiss()
+        } label: {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Text(source.displayName).font(.title3.bold())
+                    Spacer()
+                    if settings.effectiveDataSource == source {
+                        Text("選択中").font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+                Text(description)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.leading)
+            }
+            .padding()
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(RoundedRectangle(cornerRadius: 12).stroke(settings.effectiveDataSource == source ? Color.accentColor : Color.secondary.opacity(0.4), lineWidth: settings.effectiveDataSource == source ? 2 : 1))
+        }
+        .buttonStyle(.plain)
     }
 }

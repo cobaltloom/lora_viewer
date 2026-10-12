@@ -48,6 +48,8 @@ data class ApiSettings(
      * beacons already streamed in over the open connection - it asks no server anything - so it can
      * be much shorter; trails get a point per refresh, so they cover a shorter span than with LoRa. */
     val ognRefreshIntervalSeconds: Double = DEFAULT_OGN_REFRESH_INTERVAL_SECONDS,
+    /** Whether the launch-time LoRa/OGN chooser was turned off ("次回から表示しない"). */
+    val isDataSourcePromptSuppressed: Boolean = false,
     /** null until both Firestore fields are set, which keeps trail backfill off. */
     val trackServer: TrackServerConfig? = null,
 ) {
@@ -90,6 +92,7 @@ class ApiSettingsRepository(
         val BASE_URL_CUSTOMIZED = booleanPreferencesKey("apiBaseURLCustomized")
         val DATA_SOURCE = stringPreferencesKey("dataSource")
         val OGN_REFRESH_INTERVAL = doublePreferencesKey("ognRefreshIntervalSeconds")
+        val DATA_SOURCE_PROMPT_SUPPRESSED = booleanPreferencesKey("dataSourcePromptSuppressed")
         /** Last `ognEnabled` seen from Firestore, so launch doesn't briefly poll LoRa before the
          * snapshot arrives. */
         val OGN_ENABLED_CACHED = booleanPreferencesKey("ognEnabledCached")
@@ -114,6 +117,7 @@ class ApiSettingsRepository(
             ognRefreshIntervalSeconds = prefs[Keys.OGN_REFRESH_INTERVAL]?.takeIf { it > 0 }
                 ?: ApiSettings.DEFAULT_OGN_REFRESH_INTERVAL_SECONDS,
             trackServer = server,
+            isDataSourcePromptSuppressed = prefs[Keys.DATA_SOURCE_PROMPT_SUPPRESSED] ?: false,
         )
     }
 
@@ -138,6 +142,10 @@ class ApiSettingsRepository(
 
     suspend fun setRefreshIntervalSeconds(value: Double) {
         context.dataStore.edit { it[Keys.REFRESH_INTERVAL] = value }
+    }
+
+    suspend fun setDataSourcePromptSuppressed(value: Boolean) {
+        context.dataStore.edit { it[Keys.DATA_SOURCE_PROMPT_SUPPRESSED] = value }
     }
 
     suspend fun setOgnRefreshIntervalSeconds(value: Double) {

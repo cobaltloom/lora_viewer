@@ -22,6 +22,8 @@ class GliderRepository(
 
     suspend fun setDataSource(value: DataSource) = settingsRepository.setDataSource(value)
 
+    suspend fun setDataSourcePromptSuppressed(value: Boolean) = settingsRepository.setDataSourcePromptSuppressed(value)
+
     suspend fun fetchConfig(): AppConfig {
         val settings = settingsRepository.settings.first()
         return apiClient.fetchConfig(settings.baseUrl)
