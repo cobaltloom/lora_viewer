@@ -23,8 +23,9 @@ private val Context.dataStore by preferencesDataStore(name = "api_settings")
 enum class DataSource(val raw: String, val displayName: String) {
     /** The club's LoRa trackers, via trailrouteview.com. */
     LORA("lora", "LoRa"),
-    /** The Open Glider Network - FLARM/OGN-tracker equipped aircraft, received live from OGN. */
-    OGN("ogn", "OGN");
+    /** The Open Glider Network - FLARM/OGN-tracker equipped aircraft, received live from OGN. Shown to
+     * people as "FLARM", the name they know; OGN is credited in the attribution. */
+    OGN("ogn", "FLARM");
 
     companion object {
         fun fromRaw(raw: String?): DataSource = entries.firstOrNull { it.raw == raw } ?: LORA

@@ -7,12 +7,13 @@ enum DataSource: String, CaseIterable {
     /// The club's LoRa trackers, via trailrouteview.com.
     case lora
     /// The Open Glider Network - FLARM/OGN-tracker equipped aircraft, received live from OGN.
+    /// Shown to people as "FLARM", the name they know; OGN is credited in the attribution.
     case ogn
 
     var displayName: String {
         switch self {
         case .lora: return "LoRa"
-        case .ogn: return "OGN"
+        case .ogn: return "FLARM"
         }
     }
 }

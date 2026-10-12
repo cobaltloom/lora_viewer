@@ -708,7 +708,7 @@ private fun DataSourcePromptDialog(current: DataSource, onFinish: (DataSource?, 
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 Text(
-                    "OGN: FLARMやOGNトラッカーを積み、OGN受信機の範囲内(妻沼から約150km)にいる機体を表示します。",
+                    "FLARM: FLARMやOGNトラッカーを積み、OGN(Open Glider Network)受信機の範囲内(妻沼から約150km)にいる機体を表示します。",
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.padding(top = 8.dp),
                 )
@@ -732,7 +732,7 @@ private fun DataSourcePromptDialog(current: DataSource, onFinish: (DataSource?, 
                 )
             }
         },
-        confirmButton = { TextButton(onClick = { onFinish(DataSource.OGN, dontShowAgain) }) { Text("OGN") } },
-        dismissButton = { TextButton(onClick = { onFinish(DataSource.LORA, dontShowAgain) }) { Text("LoRa") } },
+        confirmButton = { TextButton(onClick = { onFinish(DataSource.OGN, dontShowAgain) }) { Text(DataSource.OGN.displayName) } },
+        dismissButton = { TextButton(onClick = { onFinish(DataSource.LORA, dontShowAgain) }) { Text(DataSource.LORA.displayName) } },
     )
 }

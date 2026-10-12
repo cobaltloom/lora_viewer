@@ -845,7 +845,7 @@ struct DataSourcePromptView: View {
             Text("位置情報のデータ元を選んでください")
                 .font(.headline)
             choice(.lora, description: "クラブのLoRa発信機を積んだ機体を表示します。")
-            choice(.ogn, description: "FLARMやOGNトラッカーを積み、OGN受信機の範囲内(妻沼から約150km)にいる機体を表示します。")
+            choice(.ogn, description: "FLARMやOGNトラッカーを積み、OGN(Open Glider Network)受信機の範囲内(妻沼から約150km)にいる機体を表示します。")
             Button {
                 suppressed.toggle()
             } label: {

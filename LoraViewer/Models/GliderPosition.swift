@@ -13,7 +13,7 @@ enum PositionSource: String {
         case .gps: return "GPS"
         case .cell: return "セル"
         case .unknown: return "不明"
-        case .ogn: return "OGN"
+        case .ogn: return "FLARM"
         }
     }
 }
