@@ -5,8 +5,8 @@ Runs 24/7 on a small VM, collecting glider positions from both sources the app
 supports and keeping the last 24 hours, so the app can show each flying
 glider's trail from takeoff - including the part flown before the app was opened.
 
-  * OGN: a read-only APRS-IS connection to aprs.glidernet.org (same filter and
-    privacy rules as the app's OGNAPI / OgnApiClient).
+  * OGN: a read-only APRS-IS connection to aprs.glidernet.org, limited to 20 km
+    around Menuma, with the same privacy rules as the app's OGNAPI / OgnApiClient.
   * LoRa: polls the club's trailrouteview mapapi.php, like the app does.
 
 HTTP API (behind Caddy for HTTPS):
@@ -51,7 +51,9 @@ SNAPSHOT_S = 60
 VERSION = "1.0"
 
 OGN_HOST, OGN_PORT = "aprs.glidernet.org", 14580
-OGN_FILTER = "r/36.2113/139.4188/150"   # 150 km around the Menuma OGN receiver
+# 20 km around Menuma airfield's center (JSAL guideline: N36°12'41" E139°25'08") - enough for the
+# club's flights; the apps' live view still covers 150 km.
+OGN_FILTER = "r/36.2114/139.4189/20"
 OGN_MAX_CLOCK_SKEW_S = 300
 DDB_URL = "https://ddb.glidernet.org/download/?j=1&t=1"
 DDB_REFRESH_S = 24 * 3600
