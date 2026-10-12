@@ -90,7 +90,9 @@ struct CurrentMapView: View {
         // different field than the one these are configured for triggers noise notifications
         // for gliders the person tracking them doesn't actually care about. With no favorites
         // set, every glider is checked, same as before this distinction existed.
-        if favoritesStore.favoriteIMEIs.isEmpty || favoritesStore.isFavorite(glider.imei) {
+        // Both are Menuma-specific, so only for gliders within 15 km of the field center.
+        if favoritesStore.favoriteIMEIs.isEmpty || favoritesStore.isFavorite(glider.imei),
+           CompetitionAltitudeGuideline.isWithinAlertRadius(glider) {
             if let severity = alertSettings.alertSeverity(for: glider) {
                 reasons.append(GliderAlertReason(label: "カスタム設定", severity: severity))
             }

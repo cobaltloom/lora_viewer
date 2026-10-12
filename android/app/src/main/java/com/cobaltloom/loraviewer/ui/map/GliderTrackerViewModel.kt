@@ -120,7 +120,8 @@ data class GliderTrackerUiState(
         // different field than the one these are configured for triggers noise notifications
         // for gliders the person tracking them doesn't actually care about. With no favorites
         // set, every glider is checked, same as before this distinction existed.
-        if (favorites.isEmpty() || glider.imei in favorites) {
+        // Both are Menuma-specific, so only for gliders within 15 km of the field center.
+        if ((favorites.isEmpty() || glider.imei in favorites) && CompetitionAltitudeGuideline.isWithinAlertRadius(glider)) {
             alertSettings.alertSeverity(glider)?.let {
                 reasons.add(GliderAlertReason("カスタム設定", it))
             }
