@@ -14,7 +14,7 @@ final class TrackServerAPI {
 
     /// Each currently flying glider's points since takeoff, keyed by the same id the app uses
     /// (LoRa IMEI / OGN callsign), oldest first.
-    func fetchFlights(server: TrackServerConfig, source: DataSource, groundAltitudeM: Double) async throws -> [String: [CLLocationCoordinate2D]] {
+    func fetchFlights(server: TrackServerConfig, source: DataSource, groundAltitudeM: Double) async throws -> [String: [TrackServerPoint]] {
         var components = URLComponents(url: server.url.appendingPathComponent("tracks"), resolvingAgainstBaseURL: false)
         components?.queryItems = [
             URLQueryItem(name: "source", value: source.rawValue),
@@ -32,7 +32,12 @@ final class TrackServerAPI {
         // Each point is [epochSeconds, lat, lon, altM].
         return decoded.tracks.mapValues { points in
             points.compactMap { p in
-                p.count >= 3 ? CLLocationCoordinate2D(latitude: p[1], longitude: p[2]) : nil
+                guard p.count >= 4 else { return nil }
+                return TrackServerPoint(
+                    time: Date(timeIntervalSince1970: p[0]),
+                    coordinate: CLLocationCoordinate2D(latitude: p[1], longitude: p[2]),
+                    altitudeM: p[3]
+                )
             }
         }
     }
@@ -40,6 +45,19 @@ final class TrackServerAPI {
     private struct TracksResponse: Decodable {
         let tracks: [String: [[Double]]]
     }
+}
+
+struct TrackServerPoint {
+    let time: Date
+    let coordinate: CLLocationCoordinate2D
+    let altitudeM: Double
+}
+
+/// One batch of flights fetched from the track server, published so the map view can also find
+/// turnpoint passages flown before the app was opened. `id` makes each fetch a distinct change.
+struct BackfilledFlights {
+    let id = UUID()
+    let flights: [String: [TrackServerPoint]]
 }
 
 struct TrackServerConfig: Equatable {

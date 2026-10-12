@@ -34,6 +34,8 @@ final class GliderTrackerViewModel: ObservableObject {
     /// lowest free slot, so colors only repeat once more gliders are flying
     /// than the palette has colors.
     @Published private(set) var trailColorSlots: [String: Int] = [:]
+    /// The latest flights fetched from the track server (see `backfillTrailsIfNeeded`).
+    @Published private(set) var backfilledFlights: BackfilledFlights?
     static let trailColorCount = 8
     /// Kept in sync with `AlertSettings.minimumFlyingAltitudeM` by the view,
     /// since this view model has no environment access of its own.
@@ -125,10 +127,12 @@ final class GliderTrackerViewModel: ObservableObject {
         guard let flights = try? await trackServerAPI.fetchFlights(
             server: server, source: source, groundAltitudeM: groundAltitudeThresholdM
         ), source == settings.effectiveDataSource else { return }
+        backfilledFlights = BackfilledFlights(flights: flights)
         var updated = trails
         var changed = false
         // Only gliders still flying here (they have a live trail), and only if the server knows more.
-        for (id, points) in flights {
+        for (id, serverPoints) in flights {
+            let points = serverPoints.map(\.coordinate)
             guard let live = updated[id], points.count > live.count else { continue }
             var merged = points
             // Keep the newest live point if the server hasn't caught up with it yet.

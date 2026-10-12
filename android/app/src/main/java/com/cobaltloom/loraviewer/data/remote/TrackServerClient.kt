@@ -16,6 +16,9 @@ import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
 
+/** One point of a track from the track server. */
+data class TrackServerPoint(val timeMillis: Long, val coordinate: Coordinate, val altitudeM: Double)
+
 /**
  * The club's own track server (see `server/` in the repo): it collects OGN and LoRa positions
  * around the clock, so it can hand back each flying glider's trail from takeoff - including what
@@ -28,7 +31,7 @@ class TrackServerClient(
     private val json = Json { ignoreUnknownKeys = true }
 
     /** Each currently flying glider's points since takeoff, keyed by the app's glider id, oldest first. */
-    suspend fun fetchFlights(server: TrackServerConfig, source: DataSource, groundAltitudeM: Double): Map<String, List<Coordinate>> =
+    suspend fun fetchFlights(server: TrackServerConfig, source: DataSource, groundAltitudeM: Double): Map<String, List<TrackServerPoint>> =
         withContext(Dispatchers.IO) {
             val url = server.url.toHttpUrlOrNull()?.newBuilder()
                 ?.addPathSegment("tracks")
@@ -47,9 +50,12 @@ class TrackServerClient(
             tracks.mapValues { (_, points) ->
                 points.jsonArray.mapNotNull { p ->
                     val a = p as? JsonArray ?: return@mapNotNull null
-                    val lat = (a.getOrNull(1) as? JsonPrimitive)?.doubleOrNull ?: return@mapNotNull null
-                    val lon = (a.getOrNull(2) as? JsonPrimitive)?.doubleOrNull ?: return@mapNotNull null
-                    Coordinate(lat, lon)
+                    fun num(i: Int) = (a.getOrNull(i) as? JsonPrimitive)?.doubleOrNull
+                    val t = num(0) ?: return@mapNotNull null
+                    val lat = num(1) ?: return@mapNotNull null
+                    val lon = num(2) ?: return@mapNotNull null
+                    val alt = num(3) ?: return@mapNotNull null
+                    TrackServerPoint((t * 1000).toLong(), Coordinate(lat, lon), alt)
                 }
             }
         }

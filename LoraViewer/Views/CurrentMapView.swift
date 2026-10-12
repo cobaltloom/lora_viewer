@@ -452,6 +452,11 @@ struct CurrentMapView: View {
                 selectedGlider = nil
                 viewModel.startPolling()
             }
+            .onChange(of: viewModel.backfilledFlights?.id) {
+                if let backfilled = viewModel.backfilledFlights {
+                    recordPastTurnpointPassages(backfilled)
+                }
+            }
             .onChange(of: viewModel.positions) { _, newPositions in
                 centerMapIfNeeded(on: newPositions)
                 updateProximityAlerts(in: newPositions)
@@ -506,15 +511,7 @@ struct CurrentMapView: View {
         var currentlyInside: Set<String> = []
         for glider in positions {
             let gliderCoordinate = CLLocationCoordinate2D(latitude: glider.lat, longitude: glider.lon)
-            let gliderLocation = CLLocation(latitude: glider.lat, longitude: glider.lon)
-            for name in CompetitionTaskCourseData.notifiableTurnpointNames {
-                guard let coordinate = CompetitionTaskCourseData.turnpoints[name] else { continue }
-                let turnpointLocation = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
-                let distanceKm = turnpointLocation.distance(from: gliderLocation) / 1000.0
-                guard distanceKm <= CompetitionTaskCourseData.turnpointRadiusKm else { continue }
-                guard let bisector = CompetitionTaskCourseData.sectorBearing(in: selectedCourse, turnpointName: name) else { continue }
-                let bearingToGlider = coordinate.bearingDegrees(to: gliderCoordinate)
-                guard CompetitionTaskCourseData.isBearing(bearingToGlider, withinSectorCenteredOn: bisector) else { continue }
+            for name in Self.turnpointSectors(containing: gliderCoordinate, in: selectedCourse) {
                 let key = "\(glider.imei)|\(name)"
                 currentlyInside.insert(key)
                 if !glidersInsideTurnpoints.contains(key) {
@@ -525,6 +522,42 @@ struct CurrentMapView: View {
             }
         }
         glidersInsideTurnpoints = currentlyInside
+    }
+
+    /// Names of the selected course's turnpoints whose 90° sector (within the turnpoint radius)
+    /// contains `coordinate`.
+    private static func turnpointSectors(containing coordinate: CLLocationCoordinate2D, in course: CompetitionTaskCourse) -> [String] {
+        let location = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
+        return CompetitionTaskCourseData.notifiableTurnpointNames.filter { name in
+            guard let turnpoint = CompetitionTaskCourseData.turnpoints[name],
+                  let bisector = CompetitionTaskCourseData.sectorBearing(in: course, turnpointName: name) else { return false }
+            let distanceKm = CLLocation(latitude: turnpoint.latitude, longitude: turnpoint.longitude).distance(from: location) / 1000.0
+            guard distanceKm <= CompetitionTaskCourseData.turnpointRadiusKm else { return false }
+            return CompetitionTaskCourseData.isBearing(turnpoint.bearingDegrees(to: coordinate), withinSectorCenteredOn: bisector)
+        }
+    }
+
+    /// Adds turnpoint passages flown before the app was opened, found by walking each flying
+    /// glider's track from the track server. Logged at the time they happened; no notification,
+    /// since a ping about a passage from long ago would only confuse.
+    private func recordPastTurnpointPassages(_ backfilled: BackfilledFlights) {
+        guard subscriptionManager.hasFullAccess, competitionGuideline.showTaskCourse,
+              let selectedCourseIndex = competitionGuideline.selectedCourseIndex,
+              CompetitionTaskCourseData.courses.indices.contains(selectedCourseIndex)
+        else { return }
+        let course = CompetitionTaskCourseData.courses[selectedCourseIndex]
+        for (id, points) in backfilled.flights {
+            guard let glider = viewModel.positions.first(where: { $0.imei == id }) else { continue }
+            let gliderName = displayName(for: glider)
+            var inside: Set<String> = []
+            for point in points {
+                let now = Set(Self.turnpointSectors(containing: point.coordinate, in: course))
+                for name in now.subtracting(inside) {
+                    turnpointPassageLog.recordPastPassage(gliderName: gliderName, turnpointName: name, altitudeM: point.altitudeM, timestamp: point.time)
+                }
+                inside = now
+            }
+        }
     }
 
     /// Detects gliders getting close to each other (see

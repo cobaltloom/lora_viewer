@@ -10,6 +10,7 @@ import com.cobaltloom.loraviewer.data.alert.AltitudeCalculationMode
 import com.cobaltloom.loraviewer.data.alert.CompetitionAltitudeGuideline
 import com.cobaltloom.loraviewer.data.alert.CompetitionGuidelineRepository
 import com.cobaltloom.loraviewer.data.alert.CompetitionGuidelineSettings
+import com.cobaltloom.loraviewer.data.alert.CompetitionTaskCourse
 import com.cobaltloom.loraviewer.data.alert.CompetitionTaskCourseData
 import com.cobaltloom.loraviewer.data.alert.Coordinate
 import com.cobaltloom.loraviewer.data.alert.GliderAlertReason
@@ -27,6 +28,7 @@ import com.cobaltloom.loraviewer.data.model.GliderPosition
 import com.cobaltloom.loraviewer.data.nickname.NicknameRepository
 import com.cobaltloom.loraviewer.data.nickname.NicknameSyncMode
 import com.cobaltloom.loraviewer.data.notification.AlertNotifier
+import com.cobaltloom.loraviewer.data.remote.TrackServerPoint
 import com.cobaltloom.loraviewer.data.repository.GliderRepository
 import com.cobaltloom.loraviewer.data.settings.DataSource
 import com.cobaltloom.loraviewer.data.trail.GliderTrailRepository
@@ -443,7 +445,8 @@ class GliderTrackerViewModel(
         lastTrailBackfill = now
         val flights = runCatching { repository.fetchTrackServerFlights(source, groundAltitudeM) }.getOrNull() ?: return
         if (source != repository.currentDataSource()) return
-        gliderTrailRepository.backfill(flights)
+        gliderTrailRepository.backfill(flights.mapValues { (_, points) -> points.map { it.coordinate } })
+        recordPastTurnpointPassages(flights)
     }
 
     private suspend fun loadConfigIfNeeded() {
@@ -561,14 +564,7 @@ class GliderTrackerViewModel(
 
         val currentlyInside = mutableSetOf<String>()
         for (glider in state.positions) {
-            for (name in CompetitionTaskCourseData.notifiableTurnpointNames) {
-                val point = CompetitionTaskCourseData.turnpoints[name] ?: continue
-                val distanceKm = distanceMeters(point.latitude, point.longitude, glider.lat, glider.lon) / 1000.0
-                if (distanceKm > CompetitionTaskCourseData.TURNPOINT_RADIUS_KM) continue
-                val bisector = CompetitionTaskCourseData.sectorBearing(course, name) ?: continue
-                val bearingToGlider = bearingDegrees(point.latitude, point.longitude, glider.lat, glider.lon)
-                if (!CompetitionTaskCourseData.isBearing(bearingToGlider, bisector)) continue
-
+            for (name in turnpointSectorsContaining(glider.lat, glider.lon, course)) {
                 val key = "${glider.imei}|$name"
                 currentlyInside += key
                 if (key !in previouslyInsideTurnpoints) {
@@ -579,5 +575,38 @@ class GliderTrackerViewModel(
             }
         }
         previouslyInsideTurnpoints = currentlyInside
+    }
+
+    /** Names of [course]'s turnpoints whose 90° sector (within the turnpoint radius) contains the point. */
+    private fun turnpointSectorsContaining(lat: Double, lon: Double, course: CompetitionTaskCourse): List<String> =
+        CompetitionTaskCourseData.notifiableTurnpointNames.filter { name ->
+            val point = CompetitionTaskCourseData.turnpoints[name] ?: return@filter false
+            val bisector = CompetitionTaskCourseData.sectorBearing(course, name) ?: return@filter false
+            distanceMeters(point.latitude, point.longitude, lat, lon) / 1000.0 <= CompetitionTaskCourseData.TURNPOINT_RADIUS_KM &&
+                CompetitionTaskCourseData.isBearing(bearingDegrees(point.latitude, point.longitude, lat, lon), bisector)
+        }
+
+    /**
+     * Adds turnpoint passages flown before the app was opened, found by walking each flying
+     * glider's track from the track server. Logged at the time they happened; no notification,
+     * since a ping about a passage from long ago would only confuse.
+     */
+    private suspend fun recordPastTurnpointPassages(flights: Map<String, List<TrackServerPoint>>) {
+        val state = _uiState.value
+        if (!state.isSubscribed || !state.competitionGuidelineSettings.showTaskCourse) return
+        val selectedCourseIndex = state.competitionGuidelineSettings.selectedCourseIndex ?: return
+        val course = CompetitionTaskCourseData.courses.getOrNull(selectedCourseIndex) ?: return
+        for ((id, points) in flights) {
+            val glider = state.positions.firstOrNull { it.imei == id } ?: continue
+            val gliderName = state.nameFor(glider)
+            var inside = emptySet<String>()
+            for (point in points) {
+                val now = turnpointSectorsContaining(point.coordinate.latitude, point.coordinate.longitude, course).toSet()
+                for (name in now - inside) {
+                    turnpointPassageLogRepository.recordPastPassage(gliderName, name, point.altitudeM, point.timeMillis)
+                }
+                inside = now
+            }
+        }
     }
 }

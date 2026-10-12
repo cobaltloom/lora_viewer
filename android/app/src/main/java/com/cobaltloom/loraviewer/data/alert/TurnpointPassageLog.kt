@@ -48,6 +48,30 @@ class TurnpointPassageLogRepository(private val context: Context) {
         prune(decode(prefs[key]))
     }
 
+    /**
+     * Records a passage found afterwards in the track server's history (flown while the app was
+     * closed), at the time it actually happened - unless the same glider already has a record for
+     * this turnpoint within 10 minutes (e.g. the live check caught it when the app opened).
+     */
+    suspend fun recordPastPassage(gliderName: String, turnpointName: String, altitudeM: Double?, timestampMillis: Long) {
+        val duplicateWindowMillis = 10 * 60 * 1000L
+        context.turnpointPassageLogDataStore.edit { prefs ->
+            val existing = decode(prefs[key])
+            if (existing.any {
+                    it.gliderName == gliderName && it.turnpointName == turnpointName &&
+                        kotlin.math.abs(it.timestampMillis - timestampMillis) < duplicateWindowMillis
+                }
+            ) return@edit
+            val record = TurnpointPassageRecord(
+                gliderName = gliderName,
+                turnpointName = turnpointName,
+                altitudeM = altitudeM,
+                timestampMillis = timestampMillis,
+            )
+            prefs[key] = json.encodeToString(prune(existing + record))
+        }
+    }
+
     suspend fun record(gliderName: String, turnpointName: String, altitudeM: Double?) {
         context.turnpointPassageLogDataStore.edit { prefs ->
             val updated = prune(decode(prefs[key]) + TurnpointPassageRecord(gliderName = gliderName, turnpointName = turnpointName, altitudeM = altitudeM))
