@@ -485,13 +485,14 @@ fun MapScreen(
                     val isFavorite = uiState.isFavorite(glider.imei)
                     val alertSeverity = uiState.alertReasons(glider).overallSeverity()
                     val showName = "g:${glider.imei}" in visibleLabels
+                    val lapBadge = uiState.selectedCourse?.let { uiState.lapStatuses[glider.imei]?.markerBadge }
                     // MarkerComposable rasterizes its content once and only redraws it when these keys
                     // change, so every input the content reads must be listed - otherwise the marker keeps
                     // showing the altitude from its first render. key(imei) keeps each marker bound to the
                     // same glider when the list order changes between polls.
                     key(glider.imei) {
                         MarkerComposable(
-                            glider, name, showName, isSelected, isFavorite, alertSeverity ?: "none",
+                            glider, name, showName, isSelected, isFavorite, alertSeverity ?: "none", lapBadge ?: "",
                             state = MarkerState(position = LatLng(glider.lat, glider.lon)),
                             title = name,
                             anchor = Offset(0.5f, 0.5f),
@@ -504,6 +505,7 @@ fun MapScreen(
                                 isSelected = isSelected,
                                 isFavorite = isFavorite,
                                 alertSeverity = alertSeverity,
+                                lapBadge = lapBadge,
                             )
                         }
                     }

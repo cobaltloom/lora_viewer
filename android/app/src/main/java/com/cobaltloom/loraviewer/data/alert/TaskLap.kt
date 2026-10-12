@@ -26,6 +26,16 @@ data class TaskLapStatus(
 
     fun speedKmh(courseDistanceKm: Double): Double? = lapMillis?.takeIf { it > 0 }?.let { courseDistanceKm / (it / 3_600_000.0) }
 
+    /** Short text for the badge under the map marker: "旋回 1/2" while on course, "ゴール 29:25" once
+     * finished, null before the start. */
+    val markerBadge: String?
+        get() {
+            if (startMillis == null) return null
+            val lap = lapMillis ?: return "旋回 ${passedTurnpoints.size}/$totalTurnpoints"
+            val seconds = lap / 1000
+            return "ゴール %d:%02d".format(seconds / 60, seconds % 60)
+        }
+
     /** 細則/規則50(5): the goal line must be crossed at 330 m MSL or above. */
     val isGoalTooLow: Boolean get() = finishAltitudeM != null && finishAltitudeM < TaskLapCalculator.MIN_GOAL_ALTITUDE_M
 }

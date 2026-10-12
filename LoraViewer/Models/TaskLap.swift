@@ -51,6 +51,17 @@ struct TaskLapStatus {
         return "周回: スタート \(startText)・旋回点 \(passedTurnpoints.count)/\(totalTurnpoints)・経過 \(elapsedMinutes)分(参考)"
     }
 
+    /// Short text for the badge under the map marker: "旋回 1/2" while on course, "ゴール 29:25"
+    /// once finished, nil before the start.
+    var markerBadge: String? {
+        guard start != nil else { return nil }
+        if let lapDuration {
+            let seconds = Int(lapDuration)
+            return String(format: "ゴール %d:%02d", seconds / 60, seconds % 60)
+        }
+        return "旋回 \(passedTurnpoints.count)/\(totalTurnpoints)"
+    }
+
     /// "29分27秒"
     static func format(_ duration: TimeInterval) -> String {
         let seconds = Int(duration)

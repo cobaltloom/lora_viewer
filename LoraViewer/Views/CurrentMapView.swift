@@ -272,7 +272,8 @@ struct CurrentMapView: View {
                                 isSelected: selectedGlider?.id == glider.id,
                                 isFavorite: favoritesStore.isFavorite(glider.imei),
                                 alertSeverity: alertReasons(for: glider).overallSeverity,
-                                isReturnGlideSafe: isReturnGlideSafe(glider)
+                                isReturnGlideSafe: isReturnGlideSafe(glider),
+                                lapBadge: selectedTaskCourse == nil ? nil : lapStatuses[glider.imei]?.markerBadge
                             )
                                 .onTapGesture {
                                     withAnimation { selectedGlider = glider }

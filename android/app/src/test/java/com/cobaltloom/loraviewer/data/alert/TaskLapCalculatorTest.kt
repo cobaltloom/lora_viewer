@@ -44,6 +44,7 @@ class TaskLapCalculatorTest {
         assertEquals(23.6 / (1765.0 / 3600), s.speedKmh(course.distanceKm)!!, 0.01)
         assertFalse(s.isGoalTooLow)
         assertEquals("29分25秒", formatLapDuration(s.lapMillis!!))
+        assertEquals("ゴール 29:25", s.markerBadge)
     }
 
     @Test
@@ -55,6 +56,7 @@ class TaskLapCalculatorTest {
         val s = TaskLapCalculator.evaluate(points, course, guideline)
         assertEquals(0, s.passedTurnpoints.size)
         assertNull(s.finishMillis)
+        assertEquals("旋回 0/2", s.markerBadge)
     }
 
     @Test
@@ -74,5 +76,6 @@ class TaskLapCalculatorTest {
         val s = TaskLapCalculator.evaluate(listOf(inSector("千代田", 600, 700.0)), course, guideline)
         assertNull(s.startMillis)
         assertEquals(2, s.totalTurnpoints)
+        assertNull(s.markerBadge)
     }
 }
