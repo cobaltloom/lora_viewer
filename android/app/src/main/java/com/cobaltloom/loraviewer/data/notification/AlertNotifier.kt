@@ -76,6 +76,23 @@ class AlertNotifier(private val context: Context) {
         NotificationManagerCompat.from(context).notify((gliderName + turnpointName).hashCode(), notification)
     }
 
+    /** Fired once when a glider crosses the goal line after the whole course (see TaskLapCalculator). */
+    fun notifyTaskFinish(gliderName: String, summary: String) {
+        if (ActivityCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            return
+        }
+        val notification = NotificationCompat.Builder(context, TURNPOINT_CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.ic_dialog_alert)
+            .setContentTitle("ゴール")
+            .setContentText("$gliderName: $summary")
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setAutoCancel(true)
+            .build()
+        NotificationManagerCompat.from(context).notify((gliderName + "goal").hashCode(), notification)
+    }
+
     /** Fired when two gliders are closing within the proximity warning distance - see [com.cobaltloom.loraviewer.data.alert.ProximityAlertSettings]. */
     fun notifyProximity(gliderName: String, otherGliderName: String, distanceM: Double, altitudeDifferenceM: Double) {
         if (ActivityCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=

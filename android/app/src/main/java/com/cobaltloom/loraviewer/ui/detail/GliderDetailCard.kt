@@ -38,6 +38,8 @@ fun GliderDetailCard(
     displayName: String,
     isFavorite: Boolean,
     alertReasons: List<GliderAlertReason>,
+    /** One line of task lap progress, when a task course is selected and the glider is being timed. */
+    lapSummary: String? = null,
     onToggleFavorite: () -> Unit,
     onEditName: () -> Unit,
     onDismiss: () -> Unit,
@@ -112,6 +114,14 @@ fun GliderDetailCard(
                         style = MaterialTheme.typography.bodyMedium,
                     )
                 }
+            }
+
+            if (lapSummary != null) {
+                Text(
+                    text = lapSummary,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(top = 2.dp),
+                )
             }
 
             Text(

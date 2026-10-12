@@ -16,12 +16,16 @@ import com.cobaltloom.loraviewer.data.alert.Coordinate
 import com.cobaltloom.loraviewer.data.alert.GliderAlertReason
 import com.cobaltloom.loraviewer.data.alert.ProximityAlertSettings
 import com.cobaltloom.loraviewer.data.alert.ProximityAlertSettingsRepository
+import com.cobaltloom.loraviewer.data.alert.TaskLapCalculator
+import com.cobaltloom.loraviewer.data.alert.TaskLapStatus
+import com.cobaltloom.loraviewer.data.alert.TimedPoint
 import com.cobaltloom.loraviewer.data.alert.TurnpointPassageLogRepository
 import com.cobaltloom.loraviewer.data.alert.TurnpointPassageRecord
 import com.cobaltloom.loraviewer.data.alert.UpperAltitudeGuidelineRepository
 import com.cobaltloom.loraviewer.data.alert.UpperAltitudeSettings
 import com.cobaltloom.loraviewer.data.alert.bearingDegrees
 import com.cobaltloom.loraviewer.data.alert.distanceMeters
+import com.cobaltloom.loraviewer.data.alert.lapSummary
 import com.cobaltloom.loraviewer.data.favorites.FavoritesRepository
 import com.cobaltloom.loraviewer.data.model.AppConfig
 import com.cobaltloom.loraviewer.data.model.GliderPosition
@@ -90,7 +94,17 @@ data class GliderTrackerUiState(
     val dataSource: DataSource = DataSource.LORA,
     /** Whether the OGN option is offered in Settings at all (Firestore `ognEnabled`). */
     val isOgnAvailable: Boolean = false,
+    /** Each flying glider's progress around the selected task course (reference timing). */
+    val lapStatuses: Map<String, TaskLapStatus> = emptyMap(),
 ) {
+    /** The task course chosen in the competition guideline settings, if the course is shown. */
+    val selectedCourse: CompetitionTaskCourse?
+        get() = if (isSubscribed && competitionGuidelineSettings.showTaskCourse) {
+            competitionGuidelineSettings.selectedCourseIndex?.let { CompetitionTaskCourseData.courses.getOrNull(it) }
+        } else {
+            null
+        }
+
     /** The site's own board-position name (e.g. "7."), ignoring any nickname. */
     fun baseNameFor(glider: GliderPosition): String =
         glider.sourceName ?: config?.nameMasterDisplayed?.get(glider.index) ?: "#${glider.index}"
@@ -176,6 +190,8 @@ class GliderTrackerViewModel(
 ) : ViewModel() {
     private companion object {
         val MIN_BACKFILL_INTERVAL: Duration = Duration.ofSeconds(60)
+        const val MAX_TIMED_POINTS = 7200
+        const val RECENT_FINISH_MILLIS = 5 * 60 * 1000L
     }
 
     private val _uiState = MutableStateFlow(GliderTrackerUiState())
@@ -185,6 +201,15 @@ class GliderTrackerViewModel(
 
     /** Each source's favorites; [GliderTrackerUiState.favorites] is the current source's. */
     private var favoritesBySource: Map<DataSource, Set<String>> = emptyMap()
+
+    /** Each flying glider's timed positions this flight (live, plus any backfilled from the track
+     * server), kept for lap timing. Dropped when the glider lands, like its trail. */
+    private val timedTracks = mutableMapOf<String, MutableList<TimedPoint>>()
+
+    /** "imei|time" of starts and finishes already logged (finishes also announced), so each is
+     * reported once. */
+    private val reportedStarts = mutableSetOf<String>()
+    private val reportedFinishes = mutableSetOf<String>()
 
     /** Set when the next refresh should backfill trails from the track server: at start, after a
      * source switch, and when a glider is first seen already flying. */
@@ -317,6 +342,8 @@ class GliderTrackerViewModel(
      * map, and fetches right away instead of waiting out the current interval. */
     private suspend fun onDataSourceChanged() {
         gliderTrailRepository.clear()
+        timedTracks.clear()
+        _uiState.update { it.copy(lapStatuses = emptyMap()) }
         needsTrailBackfill = true
         lastTrailBackfill = Instant.EPOCH
         _uiState.update { it.copy(positions = emptyList(), proximityReasonsByImei = emptyMap()) }
@@ -416,6 +443,8 @@ class GliderTrackerViewModel(
             notifyNewAlerts(stateWithNewPositions)
             notifyTurnpointPassages(stateWithNewPositions)
             val groundAltitudeM = stateWithNewPositions.alertSettings.minimumFlyingAltitudeM
+            recordTimedPoints(positions, groundAltitudeM)
+            updateLapStatuses(stateWithNewPositions)
             if (gliderTrailRepository.recordPositions(positions, groundAltitudeM)) {
                 needsTrailBackfill = true // newly seen in flight: its earlier part may be on the server
             }
@@ -446,6 +475,13 @@ class GliderTrackerViewModel(
         val flights = runCatching { repository.fetchTrackServerFlights(source, groundAltitudeM) }.getOrNull() ?: return
         if (source != repository.currentDataSource()) return
         gliderTrailRepository.backfill(flights.mapValues { (_, points) -> points.map { it.coordinate } })
+        for ((id, points) in flights) {
+            val live = timedTracks[id] ?: continue
+            val server = points.map { TimedPoint(it.timeMillis, it.coordinate.latitude, it.coordinate.longitude, it.altitudeM) }
+            val lastServerTime = server.lastOrNull()?.timeMillis ?: continue
+            timedTracks[id] = (server + live.filter { it.timeMillis > lastServerTime }).takeLast(MAX_TIMED_POINTS).toMutableList()
+        }
+        updateLapStatuses(_uiState.value)
         recordPastTurnpointPassages(flights)
     }
 
@@ -575,6 +611,57 @@ class GliderTrackerViewModel(
             }
         }
         previouslyInsideTurnpoints = currentlyInside
+    }
+
+    private fun recordTimedPoints(positions: List<GliderPosition>, groundAltitudeM: Double) {
+        val now = System.currentTimeMillis()
+        for (glider in positions) {
+            val alt = glider.alt
+            if (alt == null || alt <= groundAltitudeM) {
+                timedTracks.remove(glider.imei)
+                continue
+            }
+            val time = glider.positionDateTimeUtc?.toEpochMilli() ?: now
+            val track = timedTracks.getOrPut(glider.imei) { mutableListOf() }
+            if (track.isNotEmpty() && time <= track.last().timeMillis) continue
+            track += TimedPoint(time, glider.lat, glider.lon, alt)
+            if (track.size > MAX_TIMED_POINTS) track.subList(0, track.size - MAX_TIMED_POINTS).clear()
+        }
+        timedTracks.keys.retainAll(positions.map { it.imei }.toSet())
+    }
+
+    /**
+     * Re-times every flying glider around the selected course and logs/announces new starts and
+     * finishes. Reference only: official timing uses each glider's 1-second IGC logger.
+     */
+    private suspend fun updateLapStatuses(state: GliderTrackerUiState) {
+        val course = state.selectedCourse
+        if (course == null) {
+            _uiState.update { it.copy(lapStatuses = emptyMap()) }
+            return
+        }
+        val center = CompetitionAltitudeGuideline.referenceCoordinate
+        val guideline: (TimedPoint) -> Double? = { p ->
+            CompetitionAltitudeGuideline.requiredAltitudeM(distanceMeters(center.latitude, center.longitude, p.lat, p.lon) / 1000.0)
+        }
+        val now = System.currentTimeMillis()
+        val statuses = timedTracks.mapValues { (_, points) -> TaskLapCalculator.evaluate(points, course, guideline) }
+        for ((id, status) in statuses) {
+            val glider = state.positions.firstOrNull { it.imei == id } ?: continue
+            val gliderName = state.nameFor(glider)
+            status.startMillis?.let { start ->
+                if (reportedStarts.add("$id|$start")) {
+                    turnpointPassageLogRepository.recordPastPassage(gliderName, "スタート", null, start)
+                }
+            }
+            val finish = status.finishMillis ?: continue
+            if (!reportedFinishes.add("$id|$finish")) continue
+            val summary = lapSummary(status, course.distanceKm, now) { "" }.removePrefix("周回: ")
+            turnpointPassageLogRepository.recordPastPassage(gliderName, "ゴール $summary", status.finishAltitudeM, finish)
+            // Only announce a finish that just happened - not one found in history on reopening.
+            if (now - finish < RECENT_FINISH_MILLIS) alertNotifier.notifyTaskFinish(gliderName, summary)
+        }
+        _uiState.update { it.copy(lapStatuses = statuses) }
     }
 
     /** Names of [course]'s turnpoints whose 90° sector (within the turnpoint radius) contains the point. */

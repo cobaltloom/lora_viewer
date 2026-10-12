@@ -63,6 +63,7 @@ import com.cobaltloom.loraviewer.data.alert.CompetitionAltitudeGuideline
 import com.cobaltloom.loraviewer.data.alert.CompetitionTaskCourseData
 import com.cobaltloom.loraviewer.data.alert.DistanceReferencePointData
 import com.cobaltloom.loraviewer.data.alert.UpperAltitudeGuideline
+import com.cobaltloom.loraviewer.data.alert.lapSummary
 import com.cobaltloom.loraviewer.data.alert.overallSeverity
 import com.cobaltloom.loraviewer.data.alert.pointOnCircle
 import com.cobaltloom.loraviewer.data.model.GliderPosition
@@ -540,6 +541,13 @@ fun MapScreen(
                     displayName = uiState.nameFor(glider),
                     isFavorite = uiState.isFavorite(glider.imei),
                     alertReasons = uiState.alertReasons(glider),
+                    lapSummary = uiState.selectedCourse?.let { course ->
+                        uiState.lapStatuses[glider.imei]?.let { status ->
+                            lapSummary(status, course.distanceKm, System.currentTimeMillis()) { millis ->
+                                lapTimeFormatter.format(Instant.ofEpochMilli(millis))
+                            }
+                        }
+                    },
                     onToggleFavorite = {
                         if (uiState.isSubscribed) viewModel.toggleFavorite(glider.imei) else onRequireSubscription()
                     },
@@ -668,3 +676,6 @@ private const val GLIDER_NAME_OFFSET_DP = 23f
 
 /** Approximate distance from a turnpoint/reference point's anchor down to the center of its name. */
 private const val POINT_NAME_OFFSET_DP = 21f
+
+private val lapTimeFormatter: java.time.format.DateTimeFormatter =
+    java.time.format.DateTimeFormatter.ofPattern("HH:mm:ss").withZone(java.time.ZoneId.systemDefault())
