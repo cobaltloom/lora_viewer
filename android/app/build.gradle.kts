@@ -68,8 +68,13 @@ android {
 
     buildTypes {
         release {
+            // R8: shrink, optimize and obfuscate (Play warns below 25% obfuscation). Libraries
+            // (kotlinx.serialization, Firebase, OkHttp, Billing, Maps) ship their own keep rules.
             optimization {
-                enable = false
+                enable = true
+                keepRules {
+                    files.add(file("proguard-rules.pro"))
+                }
             }
             if (hasReleaseSigningConfig) {
                 signingConfig = signingConfigs.getByName("release")
