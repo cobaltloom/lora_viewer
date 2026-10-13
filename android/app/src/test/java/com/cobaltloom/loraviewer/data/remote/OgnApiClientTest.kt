@@ -104,4 +104,18 @@ class OgnApiClientTest {
         assertEquals("1111", unknown.index)
         assertEquals("FLR111111", unknown.sourceName)
     }
+
+    @Test
+    fun flarmNetKeepsOnlyJapaneseRegistrations() {
+        val db = OgnDeviceDatabase.parse(
+            """{"devices":[
+              {"device_type":"I","device_id":"84bf1d","aircraft_model":"ASK21","registration":"JA2365","cn":"WM","tracked":"Y","identified":"Y"},
+              {"device_type":"F","device_id":"000256","aircraft_model":"ASK 16","registration":"D-KGOR","cn":"OR","tracked":"Y","identified":"Y"},
+              {"device_type":"F","device_id":"000999","aircraft_model":"","registration":"","cn":"","tracked":"Y","identified":"Y"}
+            ]}""",
+            registrationPrefix = "JA",
+        )
+        assertEquals(setOf("84BF1D"), db.keys)
+        assertEquals("WM", db.getValue("84BF1D").competitionId)
+    }
 }

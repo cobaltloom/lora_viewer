@@ -25,19 +25,25 @@ data class OgnDevice(
 )
 
 /**
- * The OGN device database (http://ddb.glidernet.org), cached on disk and refreshed daily. OGN's data
- * usage rules require anyone redistributing OGN data to follow these privacy choices, so positions
- * are not shown until it has been loaded at least once.
+ * A device database in the OGN DDB JSON format, cached on disk and refreshed daily: the OGN DDB
+ * itself ([ogn]) or FlarmNet's export of the same format ([flarmNet]). OGN's data usage rules
+ * require anyone redistributing OGN data to follow the OGN DDB's privacy choices, so positions are
+ * not shown until it has been loaded at least once.
  */
-class OgnDeviceDatabase(
+class OgnDeviceDatabase private constructor(
     private val cacheDir: File,
     private val httpClient: OkHttpClient,
+    private val url: String,
+    private val cacheFileName: String,
+    /** Only entries whose registration starts with this are kept; null keeps everything. */
+    private val registrationPrefix: String?,
 ) {
     private val mutex = Mutex()
     private var devices: Map<String, OgnDevice>? = null
     private var loadedAt: Instant? = null
+    private var lastDownloadAttempt: Instant? = null
 
-    private val cacheFile get() = File(cacheDir, "ogn_ddb.json")
+    private val cacheFile get() = File(cacheDir, cacheFileName)
 
     /** Returns the database, downloading it if the cache is missing or over a day old. Falls back
      * to a stale cache if the download fails; throws only when there is nothing at all. */
@@ -49,11 +55,14 @@ class OgnDeviceDatabase(
         withContext(Dispatchers.IO) {
             val file = cacheFile
             val fresh = file.exists() && Duration.between(Instant.ofEpochMilli(file.lastModified()), Instant.now()) < MAX_AGE
-            if (!fresh) {
+            // Without any cache a failed download would otherwise be retried on every refresh.
+            val retryDue = lastDownloadAttempt?.let { Duration.between(it, Instant.now()) >= RETRY_INTERVAL } ?: true
+            if (!fresh && retryDue) {
+                lastDownloadAttempt = Instant.now()
                 runCatching { download(file) }
             }
-            if (!file.exists()) throw TrailRouteApiException.ServerError("OGNの機体データベースを取得できませんでした")
-            val parsed = parse(file.readText())
+            if (!file.exists()) throw TrailRouteApiException.ServerError("機体データベースを取得できませんでした")
+            val parsed = parse(file.readText(), registrationPrefix)
             devices = parsed
             loadedAt = Instant.now()
             parsed
@@ -61,11 +70,11 @@ class OgnDeviceDatabase(
     }
 
     private fun download(target: File) {
-        val request = Request.Builder().url(URL).header("User-Agent", OgnApiClient.USER_AGENT).build()
+        val request = Request.Builder().url(url).header("User-Agent", OgnApiClient.USER_AGENT).build()
         httpClient.newCall(request).execute().use { response ->
             if (!response.isSuccessful) throw TrailRouteApiException.InvalidResponse()
             val body = response.body?.string() ?: throw TrailRouteApiException.InvalidResponse()
-            parse(body) // don't replace a good cache with something unparseable
+            parse(body, registrationPrefix) // don't replace a good cache with something unparseable
             val tmp = File(target.parentFile, target.name + ".tmp")
             tmp.writeText(body)
             tmp.renameTo(target)
@@ -73,21 +82,34 @@ class OgnDeviceDatabase(
     }
 
     companion object {
-        private const val URL = "https://ddb.glidernet.org/download/?j=1&t=1"
         private val MAX_AGE = Duration.ofDays(1)
+        private val RETRY_INTERVAL = Duration.ofMinutes(10)
         private val json = Json { ignoreUnknownKeys = true }
 
-        fun parse(body: String): Map<String, OgnDevice> {
+        /** The OGN DDB (http://ddb.glidernet.org): names and the owners' privacy choices. */
+        fun ogn(cacheDir: File, httpClient: OkHttpClient) = OgnDeviceDatabase(
+            cacheDir, httpClient, "https://ddb.glidernet.org/download/?j=1&t=1", "ogn_ddb.json", null,
+        )
+
+        /** FlarmNet (https://www.flarmnet.org), Japanese registrations only: names for aircraft that
+         * are not in the OGN DDB. */
+        fun flarmNet(cacheDir: File, httpClient: OkHttpClient) = OgnDeviceDatabase(
+            cacheDir, httpClient, "https://www.flarmnet.org/files/ddb.json", "flarmnet_ddb.json", "JA",
+        )
+
+        fun parse(body: String, registrationPrefix: String? = null): Map<String, OgnDevice> {
             val devices = json.parseToJsonElement(body).jsonObject["devices"]?.jsonArray
                 ?: throw TrailRouteApiException.InvalidResponse()
-            return devices.mapNotNull { it as? JsonObject }.associate { d ->
+            return devices.mapNotNull { it as? JsonObject }.mapNotNull { d ->
+                val registration = d.lenientString("registration").trim()
+                if (registrationPrefix != null && !registration.startsWith(registrationPrefix)) return@mapNotNull null
                 d.lenientString("device_id").uppercase() to OgnDevice(
-                    registration = d.lenientString("registration").ifBlank { null },
-                    competitionId = d.lenientString("cn").ifBlank { null },
+                    registration = registration.ifBlank { null },
+                    competitionId = d.lenientString("cn").trim().ifBlank { null },
                     isTracked = d.lenientString("tracked") != "N",
                     isIdentified = d.lenientString("identified") != "N",
                 )
-            }
+            }.toMap()
         }
     }
 }
