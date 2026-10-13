@@ -43,6 +43,16 @@ final class CompetitionAltitudeGuideline: ObservableObject {
     /// Below this distance the guideline sets no minimum altitude at all.
     static let innerRadiusKm = 2.5
 
+    /// The custom altitude alert and this guideline only apply within this distance of the field
+    /// center: OGN shows aircraft up to 150 km away, which are flying from elsewhere and would
+    /// otherwise always sit "below" these Menuma-specific minimums.
+    static let alertRadiusKm = 15.0
+
+    static func isWithinAlertRadius(_ glider: GliderPosition) -> Bool {
+        let center = CLLocation(latitude: referenceCoordinate.latitude, longitude: referenceCoordinate.longitude)
+        return center.distance(from: CLLocation(latitude: glider.lat, longitude: glider.lon)) <= alertRadiusKm * 1000
+    }
+
     /// Every distance the table's required altitude changes at, including
     /// the inner "no restriction" radius — drawn as rings on the map so the
     /// guideline's zones are visible at a glance, not just its innermost one.

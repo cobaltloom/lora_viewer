@@ -1,9 +1,12 @@
 package com.cobaltloom.loraviewer.ui.settings
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -35,6 +38,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -47,8 +51,25 @@ import com.cobaltloom.loraviewer.data.alert.UpperAltitudeGuideline
 import com.cobaltloom.loraviewer.data.alert.UpperCeilingMode
 import com.cobaltloom.loraviewer.data.remote.OgnApiClient
 import com.cobaltloom.loraviewer.data.settings.DataSource
+import com.cobaltloom.loraviewer.ui.map.GliderTrackerUiState
 import com.cobaltloom.loraviewer.ui.map.GliderTrackerViewModel
 
+/** The settings pages; null in [SettingsScreen]'s state is the index. */
+private enum class SettingsPage(val title: String) {
+    MAP("地図の表示"),
+    TASK("タスクコース・周回時間"),
+    GROUND("地上判定(共通)"),
+    LOW_ALTITUDE("高度不足アラート"),
+    GUIDELINE("競技会ガイドライン"),
+    UPPER_ALTITUDE("上限高度アラート"),
+    PROXIMITY("機体接近アラート"),
+}
+
+/**
+ * The settings index - one row per category, each showing its current state so a setting left on
+ * (or off) is visible without opening every page - and the pages themselves. Pages are local state
+ * rather than nav routes; system back returns from a page to the index.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
@@ -59,6 +80,8 @@ fun SettingsScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var showDeleteAllStepsConfirmation by remember { mutableStateOf(false) }
+    var page by rememberSaveable { mutableStateOf<SettingsPage?>(null) }
+    BackHandler(enabled = page != null) { page = null }
 
     val alertSettings = uiState.alertSettings
     val upperAltitudeSettings = uiState.upperAltitudeSettings
@@ -68,14 +91,18 @@ fun SettingsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("設定") },
+                title = { Text(page?.title ?: "設定") },
                 navigationIcon = {
-                    IconButton(onClick = onBack) { Icon(Icons.Filled.ArrowBack, contentDescription = "戻る") }
+                    IconButton(onClick = { if (page != null) page = null else onBack() }) {
+                        Icon(Icons.Filled.ArrowBack, contentDescription = "戻る")
+                    }
                 },
             )
         },
     ) { padding ->
         LazyColumn(modifier = Modifier.padding(padding).padding(horizontal = 16.dp)) {
+            when (page) {
+                null -> {
             if (uiState.isOgnAvailable) {
                 item {
                     SettingsSectionHeader("位置情報のデータ元")
@@ -90,13 +117,70 @@ fun SettingsScreen(
                         }
                     }
                     Text(
-                        "LoRa: クラブのLoRa発信機を積んだ機体を表示します。\nOGN: FLARMやOGNトラッカーを積み、OGN受信機の範囲内(妻沼から約150km)にいる機体を表示します(${OgnApiClient.ATTRIBUTION})。追跡拒否・匿名・ステルス設定の機体と旅客機は表示しません。機体名の非公開を希望している機体は「非公開機」として位置のみ表示します。",
+                        "LoRa: クラブのLoRa発信機を積んだ機体を表示します。\nFLARM: FLARMやOGNトラッカーを積み、OGN(Open Glider Network)受信機の範囲内(妻沼から約150km)にいる機体を表示します(${OgnApiClient.ATTRIBUTION})。追跡拒否・匿名・ステルス設定の機体と旅客機は表示しません。機体名の非公開を希望している機体は「非公開機」として位置のみ表示します。",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
                 }
             }
+            item {
+                SettingsSectionHeader("地図")
+                SettingsNavRow("地図の表示", mapDisplaySummary(uiState)) { page = SettingsPage.MAP }
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+                SettingsSectionHeader("競技")
+                SettingsNavRow("タスクコース・周回時間", proSummary(uiState, taskCourseSummary(uiState))) { page = SettingsPage.TASK }
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+                SettingsSectionHeader("アラート")
+                SettingsNavRow("地上判定(共通)", "${alertSettings.minimumFlyingAltitudeM.toInt()}m以下") { page = SettingsPage.GROUND }
+                SettingsNavRow(
+                    "高度不足(カスタム)",
+                    proSummary(
+                        uiState,
+                        when {
+                            !alertSettings.isEnabled -> "オフ"
+                            alertSettings.mode == AltitudeCalculationMode.STEPS -> "オン(距離段階)"
+                            else -> "オン(L/D)"
+                        },
+                    ),
+                ) { page = SettingsPage.LOW_ALTITUDE }
+                SettingsNavRow("競技会ガイドライン", proSummary(uiState, onOff(competitionGuidelineSettings.isEnabled))) {
+                    page = SettingsPage.GUIDELINE
+                }
+                SettingsNavRow(
+                    "上限高度",
+                    proSummary(
+                        uiState,
+                        when {
+                            !upperAltitudeSettings.isEnabled -> "オフ"
+                            upperAltitudeSettings.mode == UpperCeilingMode.AUTO -> "オン(自動)"
+                            else -> "オン(競技会 ${upperAltitudeSettings.competitionCeilingFt.toInt()}ft)"
+                        },
+                    ),
+                ) { page = SettingsPage.UPPER_ALTITUDE }
+                SettingsNavRow("機体接近", proSummary(uiState, onOff(proximityAlertSettings.isEnabled))) { page = SettingsPage.PROXIMITY }
+                if (!uiState.isSubscribed) {
+                    Text(
+                        "🔒 はプラス機能です。購読すると有効にできます。",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+                SettingsSectionHeader("その他")
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth().clickable { onOpenAdvancedSettings() }.padding(vertical = 12.dp),
+                ) {
+                    Text("高度な設定(更新間隔・サーバー)", modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                    Icon(Icons.Filled.KeyboardArrowRight, contentDescription = null)
+                }
+            }
+                }
+                SettingsPage.MAP -> {
             item {
                 SettingsSectionHeader("地図表示")
                 SwitchRow(
@@ -110,10 +194,75 @@ fun SettingsScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
-
+            }
+            item {
+                ProSectionHeader("地上目標地点", uiState.isSubscribed, onRequireSubscription)
+                SwitchRow(
+                    label = "表示する",
+                    checked = uiState.showDistanceReferencePoints,
+                    onCheckedChange = {
+                        if (uiState.isSubscribed) viewModel.setShowDistanceReferencePoints(it) else onRequireSubscription()
+                    },
+                )
+                Text(
+                    "日本学生航空連盟(JSAL)妻沼滑空場の公式資料(図3、Ver.2026-01-26)掲載の19地点(妻沼滑空場中心点から3/5/7/9kmの目安目標)と、それに加えたローカルの目印を、実在の場所の座標で地図上に表示します。上限高度アラートとは独立した機能で、あくまで目安であり、実際の判断の根拠にはしないでください。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp, bottom = 4.dp),
+                )
+                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
+            }
+            item {
+                ProSectionHeader("民間訓練試験空域(KK4-3)", uiState.isSubscribed, onRequireSubscription)
+                SwitchRow(
+                    label = "表示する",
+                    checked = uiState.showKk43Area,
+                    onCheckedChange = {
+                        if (uiState.isSubscribed) viewModel.setShowKk43Area(it) else onRequireSubscription()
+                    },
+                )
+                Text(
+                    "国土交通省AIP(ENR 5.3-15)掲載の民間訓練試験空域KK4-3(地表〜2,000ft)を地図上に表示します。B区域の一部と重なる空域です。境界は新幹線・高速道路等の実際の経路をもとに再現していますが、一部区間は直線で近似した参考表示であり、実際の判断の根拠にはしないでください。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp, bottom = 4.dp),
+                )
+            }
+                }
+                SettingsPage.TASK -> {
+            item {
+                ProSectionHeader("タスクコース", uiState.isSubscribed, onRequireSubscription)
+                SwitchRow(
+                    label = "旋回点・タスクコースを表示",
+                    checked = competitionGuidelineSettings.showTaskCourse,
+                    onCheckedChange = {
+                        if (uiState.isSubscribed) {
+                            viewModel.updateCompetitionGuidelineSettings(competitionGuidelineSettings.copy(showTaskCourse = it))
+                        } else {
+                            onRequireSubscription()
+                        }
+                    },
+                )
+                if (competitionGuidelineSettings.showTaskCourse) {
+                    TaskCoursePicker(
+                        selectedCourseIndex = competitionGuidelineSettings.selectedCourseIndex,
+                        onSelect = { index ->
+                            viewModel.updateCompetitionGuidelineSettings(competitionGuidelineSettings.copy(selectedCourseIndex = index))
+                        },
+                    )
+                }
+                Text(
+                    "その日のコースを選ぶと、旋回点の通過通知・通過履歴に加えて、各機体の周回時間(スタートライン通過〜全旋回点〜ゴールライン通過)を計算し、詳細カード・マーカー・通過履歴に表示します。ゴールしたときは通知します。関東学生グライダー競技会の競技規則(Ver.3-2026-09-28)・細則(Ver.2026-09-28)に基づく参考値で、公式の判定(各機のGPSロガー)とは数秒〜十数秒ずれることがあります。旋回点・コースは公式資料に掲載された固定の座標です。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+                }
+                SettingsPage.GROUND -> {
+            item {
                 SettingsSectionHeader("地上判定(共通)")
                 Text(
-                    "この高度以下は駐機中・着陸後とみなし、距離に関わらずアラートを出しません。",
+                    "この高度以下は駐機中・着陸後とみなし、距離に関わらず高度不足アラート・競技会ガイドラインのアラートを出しません。軌跡もこの高度以下で消去されます。",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -130,40 +279,10 @@ fun SettingsScreen(
                         )
                     },
                 )
-                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
-
-                ProSectionHeader("地上目標地点", uiState.isSubscribed, onRequireSubscription)
-                SwitchRow(
-                    label = "表示する",
-                    checked = uiState.showDistanceReferencePoints,
-                    onCheckedChange = {
-                        if (uiState.isSubscribed) viewModel.setShowDistanceReferencePoints(it) else onRequireSubscription()
-                    },
-                )
-                Text(
-                    "日本学生航空連盟(JSAL)妻沼滑空場の公式資料(図3、Ver.2026-01-26)掲載の19地点(妻沼滑空場中心点から3/5/7/9kmの目安目標)と、それに加えたローカルの目印を、実在の場所の座標で地図上に表示します。上限高度アラートとは独立した機能で、あくまで目安であり、実際の判断の根拠にはしないでください。",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 4.dp, bottom = 4.dp),
-                )
-                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
-
-                ProSectionHeader("民間訓練試験空域(KK4-3)", uiState.isSubscribed, onRequireSubscription)
-                SwitchRow(
-                    label = "表示する",
-                    checked = uiState.showKk43Area,
-                    onCheckedChange = {
-                        if (uiState.isSubscribed) viewModel.setShowKk43Area(it) else onRequireSubscription()
-                    },
-                )
-                Text(
-                    "国土交通省AIP(ENR 5.3-15)掲載の民間訓練試験空域KK4-3(地表〜2,000ft)を地図上に表示します。B区域の一部と重なる空域です。境界は新幹線・高速道路等の実際の経路をもとに再現していますが、一部区間は直線で近似した参考表示であり、実際の判断の根拠にはしないでください。",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 4.dp, bottom = 4.dp),
-                )
-                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
-
+            }
+                }
+                SettingsPage.LOW_ALTITUDE -> {
+            item {
                 ProSectionHeader("高度不足アラート(カスタム設定)", uiState.isSubscribed, onRequireSubscription)
                 SwitchRow(
                     label = "有効にする",
@@ -201,7 +320,6 @@ fun SettingsScreen(
                     )
                 }
             }
-
             if (alertSettings.mode == AltitudeCalculationMode.STEPS) {
                 items(alertSettings.steps.withIndex().toList(), key = { it.index }) { (index, step) ->
                     AltitudeStepRow(
@@ -261,16 +379,17 @@ fun SettingsScreen(
                     )
                 }
             }
-
             item {
                 Text(
-                    "基準地点は、競技会ガイドラインと同じ第1滑空場基準か、第2滑空場基準かを選べます。あくまで目安であり、実際の判断の根拠にはしないでください。高度は本サイトが提供する値(海抜高)をそのまま使っています。",
+                    "妻沼滑空場中心から15km以内の機体だけが対象です。基準地点は、競技会ガイドラインと同じ第1滑空場基準か、第2滑空場基準かを選べます。あくまで目安であり、実際の判断の根拠にはしないでください。高度は本サイトが提供する値(海抜高)をそのまま使っています。",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 8.dp),
                 )
-                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
-
+            }
+                }
+                SettingsPage.GUIDELINE -> {
+            item {
                 ProSectionHeader("競技会ガイドライン(妻沼滑空場)", uiState.isSubscribed, onRequireSubscription)
                 SwitchRow(
                     label = "有効にする",
@@ -283,32 +402,15 @@ fun SettingsScreen(
                         }
                     },
                 )
-                SwitchRow(
-                    label = "旋回点・タスクコースを表示",
-                    checked = competitionGuidelineSettings.showTaskCourse,
-                    onCheckedChange = {
-                        if (uiState.isSubscribed) {
-                            viewModel.updateCompetitionGuidelineSettings(competitionGuidelineSettings.copy(showTaskCourse = it))
-                        } else {
-                            onRequireSubscription()
-                        }
-                    },
-                )
-                if (competitionGuidelineSettings.showTaskCourse) {
-                    TaskCoursePicker(
-                        selectedCourseIndex = competitionGuidelineSettings.selectedCourseIndex,
-                        onSelect = { index ->
-                            viewModel.updateCompetitionGuidelineSettings(competitionGuidelineSettings.copy(selectedCourseIndex = index))
-                        },
-                    )
-                }
                 Text(
-                    "日本学生航空連盟(JSAL)妻沼滑空場の公式ガイドライン(Ver.2026-01-26)。滑空場中心から2.5km未満は制限なし、2.5〜3kmでMSL350m以上、以降1kmごとに70mずつ増加し、10km以上でMSL910m以上が必要です。公式資料に基づく固定値のため、数値はここでは変更できません。旋回点・タスクコースは同資料に掲載された固定の座標・コースを地図上に表示するもので、実際のタスクファイル(スタート/ゴールラインの向きなど)を再現するものではありません。",
+                    "妻沼滑空場中心から15km以内の機体だけが対象です。日本学生航空連盟(JSAL)妻沼滑空場の公式ガイドライン(Ver.2026-01-26)。滑空場中心から2.5km未満は制限なし、2.5〜3kmでMSL350m以上、以降1kmごとに70mずつ増加し、10km以上でMSL910m以上が必要です。公式資料に基づく固定値のため、数値はここでは変更できません。旋回点・タスクコースの表示は「タスクコース・周回時間」で設定します。",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
-
+            }
+                }
+                SettingsPage.UPPER_ALTITUDE -> {
+            item {
                 ProSectionHeader("上限高度アラート(妻沼滑空場)", uiState.isSubscribed, onRequireSubscription)
                 SwitchRow(
                     label = "有効にする",
@@ -372,8 +474,10 @@ fun SettingsScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 4.dp, bottom = 4.dp),
                 )
-                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
-
+            }
+                }
+                SettingsPage.PROXIMITY -> {
+            item {
                 ProSectionHeader("機体接近アラート", uiState.isSubscribed, onRequireSubscription)
                 SwitchRow(
                     label = "有効にする",
@@ -469,22 +573,10 @@ fun SettingsScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 4.dp, bottom = 4.dp),
                 )
-                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
-
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth().clickable { onOpenAdvancedSettings() }.padding(vertical = 12.dp),
-                ) {
-                    Text("高度な設定", modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-                    Icon(Icons.Filled.KeyboardArrowRight, contentDescription = null)
-                }
-                Text(
-                    "サーバー接続先やデータの更新間隔など、通常は変更不要な設定です。",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(bottom = 24.dp),
-                )
             }
+                }
+            }
+            item { Spacer(Modifier.height(24.dp)) }
         }
     }
 
@@ -503,6 +595,41 @@ fun SettingsScreen(
         )
     }
 }
+
+private fun onOff(isOn: Boolean) = if (isOn) "オン" else "オフ"
+
+/** Pro features read as locked without a subscription, whatever their stored setting says. */
+private fun proSummary(uiState: GliderTrackerUiState, summary: String) = if (uiState.isSubscribed) summary else "🔒"
+
+private fun mapDisplaySummary(uiState: GliderTrackerUiState): String {
+    val items = buildList {
+        if (uiState.showGliderTrails) add("軌跡")
+        if (uiState.showDistanceReferencePoints && uiState.isSubscribed) add("目標地点")
+        if (uiState.showKk43Area && uiState.isSubscribed) add("KK4-3")
+    }
+    return items.ifEmpty { listOf("なし") }.joinToString("・")
+}
+
+private fun taskCourseSummary(uiState: GliderTrackerUiState): String {
+    val settings = uiState.competitionGuidelineSettings
+    if (!settings.showTaskCourse) return "オフ"
+    val course = settings.selectedCourseIndex?.let { CompetitionTaskCourseData.courses.getOrNull(it) } ?: return "旋回点のみ"
+    return course.name.take(1)
+}
+
+/** One index row: title on the left, current state and a chevron on the right. */
+@Composable
+private fun SettingsNavRow(title: String, value: String, onClick: () -> Unit) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 12.dp),
+    ) {
+        Text(title, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+        Text(value, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Icon(Icons.Filled.KeyboardArrowRight, contentDescription = null)
+    }
+}
+
 
 @Composable
 internal fun SettingsSectionHeader(title: String) {

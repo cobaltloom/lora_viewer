@@ -5,7 +5,7 @@ enum class PositionSource(val raw: String, val label: String) {
     CELL("2", "セル"),
     UNKNOWN("0", "不明"),
     /** Not a LoRa tracker field value: marks positions that came from the Open Glider Network. */
-    OGN("ogn", "OGN");
+    OGN("ogn", "FLARM");
 
     companion object {
         fun fromRaw(raw: String): PositionSource = entries.firstOrNull { it.raw == raw } ?: UNKNOWN

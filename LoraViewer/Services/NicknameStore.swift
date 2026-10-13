@@ -32,9 +32,14 @@ final class NicknameStore: ObservableObject {
     private let storageKey = "gliderNicknames"
     private let syncModeKey = "gliderNicknameSyncMode"
     private let collectionName = "nicknames"
+    /// OGN (FLARM) gliders' nicknames live in their own collection, outside the daily reset (which
+    /// every app version - including ones released before this existed - runs over `nicknames`
+    /// only): FLARM ids belong to aircraft, so a name set once stays right indefinitely.
+    private let flarmCollectionName = "flarmNicknames"
     private let scheduleDocPath = ("meta", "nicknameClearSchedule")
     private lazy var db = Firestore.firestore()
     private var listener: ListenerRegistration?
+    private var flarmListener: ListenerRegistration?
 
     init() {
         if let data = UserDefaults.standard.data(forKey: storageKey),
@@ -50,6 +55,12 @@ final class NicknameStore: ObservableObject {
 
     deinit {
         listener?.remove()
+        flarmListener?.remove()
+    }
+
+    /// LoRa ids are numeric IMEIs; OGN ids are APRS callsigns like "FLRDB077A".
+    private func collection(for id: String) -> CollectionReference {
+        db.collection(id.allSatisfy(\.isNumber) ? collectionName : flarmCollectionName)
     }
 
     func nickname(forIMEI imei: String) -> String? {
@@ -76,12 +87,12 @@ final class NicknameStore: ObservableObject {
         if trimmed.isEmpty {
             nicknames.removeValue(forKey: imei)
             if syncMode == .synced {
-                db.collection(collectionName).document(imei).delete()
+                collection(for: imei).document(imei).delete()
             }
         } else {
             nicknames[imei] = trimmed
             if syncMode == .synced {
-                db.collection(collectionName).document(imei).setData([
+                collection(for: imei).document(imei).setData([
                     "nickname": trimmed,
                     "updatedAt": FieldValue.serverTimestamp(),
                 ])
@@ -102,6 +113,8 @@ final class NicknameStore: ObservableObject {
         case .manual:
             listener?.remove()
             listener = nil
+            flarmListener?.remove()
+            flarmListener = nil
         }
     }
 
@@ -157,7 +170,12 @@ final class NicknameStore: ObservableObject {
     /// everyone else's list updates automatically without needing to
     /// reopen the app.
     private func listenForRemoteChanges() {
-        listener = db.collection(collectionName).addSnapshotListener { [weak self] snapshot, _ in
+        listener = listen(to: collectionName)
+        flarmListener = listen(to: flarmCollectionName)
+    }
+
+    private func listen(to name: String) -> ListenerRegistration {
+        db.collection(name).addSnapshotListener { [weak self] snapshot, _ in
             guard let self, let snapshot else { return }
             for change in snapshot.documentChanges {
                 let imei = change.document.documentID

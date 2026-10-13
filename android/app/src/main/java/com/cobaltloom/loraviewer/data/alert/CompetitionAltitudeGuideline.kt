@@ -46,6 +46,15 @@ object CompetitionAltitudeGuideline {
     /** Below this distance the guideline sets no minimum altitude at all. */
     const val INNER_RADIUS_KM = 2.5
 
+    /** The custom altitude alert and this guideline only apply within this distance of the field
+     * center: OGN shows aircraft up to 150 km away, which are flying from elsewhere and would
+     * otherwise always sit "below" these Menuma-specific minimums. */
+    const val ALERT_RADIUS_KM = 15.0
+
+    fun isWithinAlertRadius(glider: GliderPosition): Boolean =
+        distanceMeters(referenceCoordinate.latitude, referenceCoordinate.longitude, glider.lat, glider.lon) <=
+            ALERT_RADIUS_KM * 1000
+
     /** Every distance the table's required altitude changes at, drawn as rings on the map. */
     val boundaryDistancesKm = listOf(2.5, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0)
 

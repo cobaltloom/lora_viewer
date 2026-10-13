@@ -23,13 +23,17 @@ private val Context.dataStore by preferencesDataStore(name = "api_settings")
 enum class DataSource(val raw: String, val displayName: String) {
     /** The club's LoRa trackers, via trailrouteview.com. */
     LORA("lora", "LoRa"),
-    /** The Open Glider Network - FLARM/OGN-tracker equipped aircraft, received live from OGN. */
-    OGN("ogn", "OGN");
+    /** The Open Glider Network - FLARM/OGN-tracker equipped aircraft, received live from OGN. Shown to
+     * people as "FLARM", the name they know; OGN is credited in the attribution. */
+    OGN("ogn", "FLARM");
 
     companion object {
         fun fromRaw(raw: String?): DataSource = entries.firstOrNull { it.raw == raw } ?: LORA
     }
 }
+
+/** The club's track server, from Firestore `meta/serverConfig` (`trackServerUrl` / `trackServerKey`). */
+data class TrackServerConfig(val url: String, val key: String)
 
 data class ApiSettings(
     val baseUrl: String,
@@ -45,6 +49,10 @@ data class ApiSettings(
      * beacons already streamed in over the open connection - it asks no server anything - so it can
      * be much shorter; trails get a point per refresh, so they cover a shorter span than with LoRa. */
     val ognRefreshIntervalSeconds: Double = DEFAULT_OGN_REFRESH_INTERVAL_SECONDS,
+    /** Whether the launch-time LoRa/OGN chooser was turned off ("次回から表示しない"). */
+    val isDataSourcePromptSuppressed: Boolean = false,
+    /** null until both Firestore fields are set, which keeps trail backfill off. */
+    val trackServer: TrackServerConfig? = null,
 ) {
     /** The source actually in use: a saved OGN choice falls back to LoRa while OGN is switched off. */
     val effectiveDataSource: DataSource
@@ -85,6 +93,7 @@ class ApiSettingsRepository(
         val BASE_URL_CUSTOMIZED = booleanPreferencesKey("apiBaseURLCustomized")
         val DATA_SOURCE = stringPreferencesKey("dataSource")
         val OGN_REFRESH_INTERVAL = doublePreferencesKey("ognRefreshIntervalSeconds")
+        val DATA_SOURCE_PROMPT_SUPPRESSED = booleanPreferencesKey("dataSourcePromptSuppressed")
         /** Last `ognEnabled` seen from Firestore, so launch doesn't briefly poll LoRa before the
          * snapshot arrives. */
         val OGN_ENABLED_CACHED = booleanPreferencesKey("ognEnabledCached")
@@ -94,8 +103,9 @@ class ApiSettingsRepository(
     private var remoteConfigListener: ListenerRegistration? = null
     /** Null until the first Firestore snapshot; until then the cached value applies. */
     private val ognAvailable = MutableStateFlow<Boolean?>(null)
+    private val trackServer = MutableStateFlow<TrackServerConfig?>(null)
 
-    val settings: Flow<ApiSettings> = combine(context.dataStore.data, ognAvailable) { prefs, remoteOgnAvailable ->
+    val settings: Flow<ApiSettings> = combine(context.dataStore.data, ognAvailable, trackServer) { prefs, remoteOgnAvailable, server ->
         val isOgnAvailable = remoteOgnAvailable ?: prefs[Keys.OGN_ENABLED_CACHED] ?: false
         ApiSettings(
             baseUrl = prefs[Keys.BASE_URL] ?: ApiSettings.DEFAULT_BASE_URL,
@@ -107,6 +117,8 @@ class ApiSettingsRepository(
             isOgnAvailable = isOgnAvailable,
             ognRefreshIntervalSeconds = prefs[Keys.OGN_REFRESH_INTERVAL]?.takeIf { it > 0 }
                 ?: ApiSettings.DEFAULT_OGN_REFRESH_INTERVAL_SECONDS,
+            trackServer = server,
+            isDataSourcePromptSuppressed = prefs[Keys.DATA_SOURCE_PROMPT_SUPPRESSED] ?: false,
         )
     }
 
@@ -133,6 +145,10 @@ class ApiSettingsRepository(
         context.dataStore.edit { it[Keys.REFRESH_INTERVAL] = value }
     }
 
+    suspend fun setDataSourcePromptSuppressed(value: Boolean) {
+        context.dataStore.edit { it[Keys.DATA_SOURCE_PROMPT_SUPPRESSED] = value }
+    }
+
     suspend fun setOgnRefreshIntervalSeconds(value: Double) {
         context.dataStore.edit { it[Keys.OGN_REFRESH_INTERVAL] = value }
     }
@@ -153,6 +169,9 @@ class ApiSettingsRepository(
         remoteConfigListener = firestore.collection("meta").document("serverConfig")
             .addSnapshotListener { snapshot, _ ->
                 if (snapshot != null) {
+                    val url = snapshot.getString("trackServerUrl")?.takeIf { it.isNotBlank() }
+                    val key = snapshot.getString("trackServerKey")?.takeIf { it.isNotBlank() }
+                    trackServer.value = if (url != null && key != null) TrackServerConfig(url, key) else null
                     val ognEnabled = snapshot.getBoolean("ognEnabled") ?: false
                     ognAvailable.value = ognEnabled
                     repositoryScope.launch { context.dataStore.edit { it[Keys.OGN_ENABLED_CACHED] = ognEnabled } }

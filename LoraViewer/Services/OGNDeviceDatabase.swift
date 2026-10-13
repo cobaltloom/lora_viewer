@@ -10,23 +10,45 @@ struct OGNDevice {
     let isIdentified: Bool
 }
 
-/// The OGN device database (http://ddb.glidernet.org), cached on disk and refreshed daily. OGN's data
-/// usage rules require anyone redistributing OGN data to follow these privacy choices, so positions
-/// are not shown until it has been loaded at least once.
+/// A device database in the OGN DDB JSON format, cached on disk and refreshed daily: the OGN DDB
+/// itself (`ogn()`) or FlarmNet's export of the same format (`flarmNet()`). OGN's data usage rules
+/// require anyone redistributing OGN data to follow the OGN DDB's privacy choices, so positions are
+/// not shown until it has been loaded at least once.
 actor OGNDeviceDatabase {
-    private static let url = URL(string: "https://ddb.glidernet.org/download/?j=1&t=1")!
     private static let maxAge: TimeInterval = 24 * 3600
+    private static let retryInterval: TimeInterval = 10 * 60
 
     private let session: URLSession
+    private let url: URL
+    private let cacheFileName: String
+    /// Only entries whose registration starts with this are kept; nil keeps everything.
+    private let registrationPrefix: String?
     private var devices: [String: OGNDevice]?
     private var loadedAt: Date?
+    private var lastDownloadAttempt: Date?
 
-    init(session: URLSession = .shared) {
+    private init(url: URL, cacheFileName: String, registrationPrefix: String?, session: URLSession) {
+        self.url = url
+        self.cacheFileName = cacheFileName
+        self.registrationPrefix = registrationPrefix
         self.session = session
     }
 
+    /// The OGN DDB (http://ddb.glidernet.org): names and the owners' privacy choices.
+    static func ogn(session: URLSession = .shared) -> OGNDeviceDatabase {
+        OGNDeviceDatabase(url: URL(string: "https://ddb.glidernet.org/download/?j=1&t=1")!,
+                          cacheFileName: "ogn_ddb.json", registrationPrefix: nil, session: session)
+    }
+
+    /// FlarmNet (https://www.flarmnet.org), Japanese registrations only: names for aircraft that are
+    /// not in the OGN DDB.
+    static func flarmNet(session: URLSession = .shared) -> OGNDeviceDatabase {
+        OGNDeviceDatabase(url: URL(string: "https://www.flarmnet.org/files/ddb.json")!,
+                          cacheFileName: "flarmnet_ddb.json", registrationPrefix: "JA", session: session)
+    }
+
     private var cacheURL: URL {
-        FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0].appendingPathComponent("ogn_ddb.json")
+        FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0].appendingPathComponent(cacheFileName)
     }
 
     /// Returns the database, downloading it if the cache is missing or over a day old. Falls back to
@@ -37,33 +59,51 @@ actor OGNDeviceDatabase {
         }
         let file = cacheURL
         let modified = (try? FileManager.default.attributesOfItem(atPath: file.path)[.modificationDate]) as? Date
-        if modified.map({ Date().timeIntervalSince($0) >= Self.maxAge }) ?? true {
+        // Without any cache a failed download would otherwise be retried on every refresh.
+        let retryDue = lastDownloadAttempt.map { Date().timeIntervalSince($0) >= Self.retryInterval } ?? true
+        if modified.map({ Date().timeIntervalSince($0) >= Self.maxAge }) ?? true, retryDue {
+            lastDownloadAttempt = Date()
             try? await download(to: file)
         }
         guard let data = try? Data(contentsOf: file) else {
-            throw TrailRouteAPIError.serverError("OGNの機体データベースを取得できませんでした")
+            throw TrailRouteAPIError.serverError("機体データベースを取得できませんでした")
         }
-        let parsed = try Self.parse(data)
+        let parsed = try Self.parse(data, registrationPrefix: registrationPrefix)
         devices = parsed
         loadedAt = Date()
         return parsed
     }
 
     private func download(to file: URL) async throws {
-        var request = URLRequest(url: Self.url)
+        var request = URLRequest(url: url)
         request.setValue(OGNAPI.userAgent, forHTTPHeaderField: "User-Agent")
         let (data, response) = try await session.data(for: request)
         guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
             throw TrailRouteAPIError.invalidResponse
         }
-        _ = try Self.parse(data) // don't replace a good cache with something unparseable
-        try data.write(to: file, options: .atomic)
+        _ = try Self.parse(data, registrationPrefix: registrationPrefix) // don't replace a good cache with something unparseable
+        // Cache only the entries we use (FlarmNet: a few KB instead of ~2 MB).
+        let stored = try registrationPrefix.map { try Self.keepRegistrations(data, prefix: $0) } ?? data
+        try stored.write(to: file, options: .atomic)
     }
 
-    static func parse(_ data: Data) throws -> [String: OGNDevice] {
+    /// The same DDB JSON with only the entries whose registration starts with `prefix`.
+    static func keepRegistrations(_ data: Data, prefix: String) throws -> Data {
+        guard let root = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let devices = root["devices"] as? [[String: Any]] else {
+            throw TrailRouteAPIError.invalidResponse
+        }
+        let kept = devices.filter {
+            (($0["registration"] as? String) ?? "").trimmingCharacters(in: .whitespaces).hasPrefix(prefix)
+        }
+        return try JSONSerialization.data(withJSONObject: ["devices": kept])
+    }
+
+    static func parse(_ data: Data, registrationPrefix: String? = nil) throws -> [String: OGNDevice] {
         let decoded = try JSONDecoder().decode(DDBResponse.self, from: data)
         var result: [String: OGNDevice] = [:]
         for entry in decoded.devices {
+            if let registrationPrefix, !entry.registration.hasPrefix(registrationPrefix) { continue }
             result[entry.deviceID.uppercased()] = OGNDevice(
                 registration: entry.registration.isEmpty ? nil : entry.registration,
                 competitionID: entry.cn.isEmpty ? nil : entry.cn,

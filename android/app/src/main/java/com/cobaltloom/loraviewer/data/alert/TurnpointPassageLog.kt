@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.cobaltloom.loraviewer.data.settings.DataSource
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -38,27 +39,60 @@ data class TurnpointPassageRecord(
  * Persists turnpoint-passage events to DataStore so they survive app relaunch and can be reviewed
  * later in the day even if a push notification was missed. This is a rolling log for same-day
  * review, not a full flight-log archive, so entries older than [retentionDays] are dropped.
+ * LoRa and OGN (FLARM) keep separate logs, like favorites: the same glider has different names in
+ * each, so a shared log would mix them and could list one passage twice.
  */
 class TurnpointPassageLogRepository(private val context: Context) {
-    private val key = stringPreferencesKey("turnpointPassageLogJson")
+    /** The LoRa key predates OGN support and is kept as-is so existing records survive. */
+    private fun key(source: DataSource) = stringPreferencesKey(
+        when (source) {
+            DataSource.LORA -> "turnpointPassageLogJson"
+            DataSource.OGN -> "turnpointPassageLogOgnJson"
+        },
+    )
     private val json = Json { ignoreUnknownKeys = true }
     private val retentionDays = 2L
 
-    val records: Flow<List<TurnpointPassageRecord>> = context.turnpointPassageLogDataStore.data.map { prefs ->
-        prune(decode(prefs[key]))
-    }
+    val recordsBySource: Flow<Map<DataSource, List<TurnpointPassageRecord>>> =
+        context.turnpointPassageLogDataStore.data.map { prefs ->
+            DataSource.entries.associateWith { prune(decode(prefs[key(it)])) }
+        }
 
-    suspend fun record(gliderName: String, turnpointName: String, altitudeM: Double?) {
+    /**
+     * Records a passage found afterwards in the track server's history (flown while the app was
+     * closed), at the time it actually happened - unless the same glider already has a record for
+     * this turnpoint within 10 minutes (e.g. the live check caught it when the app opened).
+     */
+    suspend fun recordPastPassage(source: DataSource, gliderName: String, turnpointName: String, altitudeM: Double?, timestampMillis: Long) {
+        val duplicateWindowMillis = 10 * 60 * 1000L
         context.turnpointPassageLogDataStore.edit { prefs ->
-            val updated = prune(decode(prefs[key]) + TurnpointPassageRecord(gliderName = gliderName, turnpointName = turnpointName, altitudeM = altitudeM))
-            prefs[key] = json.encodeToString(updated)
+            val existing = decode(prefs[key(source)])
+            if (existing.any {
+                    it.gliderName == gliderName && it.turnpointName == turnpointName &&
+                        kotlin.math.abs(it.timestampMillis - timestampMillis) < duplicateWindowMillis
+                }
+            ) return@edit
+            val record = TurnpointPassageRecord(
+                gliderName = gliderName,
+                turnpointName = turnpointName,
+                altitudeM = altitudeM,
+                timestampMillis = timestampMillis,
+            )
+            prefs[key(source)] = json.encodeToString(prune(existing + record))
         }
     }
 
-    suspend fun clearToday() {
+    suspend fun record(source: DataSource, gliderName: String, turnpointName: String, altitudeM: Double?) {
+        context.turnpointPassageLogDataStore.edit { prefs ->
+            val updated = prune(decode(prefs[key(source)]) + TurnpointPassageRecord(gliderName = gliderName, turnpointName = turnpointName, altitudeM = altitudeM))
+            prefs[key(source)] = json.encodeToString(updated)
+        }
+    }
+
+    suspend fun clearToday(source: DataSource) {
         context.turnpointPassageLogDataStore.edit { prefs ->
             val today = LocalDate.now()
-            prefs[key] = json.encodeToString(decode(prefs[key]).filterNot { it.localDate == today })
+            prefs[key(source)] = json.encodeToString(decode(prefs[key(source)]).filterNot { it.localDate == today })
         }
     }
 

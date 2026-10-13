@@ -24,7 +24,16 @@ struct CurrentMapView: View {
     @State private var pointOfInterestPendingDeletion: PointOfInterest?
     @State private var cameraPosition: MapCameraPosition = .automatic
     @State private var selectedGlider: GliderPosition?
+    /// Each timed glider's progress around the selected task course (see `updateLapStatuses`).
+    @State private var lapStatuses: [String: TaskLapStatus] = [:]
+    /// "imei|time" of starts/finishes already logged (finishes also notified), so each is reported once.
+    @State private var reportedLapEvents: Set<String> = []
     @State private var showSettings = false
+    /// Launch-time LoRa/OGN chooser, so people notice OGN is available at all. Shown once per launch
+    /// until "次回から表示しない" is checked.
+    @AppStorage(DataSourcePromptView.suppressedKey) private var dataSourcePromptSuppressed = false
+    @State private var showDataSourcePrompt = false
+    @State private var hasOfferedDataSourcePrompt = false
     @State private var showPaywall = false
     @State private var showTurnpointHistory = false
     @State private var didCenterInitially = false
@@ -90,7 +99,9 @@ struct CurrentMapView: View {
         // different field than the one these are configured for triggers noise notifications
         // for gliders the person tracking them doesn't actually care about. With no favorites
         // set, every glider is checked, same as before this distinction existed.
-        if favoritesStore.favoriteIMEIs.isEmpty || favoritesStore.isFavorite(glider.imei) {
+        // Both are Menuma-specific, so only for gliders within 15 km of the field center.
+        if favoritesStore.favoriteIMEIs.isEmpty || favoritesStore.isFavorite(glider.imei),
+           CompetitionAltitudeGuideline.isWithinAlertRadius(glider) {
             if let severity = alertSettings.alertSeverity(for: glider) {
                 reasons.append(GliderAlertReason(label: "カスタム設定", severity: severity))
             }
@@ -266,7 +277,8 @@ struct CurrentMapView: View {
                                 isSelected: selectedGlider?.id == glider.id,
                                 isFavorite: favoritesStore.isFavorite(glider.imei),
                                 alertSeverity: alertReasons(for: glider).overallSeverity,
-                                isReturnGlideSafe: isReturnGlideSafe(glider)
+                                isReturnGlideSafe: isReturnGlideSafe(glider),
+                                lapBadge: selectedTaskCourse == nil ? nil : lapStatuses[glider.imei]?.markerBadge
                             )
                                 .onTapGesture {
                                     withAnimation { selectedGlider = glider }
@@ -314,7 +326,10 @@ struct CurrentMapView: View {
                     GliderDetailCard(
                         glider: selectedGlider,
                         baseName: viewModel.nameFor(selectedGlider),
-                        alertReasons: alertReasons(for: selectedGlider)
+                        alertReasons: alertReasons(for: selectedGlider),
+                        lapSummary: selectedTaskCourse.flatMap { course in
+                            lapStatuses[selectedGlider.imei]?.summary(courseDistanceKm: course.distanceKm, now: Date())
+                        }
                     )
                         .padding()
                         .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -385,6 +400,10 @@ struct CurrentMapView: View {
                     }
                 }
             }
+            .sheet(isPresented: $showDataSourcePrompt) {
+                DataSourcePromptView()
+                    .environmentObject(settings)
+            }
             .sheet(isPresented: $showSettings) {
                 SettingsView()
                     .environmentObject(settings)
@@ -434,7 +453,9 @@ struct CurrentMapView: View {
             .task {
                 viewModel.groundAltitudeThresholdM = alertSettings.minimumFlyingAltitudeM
                 favoritesStore.dataSource = settings.effectiveDataSource
+                turnpointPassageLog.dataSource = settings.effectiveDataSource
                 viewModel.startPolling()
+                offerDataSourcePromptIfNeeded()
                 locationManager.requestAuthorizationIfNeeded()
                 alertNotifier.requestAuthorizationIfNeeded()
             }
@@ -444,17 +465,29 @@ struct CurrentMapView: View {
             .onChange(of: alertSettings.minimumFlyingAltitudeM) { _, newValue in
                 viewModel.groundAltitudeThresholdM = newValue
             }
+            .onChange(of: settings.isOGNAvailable) {
+                // OGN availability comes from Firestore and can arrive after launch.
+                offerDataSourcePromptIfNeeded()
+            }
             .onChange(of: settings.effectiveDataSource) {
                 favoritesStore.dataSource = settings.effectiveDataSource
+                turnpointPassageLog.dataSource = settings.effectiveDataSource
                 // Fetch from the new source right away instead of waiting out the current interval.
                 selectedGlider = nil
                 viewModel.startPolling()
+            }
+            .onChange(of: viewModel.backfilledFlights?.id) {
+                if let backfilled = viewModel.backfilledFlights {
+                    recordPastTurnpointPassages(backfilled)
+                }
+                updateLapStatuses()
             }
             .onChange(of: viewModel.positions) { _, newPositions in
                 centerMapIfNeeded(on: newPositions)
                 updateProximityAlerts(in: newPositions)
                 notifyNewAlerts(in: newPositions)
                 notifyTurnpointPassages(in: newPositions)
+                updateLapStatuses()
             }
         }
     }
@@ -504,15 +537,7 @@ struct CurrentMapView: View {
         var currentlyInside: Set<String> = []
         for glider in positions {
             let gliderCoordinate = CLLocationCoordinate2D(latitude: glider.lat, longitude: glider.lon)
-            let gliderLocation = CLLocation(latitude: glider.lat, longitude: glider.lon)
-            for name in CompetitionTaskCourseData.notifiableTurnpointNames {
-                guard let coordinate = CompetitionTaskCourseData.turnpoints[name] else { continue }
-                let turnpointLocation = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
-                let distanceKm = turnpointLocation.distance(from: gliderLocation) / 1000.0
-                guard distanceKm <= CompetitionTaskCourseData.turnpointRadiusKm else { continue }
-                guard let bisector = CompetitionTaskCourseData.sectorBearing(in: selectedCourse, turnpointName: name) else { continue }
-                let bearingToGlider = coordinate.bearingDegrees(to: gliderCoordinate)
-                guard CompetitionTaskCourseData.isBearing(bearingToGlider, withinSectorCenteredOn: bisector) else { continue }
+            for name in Self.turnpointSectors(containing: gliderCoordinate, in: selectedCourse) {
                 let key = "\(glider.imei)|\(name)"
                 currentlyInside.insert(key)
                 if !glidersInsideTurnpoints.contains(key) {
@@ -523,6 +548,85 @@ struct CurrentMapView: View {
             }
         }
         glidersInsideTurnpoints = currentlyInside
+    }
+
+    private func offerDataSourcePromptIfNeeded() {
+        guard settings.isOGNAvailable, !dataSourcePromptSuppressed, !hasOfferedDataSourcePrompt else { return }
+        hasOfferedDataSourcePrompt = true
+        showDataSourcePrompt = true
+    }
+
+    /// The task course chosen in the competition guideline settings, if the course is shown.
+    private var selectedTaskCourse: CompetitionTaskCourse? {
+        guard subscriptionManager.hasFullAccess, competitionGuideline.showTaskCourse,
+              let index = competitionGuideline.selectedCourseIndex,
+              CompetitionTaskCourseData.courses.indices.contains(index) else { return nil }
+        return CompetitionTaskCourseData.courses[index]
+    }
+
+    /// Re-times every flying glider around the selected course and logs/announces new starts and
+    /// finishes. Reference only: official timing uses each glider's 1-second IGC logger.
+    private func updateLapStatuses() {
+        guard let course = selectedTaskCourse else {
+            lapStatuses = [:]
+            return
+        }
+        let now = Date()
+        let statuses = viewModel.timedTracks.mapValues { TaskLapCalculator.evaluate($0, course: course) }
+        for (id, status) in statuses {
+            guard let glider = viewModel.positions.first(where: { $0.imei == id }) else { continue }
+            let gliderName = displayName(for: glider)
+            // Logged only once the first turnpoint is reached, so a flight that lands without
+            // rounding any turnpoint leaves no stray "スタート" in the history.
+            if let start = status.start, !status.passedTurnpoints.isEmpty, reportedLapEvents.insert("\(id)|start|\(start.timeIntervalSince1970)").inserted {
+                turnpointPassageLog.recordPastPassage(gliderName: gliderName, turnpointName: "スタート", altitudeM: status.startAltitudeM, timestamp: start)
+            }
+            guard let finish = status.finish,
+                  reportedLapEvents.insert("\(id)|finish|\(finish.timeIntervalSince1970)").inserted else { continue }
+            let summary = String(status.summary(courseDistanceKm: course.distanceKm, now: now).dropFirst("周回: ".count))
+            turnpointPassageLog.recordPastPassage(gliderName: gliderName, turnpointName: "ゴール \(summary)", altitudeM: status.finishAltitudeM, timestamp: finish)
+            // Only announce a finish that just happened - not one found in history on reopening.
+            if now.timeIntervalSince(finish) < 5 * 60 {
+                alertNotifier.notifyTaskFinish(gliderName: gliderName, summary: summary)
+            }
+        }
+        lapStatuses = statuses
+    }
+
+    /// Names of the selected course's turnpoints whose 90° sector (within the turnpoint radius)
+    /// contains `coordinate`.
+    private static func turnpointSectors(containing coordinate: CLLocationCoordinate2D, in course: CompetitionTaskCourse) -> [String] {
+        let location = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
+        return CompetitionTaskCourseData.notifiableTurnpointNames.filter { name in
+            guard let turnpoint = CompetitionTaskCourseData.turnpoints[name],
+                  let bisector = CompetitionTaskCourseData.sectorBearing(in: course, turnpointName: name) else { return false }
+            let distanceKm = CLLocation(latitude: turnpoint.latitude, longitude: turnpoint.longitude).distance(from: location) / 1000.0
+            guard distanceKm <= CompetitionTaskCourseData.turnpointRadiusKm else { return false }
+            return CompetitionTaskCourseData.isBearing(turnpoint.bearingDegrees(to: coordinate), withinSectorCenteredOn: bisector)
+        }
+    }
+
+    /// Adds turnpoint passages flown before the app was opened, found by walking each flying
+    /// glider's track from the track server. Logged at the time they happened; no notification,
+    /// since a ping about a passage from long ago would only confuse.
+    private func recordPastTurnpointPassages(_ backfilled: BackfilledFlights) {
+        guard subscriptionManager.hasFullAccess, competitionGuideline.showTaskCourse,
+              let selectedCourseIndex = competitionGuideline.selectedCourseIndex,
+              CompetitionTaskCourseData.courses.indices.contains(selectedCourseIndex)
+        else { return }
+        let course = CompetitionTaskCourseData.courses[selectedCourseIndex]
+        for (id, points) in backfilled.flights {
+            guard let glider = viewModel.positions.first(where: { $0.imei == id }) else { continue }
+            let gliderName = displayName(for: glider)
+            var inside: Set<String> = []
+            for point in points {
+                let now = Set(Self.turnpointSectors(containing: point.coordinate, in: course))
+                for name in now.subtracting(inside) {
+                    turnpointPassageLog.recordPastPassage(gliderName: gliderName, turnpointName: name, altitudeM: point.altitudeM, timestamp: point.time)
+                }
+                inside = now
+            }
+        }
     }
 
     /// Detects gliders getting close to each other (see
@@ -728,5 +832,60 @@ struct CurrentMapView: View {
         .background(worstSeverity == .warning ? .red : .orange, in: RoundedRectangle(cornerRadius: 12))
         .padding(.horizontal)
         .padding(.top, 4)
+    }
+}
+
+/// Asks which position source to use, shown at launch while OGN is available (see
+/// `CurrentMapView.offerDataSourcePromptIfNeeded`). Closing it without choosing keeps the current one.
+struct DataSourcePromptView: View {
+    static let suppressedKey = "dataSourcePromptSuppressed"
+
+    @EnvironmentObject private var settings: APISettings
+    @AppStorage(suppressedKey) private var suppressed = false
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("位置情報のデータ元を選んでください")
+                .font(.headline)
+            choice(.lora, description: "クラブのLoRa発信機を積んだ機体を表示します。")
+            choice(.ogn, description: "FLARMやOGNトラッカーを積み、OGN(Open Glider Network)受信機の範囲内(妻沼から約150km)にいる機体を表示します。")
+            Button {
+                suppressed.toggle()
+            } label: {
+                Label("次回から表示しない", systemImage: suppressed ? "checkmark.square.fill" : "square")
+            }
+            .buttonStyle(.plain)
+            Text("設定画面の「位置情報のデータ元」からいつでも変更できます。")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+        }
+        .padding(24)
+        .presentationDetents([.medium, .large])
+    }
+
+    private func choice(_ source: DataSource, description: String) -> some View {
+        Button {
+            settings.dataSource = source
+            dismiss()
+        } label: {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Text(source.displayName).font(.title3.bold())
+                    Spacer()
+                    if settings.effectiveDataSource == source {
+                        Text("選択中").font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+                Text(description)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.leading)
+            }
+            .padding()
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(RoundedRectangle(cornerRadius: 12).stroke(settings.effectiveDataSource == source ? Color.accentColor : Color.secondary.opacity(0.4), lineWidth: settings.effectiveDataSource == source ? 2 : 1))
+        }
+        .buttonStyle(.plain)
     }
 }

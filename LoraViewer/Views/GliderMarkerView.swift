@@ -10,6 +10,8 @@ struct GliderMarkerView: View {
     /// green ring so a comfortable margin is visible before it ever gets
     /// close to the alert thresholds, not just once it crosses them.
     let isReturnGlideSafe: Bool
+    /// Task lap progress ("旋回 1/2" / "ゴール 29:25"), shown beside the altitude when timing.
+    var lapBadge: String? = nil
 
     var body: some View {
         VStack(spacing: 2) {
@@ -45,13 +47,24 @@ struct GliderMarkerView: View {
                         .offset(x: 4, y: 4)
                 }
             }
-            if let alt = glider.alt {
-                Text("\(Int(alt))m")
-                    .font(.caption2.bold())
-                    .padding(.horizontal, 4)
-                    .padding(.vertical, 1)
-                    .background(altitudeBadgeColor.opacity(0.75), in: Capsule())
-                    .foregroundStyle(.white)
+            // Side by side rather than stacked, so the marker's height doesn't change when timing starts.
+            HStack(spacing: 2) {
+                if let alt = glider.alt {
+                    Text("\(Int(alt))m")
+                        .font(.caption2.bold())
+                        .padding(.horizontal, 4)
+                        .padding(.vertical, 1)
+                        .background(altitudeBadgeColor.opacity(0.75), in: Capsule())
+                        .foregroundStyle(.white)
+                }
+                if let lapBadge {
+                    Text(lapBadge)
+                        .font(.caption2.bold())
+                        .padding(.horizontal, 4)
+                        .padding(.vertical, 1)
+                        .background((lapBadge.hasPrefix("ゴール") ? Color.green : Color.indigo).opacity(0.85), in: Capsule())
+                        .foregroundStyle(.white)
+                }
             }
         }
         .opacity(glider.isDisconnected ? 0.4 : 1.0)

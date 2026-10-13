@@ -7,12 +7,13 @@ enum DataSource: String, CaseIterable {
     /// The club's LoRa trackers, via trailrouteview.com.
     case lora
     /// The Open Glider Network - FLARM/OGN-tracker equipped aircraft, received live from OGN.
+    /// Shown to people as "FLARM", the name they know; OGN is credited in the attribution.
     case ogn
 
     var displayName: String {
         switch self {
         case .lora: return "LoRa"
-        case .ogn: return "OGN"
+        case .ogn: return "FLARM"
         }
     }
 }
@@ -47,6 +48,9 @@ final class APISettings: ObservableObject {
         // Cached so launch doesn't briefly poll LoRa before the Firestore snapshot arrives.
         didSet { UserDefaults.standard.set(isOGNAvailable, forKey: Keys.ognEnabledCached) }
     }
+    /// The club's track server, from `meta/serverConfig` (`trackServerUrl` / `trackServerKey`).
+    /// nil until both are set, which keeps trail backfill off.
+    @Published private(set) var trackServer: TrackServerConfig?
     @Published var refreshIntervalSeconds: Double {
         didSet { UserDefaults.standard.set(refreshIntervalSeconds, forKey: Keys.refreshInterval) }
     }
@@ -136,6 +140,13 @@ final class APISettings: ObservableObject {
             .addSnapshotListener { [weak self] snapshot, _ in
                 guard let self else { return }
                 if let snapshot {
+                    let data = snapshot.data()
+                    let trackServer = (data?["trackServerUrl"] as? String).flatMap(URL.init(string:)).flatMap { url in
+                        (data?["trackServerKey"] as? String).map { TrackServerConfig(url: url, key: $0) }
+                    }
+                    if trackServer != self.trackServer {
+                        self.trackServer = trackServer
+                    }
                     let ognEnabled = snapshot.data()?["ognEnabled"] as? Bool ?? false
                     if ognEnabled != self.isOGNAvailable {
                         self.isOGNAvailable = ognEnabled

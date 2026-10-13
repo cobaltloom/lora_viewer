@@ -3,6 +3,8 @@ package com.cobaltloom.loraviewer.data.repository
 import com.cobaltloom.loraviewer.data.model.AppConfig
 import com.cobaltloom.loraviewer.data.model.GliderPosition
 import com.cobaltloom.loraviewer.data.remote.OgnApiClient
+import com.cobaltloom.loraviewer.data.remote.TrackServerClient
+import com.cobaltloom.loraviewer.data.remote.TrackServerPoint
 import com.cobaltloom.loraviewer.data.remote.TrailRouteApiClient
 import com.cobaltloom.loraviewer.data.settings.ApiSettings
 import com.cobaltloom.loraviewer.data.settings.ApiSettingsRepository
@@ -14,10 +16,13 @@ class GliderRepository(
     private val apiClient: TrailRouteApiClient,
     private val settingsRepository: ApiSettingsRepository,
     private val ognApiClient: OgnApiClient,
+    private val trackServerClient: TrackServerClient = TrackServerClient(),
 ) {
     val settings: Flow<ApiSettings> = settingsRepository.settings
 
     suspend fun setDataSource(value: DataSource) = settingsRepository.setDataSource(value)
+
+    suspend fun setDataSourcePromptSuppressed(value: Boolean) = settingsRepository.setDataSourcePromptSuppressed(value)
 
     suspend fun fetchConfig(): AppConfig {
         val settings = settingsRepository.settings.first()
@@ -34,6 +39,12 @@ class GliderRepository(
             }
             DataSource.OGN -> ognApiClient.fetchCurrentPositions()
         }
+    }
+
+    /** Each flying glider's flight so far from the track server, or null when none is configured. */
+    suspend fun fetchTrackServerFlights(source: DataSource, groundAltitudeM: Double): Map<String, List<TrackServerPoint>>? {
+        val server = settingsRepository.settings.first().trackServer ?: return null
+        return trackServerClient.fetchFlights(server, source, groundAltitudeM)
     }
 
     /** Closes the OGN live connection, if open - for when the map stops polling. */

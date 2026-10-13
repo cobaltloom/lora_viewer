@@ -2,8 +2,10 @@ package com.cobaltloom.loraviewer.ui.map
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -42,6 +44,8 @@ fun GliderMarkerContent(
     isSelected: Boolean = false,
     isFavorite: Boolean = false,
     alertSeverity: AlertSeverity? = null,
+    /** Task lap progress ("旋回 1/2" / "ゴール 29:25"), shown beside the altitude when timing. */
+    lapBadge: String? = null,
 ) {
     val circleColor = when {
         glider.isDisconnected -> Color.Gray
@@ -107,17 +111,34 @@ fun GliderMarkerContent(
                 }
             }
         }
-        glider.alt?.let { alt ->
-            Text(
-                text = "${alt.roundToInt()}m",
-                color = Color.White,
-                fontSize = 10.sp,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier
-                    .padding(top = 2.dp)
-                    .background(badgeColor.copy(alpha = 0.75f), RoundedCornerShape(50))
-                    .padding(horizontal = 4.dp, vertical = 1.dp),
-            )
+        // Side by side rather than stacked, so the marker's height (and anchor) doesn't change when
+        // timing starts.
+        Row(horizontalArrangement = Arrangement.spacedBy(2.dp), modifier = Modifier.padding(top = 2.dp)) {
+            glider.alt?.let { alt ->
+                Text(
+                    text = "${alt.roundToInt()}m",
+                    color = Color.White,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier
+                        .background(badgeColor.copy(alpha = 0.75f), RoundedCornerShape(50))
+                        .padding(horizontal = 4.dp, vertical = 1.dp),
+                )
+            }
+            if (lapBadge != null) {
+                Text(
+                    text = lapBadge,
+                    color = Color.White,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier
+                        .background(
+                            (if (lapBadge.startsWith("ゴール")) Color(0xFF2E7D32) else Color(0xFF3F51B5)).copy(alpha = 0.85f),
+                            RoundedCornerShape(50),
+                        )
+                        .padding(horizontal = 4.dp, vertical = 1.dp),
+                )
+            }
         }
         if (!name.isNullOrEmpty()) {
             // Hidden by transparency rather than removal, so the marker's size - and with it where

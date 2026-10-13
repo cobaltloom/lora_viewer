@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -27,6 +28,7 @@ import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -63,6 +65,7 @@ import com.cobaltloom.loraviewer.data.alert.CompetitionAltitudeGuideline
 import com.cobaltloom.loraviewer.data.alert.CompetitionTaskCourseData
 import com.cobaltloom.loraviewer.data.alert.DistanceReferencePointData
 import com.cobaltloom.loraviewer.data.alert.UpperAltitudeGuideline
+import com.cobaltloom.loraviewer.data.alert.lapSummary
 import com.cobaltloom.loraviewer.data.alert.overallSeverity
 import com.cobaltloom.loraviewer.data.alert.pointOnCircle
 import com.cobaltloom.loraviewer.data.model.GliderPosition
@@ -484,13 +487,14 @@ fun MapScreen(
                     val isFavorite = uiState.isFavorite(glider.imei)
                     val alertSeverity = uiState.alertReasons(glider).overallSeverity()
                     val showName = "g:${glider.imei}" in visibleLabels
+                    val lapBadge = uiState.selectedCourse?.let { uiState.lapStatuses[glider.imei]?.markerBadge }
                     // MarkerComposable rasterizes its content once and only redraws it when these keys
                     // change, so every input the content reads must be listed - otherwise the marker keeps
                     // showing the altitude from its first render. key(imei) keeps each marker bound to the
                     // same glider when the list order changes between polls.
                     key(glider.imei) {
                         MarkerComposable(
-                            glider, name, showName, isSelected, isFavorite, alertSeverity ?: "none",
+                            glider, name, showName, isSelected, isFavorite, alertSeverity ?: "none", lapBadge ?: "",
                             state = MarkerState(position = LatLng(glider.lat, glider.lon)),
                             title = name,
                             anchor = Offset(0.5f, 0.5f),
@@ -503,6 +507,7 @@ fun MapScreen(
                                 isSelected = isSelected,
                                 isFavorite = isFavorite,
                                 alertSeverity = alertSeverity,
+                                lapBadge = lapBadge,
                             )
                         }
                     }
@@ -540,6 +545,13 @@ fun MapScreen(
                     displayName = uiState.nameFor(glider),
                     isFavorite = uiState.isFavorite(glider.imei),
                     alertReasons = uiState.alertReasons(glider),
+                    lapSummary = uiState.selectedCourse?.let { course ->
+                        uiState.lapStatuses[glider.imei]?.let { status ->
+                            lapSummary(status, course.distanceKm, System.currentTimeMillis()) { millis ->
+                                lapTimeFormatter.format(Instant.ofEpochMilli(millis))
+                            }
+                        }
+                    },
                     onToggleFavorite = {
                         if (uiState.isSubscribed) viewModel.toggleFavorite(glider.imei) else onRequireSubscription()
                     },
@@ -551,6 +563,13 @@ fun MapScreen(
                 )
             }
         }
+    }
+
+    if (uiState.shouldOfferDataSourcePrompt && !viewModel.hasOfferedDataSourcePrompt) {
+        DataSourcePromptDialog(
+            current = uiState.dataSource,
+            onFinish = { source, dontShowAgain -> viewModel.finishDataSourcePrompt(source, dontShowAgain) },
+        )
     }
 
     uiState.errorMessage?.let { message ->
@@ -668,3 +687,52 @@ private const val GLIDER_NAME_OFFSET_DP = 23f
 
 /** Approximate distance from a turnpoint/reference point's anchor down to the center of its name. */
 private const val POINT_NAME_OFFSET_DP = 21f
+
+private val lapTimeFormatter: java.time.format.DateTimeFormatter =
+    java.time.format.DateTimeFormatter.ofPattern("HH:mm:ss").withZone(java.time.ZoneId.systemDefault())
+
+/**
+ * Asks which position source to use, shown at launch while OGN is available so people notice it.
+ * Dismissing without choosing keeps the current source.
+ */
+@Composable
+private fun DataSourcePromptDialog(current: DataSource, onFinish: (DataSource?, Boolean) -> Unit) {
+    var dontShowAgain by remember { mutableStateOf(false) }
+    AlertDialog(
+        onDismissRequest = { onFinish(null, dontShowAgain) },
+        title = { Text("位置情報のデータ元を選んでください") },
+        text = {
+            Column {
+                Text(
+                    "LoRa: クラブのLoRa発信機を積んだ機体を表示します。",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Text(
+                    "FLARM: FLARMやOGNトラッカーを積み、OGN(Open Glider Network)受信機の範囲内(妻沼から約150km)にいる機体を表示します。",
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
+                Text(
+                    "現在: ${current.displayName}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(top = 8.dp).clickable { dontShowAgain = !dontShowAgain },
+                ) {
+                    Checkbox(checked = dontShowAgain, onCheckedChange = { dontShowAgain = it })
+                    Text("次回から表示しない")
+                }
+                Text(
+                    "設定画面の「位置情報のデータ元」からいつでも変更できます。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        },
+        confirmButton = { TextButton(onClick = { onFinish(DataSource.OGN, dontShowAgain) }) { Text(DataSource.OGN.displayName) } },
+        dismissButton = { TextButton(onClick = { onFinish(DataSource.LORA, dontShowAgain) }) { Text(DataSource.LORA.displayName) } },
+    )
+}

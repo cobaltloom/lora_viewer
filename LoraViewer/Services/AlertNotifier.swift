@@ -45,6 +45,17 @@ final class AlertNotifier: NSObject, ObservableObject {
         UNUserNotificationCenter.current().add(request)
     }
 
+    /// Fired once when a glider crosses the goal line after the whole course (see `TaskLapCalculator`).
+    func notifyTaskFinish(gliderName: String, summary: String) {
+        let content = UNMutableNotificationContent()
+        content.title = "ゴール"
+        content.body = "\(gliderName): \(summary)"
+        content.sound = .default
+
+        let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
+        UNUserNotificationCenter.current().add(request)
+    }
+
     /// Fired when two gliders are closing within the proximity warning
     /// distance — see `ProximityAlertSettings`.
     func notifyProximity(gliderName: String, otherGliderName: String, distanceM: Double, altitudeDifferenceM: Double) {

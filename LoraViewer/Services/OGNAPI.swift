@@ -10,7 +10,7 @@ import Network
 /// random-address aircraft and DDB entries marked not tracked are never shown; DDB entries marked not
 /// identified are shown by position only, as "非公開機" with no name, nickname or favorite.
 final class OGNAPI {
-    static let attribution = "データ提供: Open Glider Network (OGN)"
+    static let attribution = "データ提供: Open Glider Network (OGN)・FlarmNet"
     static let userAgent: String = "LoraViewer/\(appVersion) (iOS)"
 
     private static let host = NWEndpoint.Host("aprs.glidernet.org")
@@ -27,7 +27,8 @@ final class OGNAPI {
     private static let silenceTimeout: TimeInterval = 90
     private static let appVersion = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?"
 
-    private let deviceDatabase = OGNDeviceDatabase()
+    private let deviceDatabase = OGNDeviceDatabase.ogn()
+    private let flarmNetDatabase = OGNDeviceDatabase.flarmNet()
     /// Everything below is only touched on `queue`.
     private let queue = DispatchQueue(label: "OGNAPI")
     private var connection: NWConnection?
@@ -47,6 +48,8 @@ final class OGNAPI {
 
     func fetchCurrentPositions() async throws -> [GliderPosition] {
         let devices = try await deviceDatabase.get()
+        // Optional: without FlarmNet, aircraft missing from the OGN DDB are just shown by ID.
+        let flarmNet = (try? await flarmNetDatabase.get()) ?? [:]
         let beacons: [OGNBeacon] = queue.sync {
             ensureStreaming()
             let cutoff = Date().addingTimeInterval(-Self.maxFixAge)
@@ -54,7 +57,8 @@ final class OGNAPI {
             return Array(latestBeacons.values)
         }
         return beacons.compactMap { beacon in
-            let device = devices[beacon.address]
+            // The OGN DDB entry, with its privacy choices, always wins over FlarmNet's.
+            let device = devices[beacon.address] ?? flarmNet[beacon.address]
             if let device, !device.isTracked { return nil }
             return Self.gliderPosition(from: beacon, device: device)
         }

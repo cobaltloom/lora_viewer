@@ -33,7 +33,8 @@ class OgnApiClient(
     cacheDir: File,
     private val httpClient: OkHttpClient = OkHttpClient(),
 ) {
-    private val deviceDatabase = OgnDeviceDatabase(cacheDir, httpClient)
+    private val deviceDatabase = OgnDeviceDatabase.ogn(cacheDir, httpClient)
+    private val flarmNetDatabase = OgnDeviceDatabase.flarmNet(cacheDir, httpClient)
     private val latestBeacons = ConcurrentHashMap<String, OgnBeacon>()
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var streamJob: Job? = null
@@ -44,11 +45,14 @@ class OgnApiClient(
 
     suspend fun fetchCurrentPositions(): List<GliderPosition> {
         val devices = deviceDatabase.get()
+        // Optional: without FlarmNet, aircraft missing from the OGN DDB are just shown by ID.
+        val flarmNet = runCatching { flarmNetDatabase.get() }.getOrDefault(emptyMap())
         ensureStreaming()
         val cutoff = Instant.now().minus(MAX_FIX_AGE)
         latestBeacons.values.removeIf { it.timestamp < cutoff }
         return latestBeacons.values.mapNotNull { beacon ->
-            val device = devices[beacon.address]
+            // The OGN DDB entry, with its privacy choices, always wins over FlarmNet's.
+            val device = devices[beacon.address] ?: flarmNet[beacon.address]
             if (device != null && !device.isTracked) return@mapNotNull null
             beacon.toGliderPosition(device)
         }
@@ -109,7 +113,7 @@ class OgnApiClient(
     }
 
     companion object {
-        const val ATTRIBUTION = "データ提供: Open Glider Network (OGN)"
+        const val ATTRIBUTION = "データ提供: Open Glider Network (OGN)・FlarmNet"
         val USER_AGENT = "LoraViewer/${BuildConfig.VERSION_NAME} (Android)"
 
         private const val HOST = "aprs.glidernet.org"
