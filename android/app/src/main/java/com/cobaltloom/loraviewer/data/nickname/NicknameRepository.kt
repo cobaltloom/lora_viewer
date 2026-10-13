@@ -5,6 +5,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.google.firebase.Timestamp
+import com.google.firebase.firestore.CollectionReference
 import com.google.firebase.firestore.DocumentChange
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
@@ -51,11 +52,19 @@ class NicknameRepository(
     private val nicknamesKey = stringPreferencesKey("gliderNicknamesJson")
     private val syncModeKey = stringPreferencesKey("gliderNicknameSyncMode")
     private val collection = firestore.collection("nicknames")
+    /** OGN (FLARM) gliders' nicknames live in their own collection, outside the daily reset (which
+     * every app version - including ones released before this existed - runs over "nicknames"
+     * only): FLARM ids belong to aircraft, so a name set once stays right indefinitely. */
+    private val flarmCollection = firestore.collection("flarmNicknames")
     private val scheduleDoc = firestore.collection("meta").document("nicknameClearSchedule")
     private val json = Json { ignoreUnknownKeys = true }
     private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     private var listener: ListenerRegistration? = null
+    private var flarmListener: ListenerRegistration? = null
+
+    /** LoRa ids are numeric IMEIs; OGN ids are APRS callsigns like "FLRDB077A". */
+    private fun collectionFor(id: String) = if (id.all { it.isDigit() }) collection else flarmCollection
 
     val syncMode: Flow<NicknameSyncMode> = dataStore.data.map { prefs ->
         prefs[syncModeKey]?.let { raw -> runCatching { NicknameSyncMode.valueOf(raw) }.getOrNull() }
@@ -92,9 +101,9 @@ class NicknameRepository(
             }
             if (syncMode.first() == NicknameSyncMode.SYNCED) {
                 if (trimmed.isEmpty()) {
-                    collection.document(imei).delete()
+                    collectionFor(imei).document(imei).delete()
                 } else {
-                    collection.document(imei).set(
+                    collectionFor(imei).document(imei).set(
                         mapOf("nickname" to trimmed, "updatedAt" to FieldValue.serverTimestamp()),
                     )
                 }
@@ -108,7 +117,12 @@ class NicknameRepository(
      */
     private fun attachListener() {
         if (listener != null) return
-        listener = collection.addSnapshotListener { snapshot, _ ->
+        listener = listenTo(collection)
+        flarmListener = listenTo(flarmCollection)
+    }
+
+    private fun listenTo(target: CollectionReference): ListenerRegistration {
+        return target.addSnapshotListener { snapshot, _ ->
             if (snapshot == null) return@addSnapshotListener
             repositoryScope.launch {
                 dataStore.edit { prefs ->
@@ -132,6 +146,8 @@ class NicknameRepository(
     private fun detachListener() {
         listener?.remove()
         listener = null
+        flarmListener?.remove()
+        flarmListener = null
     }
 
     /**
