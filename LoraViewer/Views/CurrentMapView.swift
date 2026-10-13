@@ -453,6 +453,7 @@ struct CurrentMapView: View {
             .task {
                 viewModel.groundAltitudeThresholdM = alertSettings.minimumFlyingAltitudeM
                 favoritesStore.dataSource = settings.effectiveDataSource
+                turnpointPassageLog.dataSource = settings.effectiveDataSource
                 viewModel.startPolling()
                 offerDataSourcePromptIfNeeded()
                 locationManager.requestAuthorizationIfNeeded()
@@ -470,6 +471,7 @@ struct CurrentMapView: View {
             }
             .onChange(of: settings.effectiveDataSource) {
                 favoritesStore.dataSource = settings.effectiveDataSource
+                turnpointPassageLog.dataSource = settings.effectiveDataSource
                 // Fetch from the new source right away instead of waiting out the current interval.
                 selectedGlider = nil
                 viewModel.startPolling()

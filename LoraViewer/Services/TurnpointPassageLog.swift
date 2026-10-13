@@ -4,12 +4,29 @@ import Foundation
 /// to UserDefaults so they survive app relaunch and can be reviewed later in
 /// the day even if a push notification was missed. This is a rolling log for
 /// same-day review, not a full flight-log archive, so entries older than
-/// `retentionDays` are dropped on load.
+/// `retentionDays` are dropped on load. LoRa and OGN (FLARM) keep separate
+/// logs, like favorites: the same glider has different names in each, so a
+/// shared log would mix them and could list one passage twice.
 @MainActor
 final class TurnpointPassageLog: ObservableObject {
     @Published private(set) var records: [TurnpointPassageRecord] = []
 
-    private let storageKey = "turnpointPassageLog"
+    /// Set by the map view whenever the effective data source changes.
+    var dataSource: DataSource = .lora {
+        didSet {
+            guard dataSource != oldValue else { return }
+            records = []
+            load()
+        }
+    }
+
+    /// The LoRa key predates OGN support and is kept as-is so existing records survive.
+    private var storageKey: String {
+        switch dataSource {
+        case .lora: return "turnpointPassageLog"
+        case .ogn: return "turnpointPassageLogOGN"
+        }
+    }
     private let retentionDays = 2
 
     init() {

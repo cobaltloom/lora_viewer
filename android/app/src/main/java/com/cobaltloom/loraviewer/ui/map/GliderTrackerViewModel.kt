@@ -205,6 +205,9 @@ class GliderTrackerViewModel(
 
     private var pollingJob: Job? = null
 
+    /** Each source's passage log; [GliderTrackerUiState.turnpointPassageRecords] is the current source's. */
+    private var passageRecordsBySource: Map<DataSource, List<TurnpointPassageRecord>> = emptyMap()
+
     /** Each source's favorites; [GliderTrackerUiState.favorites] is the current source's. */
     private var favoritesBySource: Map<DataSource, Set<String>> = emptyMap()
 
@@ -277,8 +280,9 @@ class GliderTrackerViewModel(
             }
         }
         viewModelScope.launch {
-            turnpointPassageLogRepository.records.collect { records ->
-                _uiState.update { it.copy(turnpointPassageRecords = records) }
+            turnpointPassageLogRepository.recordsBySource.collect { bySource ->
+                passageRecordsBySource = bySource
+                _uiState.update { it.copy(turnpointPassageRecords = bySource[it.dataSource].orEmpty()) }
             }
         }
         viewModelScope.launch {
@@ -316,6 +320,7 @@ class GliderTrackerViewModel(
                             isOgnAvailable = settings.isOgnAvailable,
                             shouldOfferDataSourcePrompt = settings.isOgnAvailable && !settings.isDataSourcePromptSuppressed,
                             favorites = favoritesBySource[source].orEmpty(),
+                            turnpointPassageRecords = passageRecordsBySource[source].orEmpty(),
                         )
                     }
                     // The first value is just the saved choice, not a switch: keep persisted trails.
@@ -428,7 +433,7 @@ class GliderTrackerViewModel(
     }
 
     fun clearTodaysTurnpointPassages() {
-        viewModelScope.launch { turnpointPassageLogRepository.clearToday() }
+        viewModelScope.launch { turnpointPassageLogRepository.clearToday(_uiState.value.dataSource) }
     }
 
     fun setShowGliderTrails(show: Boolean) {
@@ -626,7 +631,7 @@ class GliderTrackerViewModel(
                 if (key !in previouslyInsideTurnpoints) {
                     val gliderName = state.nameFor(glider)
                     alertNotifier.notifyTurnpointPassage(gliderName, name, glider.alt)
-                    turnpointPassageLogRepository.record(gliderName, name, glider.alt)
+                    turnpointPassageLogRepository.record(state.dataSource, gliderName, name, glider.alt)
                 }
             }
         }
@@ -673,13 +678,13 @@ class GliderTrackerViewModel(
             // rounding any turnpoint leaves no stray "スタート" in the history.
             status.startMillis?.takeIf { status.passedTurnpoints.isNotEmpty() }?.let { start ->
                 if (reportedStarts.add("$id|$start")) {
-                    turnpointPassageLogRepository.recordPastPassage(gliderName, "スタート", status.startAltitudeM, start)
+                    turnpointPassageLogRepository.recordPastPassage(state.dataSource, gliderName, "スタート", status.startAltitudeM, start)
                 }
             }
             val finish = status.finishMillis ?: continue
             if (!reportedFinishes.add("$id|$finish")) continue
             val summary = lapSummary(status, course.distanceKm, now) { "" }.removePrefix("周回: ")
-            turnpointPassageLogRepository.recordPastPassage(gliderName, "ゴール $summary", status.finishAltitudeM, finish)
+            turnpointPassageLogRepository.recordPastPassage(state.dataSource, gliderName, "ゴール $summary", status.finishAltitudeM, finish)
             // Only announce a finish that just happened - not one found in history on reopening.
             if (now - finish < RECENT_FINISH_MILLIS) alertNotifier.notifyTaskFinish(gliderName, summary)
         }
@@ -712,7 +717,7 @@ class GliderTrackerViewModel(
             for (point in points) {
                 val now = turnpointSectorsContaining(point.coordinate.latitude, point.coordinate.longitude, course).toSet()
                 for (name in now - inside) {
-                    turnpointPassageLogRepository.recordPastPassage(gliderName, name, point.altitudeM, point.timeMillis)
+                    turnpointPassageLogRepository.recordPastPassage(state.dataSource, gliderName, name, point.altitudeM, point.timeMillis)
                 }
                 inside = now
             }
