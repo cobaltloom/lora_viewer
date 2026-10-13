@@ -574,7 +574,9 @@ struct CurrentMapView: View {
         for (id, status) in statuses {
             guard let glider = viewModel.positions.first(where: { $0.imei == id }) else { continue }
             let gliderName = displayName(for: glider)
-            if let start = status.start, reportedLapEvents.insert("\(id)|start|\(start.timeIntervalSince1970)").inserted {
+            // Logged only once the first turnpoint is reached, so a flight that lands without
+            // rounding any turnpoint leaves no stray "スタート" in the history.
+            if let start = status.start, !status.passedTurnpoints.isEmpty, reportedLapEvents.insert("\(id)|start|\(start.timeIntervalSince1970)").inserted {
                 turnpointPassageLog.recordPastPassage(gliderName: gliderName, turnpointName: "スタート", altitudeM: status.startAltitudeM, timestamp: start)
             }
             guard let finish = status.finish,

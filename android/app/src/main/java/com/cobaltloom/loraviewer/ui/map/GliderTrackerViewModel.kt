@@ -669,7 +669,9 @@ class GliderTrackerViewModel(
         for ((id, status) in statuses) {
             val glider = state.positions.firstOrNull { it.imei == id } ?: continue
             val gliderName = state.nameFor(glider)
-            status.startMillis?.let { start ->
+            // Logged only once the first turnpoint is reached, so a flight that lands without
+            // rounding any turnpoint leaves no stray "スタート" in the history.
+            status.startMillis?.takeIf { status.passedTurnpoints.isNotEmpty() }?.let { start ->
                 if (reportedStarts.add("$id|$start")) {
                     turnpointPassageLogRepository.recordPastPassage(gliderName, "スタート", status.startAltitudeM, start)
                 }
