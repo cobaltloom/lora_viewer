@@ -8,6 +8,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
@@ -75,8 +76,10 @@ class OgnDeviceDatabase private constructor(
             if (!response.isSuccessful) throw TrailRouteApiException.InvalidResponse()
             val body = response.body?.string() ?: throw TrailRouteApiException.InvalidResponse()
             parse(body, registrationPrefix) // don't replace a good cache with something unparseable
+            // Cache only the entries we use (FlarmNet: a few KB instead of ~2 MB).
+            val stored = registrationPrefix?.let { keepRegistrations(body, it) } ?: body
             val tmp = File(target.parentFile, target.name + ".tmp")
-            tmp.writeText(body)
+            tmp.writeText(stored)
             tmp.renameTo(target)
         }
     }
@@ -96,6 +99,14 @@ class OgnDeviceDatabase private constructor(
         fun flarmNet(cacheDir: File, httpClient: OkHttpClient) = OgnDeviceDatabase(
             cacheDir, httpClient, "https://www.flarmnet.org/files/ddb.json", "flarmnet_ddb.json", "JA",
         )
+
+        /** The same DDB JSON with only the entries whose registration starts with [prefix]. */
+        fun keepRegistrations(body: String, prefix: String): String {
+            val devices = json.parseToJsonElement(body).jsonObject["devices"]?.jsonArray
+                ?: throw TrailRouteApiException.InvalidResponse()
+            val kept = devices.filter { (it as? JsonObject)?.lenientString("registration")?.trim()?.startsWith(prefix) == true }
+            return JsonObject(mapOf("devices" to JsonArray(kept))).toString()
+        }
 
         fun parse(body: String, registrationPrefix: String? = null): Map<String, OgnDevice> {
             val devices = json.parseToJsonElement(body).jsonObject["devices"]?.jsonArray

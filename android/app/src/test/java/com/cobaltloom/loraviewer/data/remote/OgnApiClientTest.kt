@@ -107,15 +107,17 @@ class OgnApiClientTest {
 
     @Test
     fun flarmNetKeepsOnlyJapaneseRegistrations() {
-        val db = OgnDeviceDatabase.parse(
-            """{"devices":[
+        val body = """{"devices":[
               {"device_type":"I","device_id":"84bf1d","aircraft_model":"ASK21","registration":"JA2365","cn":"WM","tracked":"Y","identified":"Y"},
               {"device_type":"F","device_id":"000256","aircraft_model":"ASK 16","registration":"D-KGOR","cn":"OR","tracked":"Y","identified":"Y"},
               {"device_type":"F","device_id":"000999","aircraft_model":"","registration":"","cn":"","tracked":"Y","identified":"Y"}
-            ]}""",
-            registrationPrefix = "JA",
-        )
+            ]}"""
+        val db = OgnDeviceDatabase.parse(body, registrationPrefix = "JA")
         assertEquals(setOf("84BF1D"), db.keys)
         assertEquals("WM", db.getValue("84BF1D").competitionId)
+        // What gets cached: the same format, JA entries only.
+        val stored = OgnDeviceDatabase.keepRegistrations(body, "JA")
+        assertFalse("D-KGOR" in stored)
+        assertEquals(db, OgnDeviceDatabase.parse(stored))
     }
 }

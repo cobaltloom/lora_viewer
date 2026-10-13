@@ -82,7 +82,21 @@ actor OGNDeviceDatabase {
             throw TrailRouteAPIError.invalidResponse
         }
         _ = try Self.parse(data, registrationPrefix: registrationPrefix) // don't replace a good cache with something unparseable
-        try data.write(to: file, options: .atomic)
+        // Cache only the entries we use (FlarmNet: a few KB instead of ~2 MB).
+        let stored = try registrationPrefix.map { try Self.keepRegistrations(data, prefix: $0) } ?? data
+        try stored.write(to: file, options: .atomic)
+    }
+
+    /// The same DDB JSON with only the entries whose registration starts with `prefix`.
+    static func keepRegistrations(_ data: Data, prefix: String) throws -> Data {
+        guard let root = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let devices = root["devices"] as? [[String: Any]] else {
+            throw TrailRouteAPIError.invalidResponse
+        }
+        let kept = devices.filter {
+            (($0["registration"] as? String) ?? "").trimmingCharacters(in: .whitespaces).hasPrefix(prefix)
+        }
+        return try JSONSerialization.data(withJSONObject: ["devices": kept])
     }
 
     static func parse(_ data: Data, registrationPrefix: String? = nil) throws -> [String: OGNDevice] {
