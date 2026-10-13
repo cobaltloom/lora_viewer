@@ -47,8 +47,8 @@ android {
         applicationId = "com.cobaltloom.loraviewer"
         minSdk = 26
         targetSdk = 37
-        versionCode = 12
-        versionName = "1.5"
+        versionCode = 13
+        versionName = "1.6"
 
         manifestPlaceholders["MAPS_API_KEY"] = mapsApiKey
 
