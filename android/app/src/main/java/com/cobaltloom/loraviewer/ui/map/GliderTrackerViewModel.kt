@@ -19,6 +19,7 @@ import com.cobaltloom.loraviewer.data.alert.Coordinate
 import com.cobaltloom.loraviewer.data.alert.GliderAlertReason
 import com.cobaltloom.loraviewer.data.alert.ProximityAlertSettings
 import com.cobaltloom.loraviewer.data.alert.ProximityAlertSettingsRepository
+import com.cobaltloom.loraviewer.data.alert.TaskLapCache
 import com.cobaltloom.loraviewer.data.alert.TaskLapCalculator
 import com.cobaltloom.loraviewer.data.alert.TaskLapStatus
 import com.cobaltloom.loraviewer.data.alert.TimedPoint
@@ -214,6 +215,7 @@ class GliderTrackerViewModel(
     /** Each flying glider's timed positions this flight (live, plus any backfilled from the track
      * server), kept for lap timing. Dropped when the glider lands, like its trail. */
     private val timedTracks = mutableMapOf<String, MutableList<TimedPoint>>()
+    private val lapCache = TaskLapCache()
 
     /** "imei|time" of starts and finishes already logged (finishes also announced), so each is
      * reported once. */
@@ -285,6 +287,7 @@ class GliderTrackerViewModel(
                 _uiState.update { it.copy(turnpointPassageRecords = bySource[it.dataSource].orEmpty()) }
             }
         }
+        viewModelScope.launch { gliderTrailRepository.load() }
         viewModelScope.launch {
             gliderTrailRepository.trails.collect { trails ->
                 _uiState.update {
@@ -368,6 +371,7 @@ class GliderTrackerViewModel(
     private suspend fun onDataSourceChanged() {
         gliderTrailRepository.clear()
         timedTracks.clear()
+        lapCache.clear()
         _uiState.update { it.copy(lapStatuses = emptyMap()) }
         needsTrailBackfill = true
         lastTrailBackfill = Instant.EPOCH
@@ -386,6 +390,11 @@ class GliderTrackerViewModel(
         pollingJob?.cancel()
         pollingJob = null
         repository.stopStreaming()
+    }
+
+    /** Saves trail points not yet saved, e.g. when the app goes to the background. */
+    fun saveTrailsNow() {
+        viewModelScope.launch { gliderTrailRepository.flush() }
     }
 
     override fun onCleared() {
@@ -453,7 +462,8 @@ class GliderTrackerViewModel(
     }
 
     suspend fun refreshOnce() {
-        _uiState.update { it.copy(isLoading = true) }
+        // Only for the first fetch: toggling this on every refresh recomposed the whole map twice.
+        if (_uiState.value.lastUpdated == null) _uiState.update { it.copy(isLoading = true) }
         try {
             val source = repository.currentDataSource()
             val positions = repository.fetchCurrentPositions(source)
@@ -670,7 +680,7 @@ class GliderTrackerViewModel(
             CompetitionAltitudeGuideline.requiredAltitudeM(distanceMeters(center.latitude, center.longitude, p.lat, p.lon) / 1000.0)
         }
         val now = System.currentTimeMillis()
-        val statuses = timedTracks.mapValues { (_, points) -> TaskLapCalculator.evaluate(points, course, guideline) }
+        val statuses = lapCache.statuses(timedTracks, course, guideline)
         for ((id, status) in statuses) {
             val glider = state.positions.firstOrNull { it.imei == id } ?: continue
             val gliderName = state.nameFor(glider)

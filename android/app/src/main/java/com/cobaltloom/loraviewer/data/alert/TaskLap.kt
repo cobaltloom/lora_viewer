@@ -40,6 +40,40 @@ data class TaskLapStatus(
     val isGoalTooLow: Boolean get() = finishAltitudeM != null && finishAltitudeM < TaskLapCalculator.MIN_GOAL_ALTITUDE_M
 }
 
+/**
+ * Remembers each glider's last lap status so a refresh only re-times gliders whose track changed.
+ * A finished lap is reused while its track just grows at the end, since points after the finish
+ * can't change it (start, turnpoints and finish are each the first match in order).
+ */
+class TaskLapCache {
+    private data class Entry(val course: CompetitionTaskCourse, val firstMillis: Long, val lastMillis: Long, val size: Int, val status: TaskLapStatus)
+
+    private val entries = mutableMapOf<String, Entry>()
+
+    fun statuses(
+        tracks: Map<String, List<TimedPoint>>,
+        course: CompetitionTaskCourse,
+        requiredAltitudeM: (TimedPoint) -> Double?,
+    ): Map<String, TaskLapStatus> {
+        entries.keys.retainAll(tracks.keys)
+        return tracks.mapValues { (id, points) ->
+            val first = points.firstOrNull()?.timeMillis
+            val last = points.lastOrNull()?.timeMillis
+            val entry = entries[id]
+            if (entry != null && first != null && last != null && entry.course == course && entry.firstMillis == first &&
+                ((entry.lastMillis == last && entry.size == points.size) || (entry.status.finishMillis != null && points.size >= entry.size))
+            ) {
+                return@mapValues entry.status
+            }
+            val status = TaskLapCalculator.evaluate(points, course, requiredAltitudeM)
+            if (first != null && last != null) entries[id] = Entry(course, first, last, points.size, status)
+            status
+        }
+    }
+
+    fun clear() = entries.clear()
+}
+
 object TaskLapCalculator {
     /** 規則50(5): goal line crossing altitude (MSL). */
     const val MIN_GOAL_ALTITUDE_M = 330.0

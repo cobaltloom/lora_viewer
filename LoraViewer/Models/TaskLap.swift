@@ -69,6 +69,43 @@ struct TaskLapStatus {
     }
 }
 
+/// Remembers each glider's last lap status so a refresh only re-times gliders whose track changed.
+/// A finished lap is reused while its track just grows at the end, since points after the finish
+/// can't change it (start, turnpoints and finish are each the first match in order).
+final class TaskLapCache {
+    private struct Entry {
+        let courseKey: String
+        let firstTime: Date
+        let lastTime: Date
+        let count: Int
+        let status: TaskLapStatus
+    }
+
+    private var entries: [String: Entry] = [:]
+
+    func statuses(for tracks: [String: [TimedPoint]], course: CompetitionTaskCourse) -> [String: TaskLapStatus] {
+        let courseKey = course.turnpointNames.joined(separator: ",")
+        entries = entries.filter { tracks[$0.key] != nil }
+        var result: [String: TaskLapStatus] = [:]
+        for (id, points) in tracks {
+            guard let first = points.first?.time, let last = points.last?.time else {
+                result[id] = TaskLapCalculator.evaluate(points, course: course)
+                continue
+            }
+            if let entry = entries[id], entry.courseKey == courseKey, entry.firstTime == first,
+               (entry.lastTime == last && entry.count == points.count)
+                || (entry.status.finish != nil && points.count >= entry.count) {
+                result[id] = entry.status
+                continue
+            }
+            let status = TaskLapCalculator.evaluate(points, course: course)
+            entries[id] = Entry(courseKey: courseKey, firstTime: first, lastTime: last, count: points.count, status: status)
+            result[id] = status
+        }
+        return result
+    }
+}
+
 enum TaskLapCalculator {
     /// 規則50(5): goal line crossing altitude (MSL).
     static let minGoalAltitudeM = 330.0
@@ -104,6 +141,11 @@ enum TaskLapCalculator {
     private static func isInSector(_ p: TimedPoint, course: CompetitionTaskCourse, name: String) -> Bool {
         guard let tp = CompetitionTaskCourseData.turnpoints[name],
               let bisector = CompetitionTaskCourseData.sectorBearing(in: course, turnpointName: name) else { return false }
+        // Cheap flat-projection check first, so most points never need the exact distance below.
+        let tpXY = xy(tp), pXY = xy(p.coordinate)
+        let dx = pXY.x - tpXY.x, dy = pXY.y - tpXY.y
+        let roughLimitM = CompetitionTaskCourseData.turnpointRadiusKm * 1000 * 1.1
+        guard dx * dx + dy * dy <= roughLimitM * roughLimitM else { return false }
         let distance = CLLocation(latitude: tp.latitude, longitude: tp.longitude)
             .distance(from: CLLocation(latitude: p.coordinate.latitude, longitude: p.coordinate.longitude))
         return distance <= CompetitionTaskCourseData.turnpointRadiusKm * 1000

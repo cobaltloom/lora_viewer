@@ -28,6 +28,8 @@ struct CurrentMapView: View {
     @State private var lapStatuses: [String: TaskLapStatus] = [:]
     /// "imei|time" of starts/finishes already logged (finishes also notified), so each is reported once.
     @State private var reportedLapEvents: Set<String> = []
+    @State private var lapCache = TaskLapCache()
+    @Environment(\.scenePhase) private var scenePhase
     @State private var showSettings = false
     /// Launch-time LoRa/OGN chooser, so people notice OGN is available at all. Shown once per launch
     /// until "次回から表示しない" is checked.
@@ -287,13 +289,16 @@ struct CurrentMapView: View {
                     }
                     UserAnnotation()
                 }
-                .mapStyle(mapStyleIsSatellite ? .hybrid(elevation: .realistic) : .standard(elevation: .realistic))
+                // Flat, not 3D terrain: the Menuma area gains nothing visible from it, and rendering terrain
+                // kept the GPU busy enough to make phones run hot.
+                .mapStyle(mapStyleIsSatellite ? .hybrid(elevation: .flat) : .standard(elevation: .flat))
                 .mapControls {
                     MapCompass()
                     MapScaleView()
                     MapUserLocationButton()
                 }
-                .onMapCameraChange(frequency: .continuous) { context in
+                // Only once a pan/zoom ends: updating on every frame rebuilt the whole map content each frame.
+                .onMapCameraChange(frequency: .onEnd) { context in
                     visibleRegionCenter = context.region.center
                 }
                 .overlay(alignment: .bottomLeading) {
@@ -462,6 +467,9 @@ struct CurrentMapView: View {
             .onDisappear {
                 viewModel.stopPolling()
             }
+            .onChange(of: scenePhase) { _, phase in
+                if phase != .active { viewModel.saveTrailsNow() }
+            }
             .onChange(of: alertSettings.minimumFlyingAltitudeM) { _, newValue in
                 viewModel.groundAltitudeThresholdM = newValue
             }
@@ -572,7 +580,7 @@ struct CurrentMapView: View {
             return
         }
         let now = Date()
-        let statuses = viewModel.timedTracks.mapValues { TaskLapCalculator.evaluate($0, course: course) }
+        let statuses = lapCache.statuses(for: viewModel.timedTracks, course: course)
         for (id, status) in statuses {
             guard let glider = viewModel.positions.first(where: { $0.imei == id }) else { continue }
             let gliderName = displayName(for: glider)

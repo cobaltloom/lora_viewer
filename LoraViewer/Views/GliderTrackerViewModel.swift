@@ -47,6 +47,10 @@ final class GliderTrackerViewModel: ObservableObject {
 
     private let maxTrailPointsPerGlider = 2000
     private let trailsStorageKey = "gliderTrails"
+    /// Live trail points are saved at most this often (plus on going to the background, see
+    /// `saveTrailsNow`): JSON-encoding every trail on each 2 s refresh kept the CPU busy.
+    private static let trailSaveInterval: TimeInterval = 30
+    private var lastTrailSave = Date.distantPast
 
     private let api: TrailRouteAPI
     private let ognAPI = OGNAPI()
@@ -84,8 +88,10 @@ final class GliderTrackerViewModel: ObservableObject {
     }
 
     func refreshOnce() async {
-        isLoading = true
-        defer { isLoading = false }
+        // Only for the first fetch: toggling this on every refresh re-rendered the whole map twice.
+        let showsLoading = lastUpdated == nil
+        if showsLoading { isLoading = true }
+        defer { if showsLoading { isLoading = false } }
         let source = settings.effectiveDataSource
         if let lastDataSource, lastDataSource != source {
             positions = []
@@ -116,7 +122,7 @@ final class GliderTrackerViewModel: ObservableObject {
             // Not awaited: a slow track server must never hold up the live refresh loop.
             Task { await backfillTrailsIfNeeded(source: source) }
             lastUpdated = Date()
-            errorMessage = nil
+            if errorMessage != nil { errorMessage = nil }
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -179,12 +185,17 @@ final class GliderTrackerViewModel: ObservableObject {
     }
 
     private func recordTrailPoints(from positions: [GliderPosition]) {
+        // Built on a copy and assigned once, so `trails` publishes (and reassigns color slots) once
+        // per refresh rather than once per glider.
+        var updated = trails
+        var changed = false
+        var landed = false
         for glider in positions {
             guard let alt = glider.alt, alt > groundAltitudeThresholdM else {
-                trails.removeValue(forKey: glider.imei)
+                if updated.removeValue(forKey: glider.imei) != nil { changed = true; landed = true }
                 continue
             }
-            var points = trails[glider.imei] ?? []
+            var points = updated[glider.imei] ?? []
             if let last = points.last, last.latitude == glider.lat, last.longitude == glider.lon {
                 continue
             }
@@ -192,9 +203,15 @@ final class GliderTrackerViewModel: ObservableObject {
             if points.count > maxTrailPointsPerGlider {
                 points.removeFirst(points.count - maxTrailPointsPerGlider)
             }
-            trails[glider.imei] = points
+            updated[glider.imei] = points
+            changed = true
         }
-        saveTrails()
+        guard changed else { return }
+        trails = updated
+        // A landing is saved at once, so a reopened app doesn't bring back a finished flight's trail.
+        if landed || Date().timeIntervalSince(lastTrailSave) >= Self.trailSaveInterval {
+            saveTrails()
+        }
     }
 
     private func assignTrailColorSlots() {
@@ -215,7 +232,13 @@ final class GliderTrackerViewModel: ObservableObject {
         trails = decoded.mapValues { $0.map(\.coordinate) }
     }
 
+    /// Saves any trail points not yet saved; called when the app goes to the background.
+    func saveTrailsNow() {
+        saveTrails()
+    }
+
     private func saveTrails() {
+        lastTrailSave = Date()
         let encoded = trails.mapValues { $0.map(TrailPoint.init) }
         guard let data = try? JSONEncoder().encode(encoded) else { return }
         UserDefaults.standard.set(data, forKey: trailsStorageKey)
