@@ -82,26 +82,37 @@ struct ToBeat {
 
     var remainingSeconds: Double { targetSeconds - elapsedSeconds }
 
-    /// "21:00", like a ski jump broadcast's to-beat line.
+    /// "21:00", as on motorsport timing screens.
     static func clock(_ seconds: Double) -> String {
         let total = max(0, Int(seconds.rounded(.down)))
         return String(format: "%d:%02d", total / 60, total % 60)
     }
+
+    /// F1-style delta to the target: "Δ −11:02" with time in hand, "Δ +0:45" once over.
+    var delta: String {
+        remainingSeconds > 0 ? "Δ −\(Self.clock(remainingSeconds))" : "Δ +\(Self.clock(-remainingSeconds))"
+    }
 }
 
 extension Color {
-    /// The to-beat line's colour.
+    /// The timing tags' and target times' colour.
     static let toBeatAccent = Color(red: 0.78, green: 1.0, blue: 0.0)
+    /// F1 timing's "purple": on pace for the fastest of all.
+    static let timingPurple = Color(red: 0.69, green: 0.32, blue: 0.95)
+    /// F1 timing's yellow.
+    static let timingYellow = Color(red: 1.0, green: 0.84, blue: 0.0)
     static let toBeatPanel = LinearGradient(
         colors: [Color(red: 0.04, green: 0.12, blue: 0.23), Color(red: 0.07, green: 0.21, blue: 0.36)],
         startPoint: .topLeading, endPoint: .bottomTrailing
     )
 }
 
-/// The "TO BEAT" tag, as on a ski jump broadcast.
+/// A timing-screen tag ("TIME TO BEAT", "TARGET"), as in motorsport broadcasts.
 struct ToBeatTag: View {
+    var text = "TIME TO BEAT"
+
     var body: some View {
-        Text("TO BEAT")
+        Text(text)
             .font(.caption2.weight(.heavy))
             .tracking(1.5)
             .padding(.horizontal, 7)
@@ -111,31 +122,31 @@ struct ToBeatTag: View {
     }
 }
 
-/// The detail card's to-beat strip: the target lap time, the time left, and a bar of the lap so
-/// far that turns orange in the last minute and red once the target has passed.
+/// The detail card's target strip, F1 style: the lap time that would take P1, the delta to it, and
+/// a bar of the lap so far - purple while on pace for P1, yellow in the last minute, red once over.
 struct ToBeatBadge: View {
     let toBeat: ToBeat
 
     private var barColor: Color {
         if toBeat.remainingSeconds <= 0 { return .red }
-        return toBeat.remainingSeconds < 60 ? .orange : .toBeatAccent
+        return toBeat.remainingSeconds < 60 ? .timingYellow : .timingPurple
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
-                ToBeatTag()
+                ToBeatTag(text: "TARGET")
                 if toBeat.targetSeconds.isInfinite {
-                    Text("周回で1位")
+                    Text("周回でP1")
                         .font(.headline)
                 } else {
                     Text(ToBeat.clock(toBeat.targetSeconds))
                         .font(.system(.title2, design: .rounded).weight(.bold).monospacedDigit())
                         .foregroundStyle(Color.toBeatAccent)
                     Spacer()
-                    Text(toBeat.remainingSeconds > 0 ? "あと \(ToBeat.clock(toBeat.remainingSeconds))" : "超過")
+                    Text(toBeat.delta)
                         .font(.subheadline.weight(.semibold).monospacedDigit())
-                        .foregroundStyle(toBeat.remainingSeconds > 0 ? Color.white : Color.red)
+                        .foregroundStyle(barColor == .timingPurple ? Color.white : barColor)
                 }
             }
             if !toBeat.targetSeconds.isInfinite {

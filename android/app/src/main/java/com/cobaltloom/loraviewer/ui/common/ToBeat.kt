@@ -43,8 +43,11 @@ data class ToBeat(
 ) {
     val remainingSeconds: Double get() = targetSeconds - elapsedSeconds
 
+    /** F1-style delta to the target: "Δ −11:02" with time in hand, "Δ +0:45" once over. */
+    val delta: String get() = if (remainingSeconds > 0) "Δ −${clock(remainingSeconds)}" else "Δ +${clock(-remainingSeconds)}"
+
     companion object {
-        /** "21:00", like a ski jump broadcast's to-beat line. */
+        /** "21:00", as on motorsport timing screens. */
         fun clock(seconds: Double): String {
             val total = maxOf(0, seconds.toInt())
             return "%d:%02d".format(total / 60, total % 60)
@@ -53,14 +56,20 @@ data class ToBeat(
 }
 
 val ToBeatAccent = Color(0xFFC6FF00)
+
+/** F1 timing's "purple": on pace for the fastest of all. */
+private val TimingPurple = Color(0xFFB052F2)
+
+/** F1 timing's yellow. */
+private val TimingYellow = Color(0xFFFFD600)
 private val ToBeatPanel = Brush.linearGradient(listOf(Color(0xFF0A1F3B), Color(0xFF12355C)))
 private val BigTime = TextStyle(fontSize = 24.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
 
-/** The "TO BEAT" tag, as on a ski jump broadcast. */
+/** A timing-screen tag ("TIME TO BEAT", "TARGET"), as in motorsport broadcasts. */
 @Composable
-fun ToBeatTag() {
+fun ToBeatTag(text: String = "TIME TO BEAT") {
     Text(
-        "TO BEAT",
+        text,
         color = Color.Black,
         fontSize = 11.sp,
         fontWeight = FontWeight.Black,
@@ -69,30 +78,30 @@ fun ToBeatTag() {
     )
 }
 
-/** The detail card's to-beat strip: the target lap time, the time left, and a bar of the lap so far
- * that turns orange in the last minute and red once the target has passed. */
+/** The detail card's target strip, F1 style: the lap time that would take P1, the delta to it, and a
+ * bar of the lap so far - purple while on pace for P1, yellow in the last minute, red once over. */
 @Composable
 fun ToBeatBadge(toBeat: ToBeat, modifier: Modifier = Modifier) {
     val infinite = toBeat.targetSeconds.isInfinite()
     val barColor = when {
         toBeat.remainingSeconds <= 0 -> Color.Red
-        toBeat.remainingSeconds < 60 -> Color(0xFFFF9800)
-        else -> ToBeatAccent
+        toBeat.remainingSeconds < 60 -> TimingYellow
+        else -> TimingPurple
     }
     Column(
         modifier = modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(ToBeatPanel).padding(10.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            ToBeatTag()
+            ToBeatTag("TARGET")
             if (infinite) {
-                Text("周回で1位", color = Color.White, style = MaterialTheme.typography.titleMedium)
+                Text("周回でP1", color = Color.White, style = MaterialTheme.typography.titleMedium)
             } else {
                 Text(ToBeat.clock(toBeat.targetSeconds), color = ToBeatAccent, style = BigTime)
                 Spacer(Modifier.weight(1f))
                 Text(
-                    if (toBeat.remainingSeconds > 0) "あと ${ToBeat.clock(toBeat.remainingSeconds)}" else "超過",
-                    color = if (toBeat.remainingSeconds > 0) Color.White else Color.Red,
+                    toBeat.delta,
+                    color = if (barColor == TimingPurple) Color.White else barColor,
                     fontWeight = FontWeight.SemiBold,
                     fontFamily = FontFamily.Monospace,
                 )
@@ -110,8 +119,8 @@ fun ToBeatBadge(toBeat: ToBeat, modifier: Modifier = Modifier) {
 /** One handicap class's to-beat time in [ToBeatCard]. */
 data class ToBeatRow(val handicap: Double, val seconds: Double)
 
-/** The history's to-beat panel, styled after a ski jump broadcast: today's leader, then the lap time
- * each handicap class must beat to take the lead (see [LapScore.lapSecondsToBeat]). */
+/** The history's TIME TO BEAT panel, styled after F1 timing graphics: today's P1, then the lap time
+ * each handicap class must beat to take P1 (see [LapScore.lapSecondsToBeat]). */
 @Composable
 fun ToBeatCard(leaderName: String, leaderScore: Double, leaderLapSeconds: Double?, rows: List<ToBeatRow>, modifier: Modifier = Modifier) {
     Column(
@@ -122,7 +131,7 @@ fun ToBeatCard(leaderName: String, leaderScore: Double, leaderLapSeconds: Double
             ToBeatTag()
             Spacer(Modifier.weight(1f))
             Column(horizontalAlignment = Alignment.End) {
-                Text("1位  $leaderName", color = Color.White, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelLarge, maxLines = 1)
+                Text("P1  $leaderName", color = Color.White, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelLarge, maxLines = 1)
                 Text(
                     listOfNotNull(leaderLapSeconds?.let { ToBeat.clock(it) }, "%.1f点".format(leaderScore)).joinToString("  "),
                     color = Color.White.copy(alpha = 0.75f),
@@ -154,11 +163,11 @@ fun ToBeatCard(leaderName: String, leaderScore: Double, leaderLapSeconds: Double
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f),
                 )
-                Text(if (row.seconds.isInfinite()) "周回で1位" else ToBeat.clock(row.seconds), color = ToBeatAccent, style = BigTime)
+                Text(if (row.seconds.isInfinite()) "周回でP1" else ToBeat.clock(row.seconds), color = ToBeatAccent, style = BigTime)
             }
         }
         Text(
-            "この時間より速く周回すると1位(ゴール330m以上で通過した場合)",
+            "この時間より速く周回するとP1(1位)。ゴール330m以上で通過した場合",
             color = Color.White.copy(alpha = 0.6f),
             style = MaterialTheme.typography.labelSmall,
         )

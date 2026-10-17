@@ -86,7 +86,7 @@ struct TurnpointPassageHistoryView: View {
                         Text("周回・得点")
                     } footer: {
                         if !scores.isEmpty {
-                            Text("参考得点は競技規則53の式(距離・速度・ハンディキャップ)で、この端末が計時した飛行ごとに計算した目安です。周回できなかった飛行は、規則56(1)により細則2の距離表の距離点のみです。ゴール高度が280〜330m未満は50点減点、280m未満は速度点なしです(細則7 別表)。「1位を上回るのに必要な周回時間」は、その時間で周回すると全員の得点を計算し直した結果1位になる時間です(ゴール高度330m以上の場合)。公式成績は各選手のその日最後の飛行をIGCロガーで判定します。ハンディキャップは関東大会の出場機には機種に合わせた値が入っており、それ以外は1.00です。得点の行をタップするか、メンバー一覧で機体ごとに変更できます。")
+                            Text("参考得点は競技規則53の式(距離・速度・ハンディキャップ)で、この端末が計時した飛行ごとに計算した目安です。周回できなかった飛行は、規則56(1)により細則2の距離表の距離点のみです。ゴール高度が280〜330m未満は50点減点、280m未満は速度点なしです(細則7 別表)。「TIME TO BEAT」は、その時間で周回すると全員の得点を計算し直した結果1位(P1)になる時間です(ゴール高度330m以上の場合)。公式成績は各選手のその日最後の飛行をIGCロガーで判定します。ハンディキャップは関東大会の出場機には機種に合わせた値が入っており、それ以外は1.00です。得点の行をタップするか、メンバー一覧で機体ごとに変更できます。")
                         }
                     }
                 }
@@ -165,8 +165,8 @@ struct TurnpointPassageHistoryView: View {
     }
 }
 
-/// The history's to-beat panel, styled after a ski jump broadcast: today's leader, then the lap
-/// time each handicap class must beat to take the lead (see `LapScore.lapSecondsToBeat`).
+/// The history's TIME TO BEAT panel, styled after F1 timing graphics: today's P1, then the lap time
+/// each handicap class must beat to take P1 (see `LapScore.lapSecondsToBeat`).
 struct ToBeatCard: View {
     struct Row: Identifiable {
         let handicap: Double
@@ -192,7 +192,7 @@ struct ToBeatCard: View {
                 ToBeatTag()
                 Spacer()
                 VStack(alignment: .trailing, spacing: 1) {
-                    Text("1位  \(leaderName)")
+                    Text("P1  \(leaderName)")
                         .font(.caption.weight(.bold))
                         .lineLimit(1)
                     HStack(spacing: 6) {
@@ -219,7 +219,7 @@ struct ToBeatCard: View {
                         .lineLimit(isExpanded ? nil : 1)
                         .fixedSize(horizontal: false, vertical: isExpanded)
                     Spacer(minLength: 4)
-                    Text(row.seconds.isInfinite ? "周回で1位" : ToBeat.clock(row.seconds))
+                    Text(row.seconds.isInfinite ? "周回でP1" : ToBeat.clock(row.seconds))
                         .font(.system(.title2, design: .rounded).weight(.bold).monospacedDigit())
                         .foregroundStyle(Color.toBeatAccent)
                 }
@@ -230,7 +230,7 @@ struct ToBeatCard: View {
                     }
                 }
             }
-            Text("この時間より速く周回すると1位(ゴール330m以上で通過した場合)")
+            Text("この時間より速く周回するとP1(1位)。ゴール330m以上で通過した場合")
                 .font(.caption2)
                 .foregroundStyle(.white.opacity(0.6))
         }
