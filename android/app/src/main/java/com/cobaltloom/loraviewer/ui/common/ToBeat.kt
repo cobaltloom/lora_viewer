@@ -166,10 +166,5 @@ fun ToBeatCard(leaderName: String, leaderScore: Double, leaderLapSeconds: Double
                 Text(if (row.seconds.isInfinite()) "周回でP1" else ToBeat.clock(row.seconds), color = ToBeatAccent, style = BigTime)
             }
         }
-        Text(
-            "この時間より速く周回するとP1(1位)。ゴール330m以上で通過した場合",
-            color = Color.White.copy(alpha = 0.6f),
-            style = MaterialTheme.typography.labelSmall,
-        )
     }
 }

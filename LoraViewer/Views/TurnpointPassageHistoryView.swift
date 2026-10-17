@@ -230,9 +230,6 @@ struct ToBeatCard: View {
                     }
                 }
             }
-            Text("この時間より速く周回するとP1(1位)。ゴール330m以上で通過した場合")
-                .font(.caption2)
-                .foregroundStyle(.white.opacity(0.6))
         }
         .padding(14)
         .background(Color.toBeatPanel, in: RoundedRectangle(cornerRadius: 14))
