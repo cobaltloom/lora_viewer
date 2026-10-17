@@ -200,6 +200,7 @@ class GliderTrackerViewModel(
         val MIN_BACKFILL_INTERVAL: Duration = Duration.ofSeconds(60)
         const val MAX_TIMED_POINTS = 7200
         const val RECENT_FINISH_MILLIS = 5 * 60 * 1000L
+        const val TAKEOFF_GROUND_FIX_MAX_AGE_MILLIS = 60_000L
     }
 
     private val _uiState = MutableStateFlow(GliderTrackerUiState())
@@ -217,6 +218,8 @@ class GliderTrackerViewModel(
      * server), kept for lap timing. Dropped when the glider lands, like its trail. */
     private val timedTracks = mutableMapOf<String, MutableList<TimedPoint>>()
     private val lapCache = TaskLapCache()
+    /** Each glider's latest fix at/below the ground threshold (see [recordTimedPoints]). */
+    private val lastGroundFixes = mutableMapOf<String, TimedPoint>()
 
     /** "imei|time" of starts and finishes already logged (finishes also announced), so each is
      * reported once. */
@@ -687,12 +690,22 @@ class GliderTrackerViewModel(
         val now = System.currentTimeMillis()
         for (glider in positions) {
             val alt = glider.alt
+            val time = glider.positionDateTimeUtc?.toEpochMilli() ?: now
             if (alt == null || alt <= groundAltitudeM) {
                 timedTracks.remove(glider.imei)
+                if (alt != null) lastGroundFixes[glider.imei] = TimedPoint(time, glider.lat, glider.lon, alt)
                 continue
             }
-            val time = glider.positionDateTimeUtc?.toEpochMilli() ?: now
-            val track = timedTracks.getOrPut(glider.imei) { mutableListOf() }
+            val track = timedTracks.getOrPut(glider.imei) {
+                // A winch launch can cross the start line between the last ground fix and the
+                // first airborne one (LoRa fixes are ~15 s apart), so a new flight starts with it.
+                val ground = lastGroundFixes[glider.imei]
+                if (ground != null && ground.timeMillis < time && time - ground.timeMillis <= TAKEOFF_GROUND_FIX_MAX_AGE_MILLIS) {
+                    mutableListOf(ground)
+                } else {
+                    mutableListOf()
+                }
+            }
             if (track.isNotEmpty() && time <= track.last().timeMillis) continue
             track += TimedPoint(time, glider.lat, glider.lon, alt)
             if (track.size > MAX_TIMED_POINTS) track.subList(0, track.size - MAX_TIMED_POINTS).clear()

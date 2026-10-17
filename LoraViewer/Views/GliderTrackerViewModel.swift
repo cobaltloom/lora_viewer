@@ -38,6 +38,11 @@ final class GliderTrackerViewModel: ObservableObject {
     /// server), kept for lap timing. Dropped when the glider lands, like its trail.
     @Published private(set) var timedTracks: [String: [TimedPoint]] = [:]
     private static let maxTimedPoints = 7200
+    /// Each glider's latest fix at/below the ground threshold: a new flight's timed track starts
+    /// with it if recent, since a winch launch can cross the start line between it and the first
+    /// airborne fix (LoRa fixes are ~15 s apart).
+    private var lastGroundFixes: [String: TimedPoint] = [:]
+    private static let takeoffGroundFixMaxAge: TimeInterval = 60
     /// The latest flights fetched from the track server (see `backfillTrailsIfNeeded`).
     @Published private(set) var backfilledFlights: BackfilledFlights?
     /// Today's flights from the track server (see `fetchTodaysFlightsIfNeeded`).
@@ -210,12 +215,17 @@ final class GliderTrackerViewModel: ObservableObject {
         var tracks = timedTracks.filter { id, _ in positions.contains { $0.imei == id } }
         let now = Date()
         for glider in positions {
+            let time = glider.positionDateTimeUTC ?? now
             guard let alt = glider.alt, alt > groundAltitudeThresholdM else {
                 tracks.removeValue(forKey: glider.imei)
+                if let alt { lastGroundFixes[glider.imei] = TimedPoint(time: time, coordinate: glider.coordinate, altitudeM: alt) }
                 continue
             }
-            let time = glider.positionDateTimeUTC ?? now
             var track = tracks[glider.imei] ?? []
+            if track.isEmpty, let ground = lastGroundFixes[glider.imei], ground.time < time,
+               time.timeIntervalSince(ground.time) <= Self.takeoffGroundFixMaxAge {
+                track.append(ground)
+            }
             if let last = track.last, time <= last.time { continue }
             track.append(TimedPoint(time: time, coordinate: glider.coordinate, altitudeM: alt))
             tracks[glider.imei] = Array(track.suffix(Self.maxTimedPoints))

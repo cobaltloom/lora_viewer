@@ -54,7 +54,8 @@ MAX_POINTS_PER_TRACK = 1000      # downsampled to at most this many points per r
 MAX_POINTS_PER_FLIGHT = 3000     # /flights: 4 h at 5 s, enough to time turnpoint entries
 FLIGHT_GAP_S = 10 * 60           # /flights: a silence this long ends a flight
 JST_OFFSET_S = 9 * 3600
-LORA_POLL_S = 10
+LORA_POLL_S = 5                  # LoRa fixes come every ~7-15 s; 10 s polling missed some
+TAKEOFF_GROUND_POINT_S = 60      # a flight starts with its last ground point this recent (see split_flights)
 SNAPSHOT_S = 60
 VERSION = "1.1"
 
@@ -148,7 +149,8 @@ class Store:
 
 
 def current_flight(pts, ground_alt, now):
-    """Points since the glider was last at/below ground_alt, if it is flying now."""
+    """Points since the glider was last at/below ground_alt, if it is flying now (with that last
+    ground point, as split_flights does)."""
     if not pts:
         return None
     last = pts[-1]
@@ -157,20 +159,28 @@ def current_flight(pts, ground_alt, now):
     start = len(pts) - 1
     while start > 0 and pts[start - 1][3] > ground_alt and last[0] - pts[start - 1][0] <= MAX_FLIGHT_S:
         start -= 1
+    if start > 0 and pts[start][0] - pts[start - 1][0] <= TAKEOFF_GROUND_POINT_S:
+        start -= 1
     return pts[start:]
 
 
 def split_flights(pts, ground_alt):
-    """Runs of at least two points above ground_alt, broken at ground points and long silences."""
-    flights, current = [], []
+    """Runs of at least two points above ground_alt, broken at ground points and long silences.
+    Each starts with the ground point just before takeoff, if recent: a winch launch can cross the
+    start line between that and the first airborne fix, which sparse LoRa fixes often do."""
+    flights, current, last_ground = [], [], None
     for p in pts:
         if p[3] <= ground_alt or (current and p[0] - current[-1][0] > FLIGHT_GAP_S):
-            if len(current) >= 2:
+            if sum(1 for q in current if q[3] > ground_alt) >= 2:
                 flights.append(current)
             current = []
-        if p[3] > ground_alt:
+        if p[3] <= ground_alt:
+            last_ground = p
+        else:
+            if not current and last_ground and p[0] - last_ground[0] <= TAKEOFF_GROUND_POINT_S:
+                current.append(last_ground)
             current.append(p)
-    if len(current) >= 2:
+    if sum(1 for q in current if q[3] > ground_alt) >= 2:
         flights.append(current)
     return flights
 
