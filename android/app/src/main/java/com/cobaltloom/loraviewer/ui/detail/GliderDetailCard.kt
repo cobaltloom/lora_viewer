@@ -28,6 +28,8 @@ import com.cobaltloom.loraviewer.data.alert.AlertSeverity
 import com.cobaltloom.loraviewer.data.alert.GliderAlertReason
 import com.cobaltloom.loraviewer.data.alert.overallSeverity
 import com.cobaltloom.loraviewer.data.model.GliderPosition
+import com.cobaltloom.loraviewer.ui.common.ToBeat
+import com.cobaltloom.loraviewer.ui.common.ToBeatBadge
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -40,6 +42,8 @@ fun GliderDetailCard(
     alertReasons: List<GliderAlertReason>,
     /** One line of task lap progress, when a task course is selected and the glider is being timed. */
     lapSummary: String? = null,
+    /** "To beat" for a lap in progress: what it needs to top today's best score. */
+    toBeat: ToBeat? = null,
     onToggleFavorite: () -> Unit,
     onEditName: () -> Unit,
     onDismiss: () -> Unit,
@@ -122,6 +126,9 @@ fun GliderDetailCard(
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.padding(top = 2.dp),
                 )
+            }
+            if (toBeat != null) {
+                ToBeatBadge(toBeat, modifier = Modifier.padding(top = 4.dp))
             }
 
             Text(

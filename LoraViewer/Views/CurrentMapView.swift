@@ -338,7 +338,8 @@ struct CurrentMapView: View {
                         alertReasons: alertReasons(for: selectedGlider),
                         lapSummary: selectedTaskCourse.flatMap { course in
                             lapStatuses[selectedGlider.imei]?.summary(courseDistanceKm: course.distanceKm, now: Date())
-                        }
+                        },
+                        toBeat: toBeat(for: selectedGlider)
                     )
                         .padding()
                         .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -624,6 +625,20 @@ struct CurrentMapView: View {
             logPartialLap(id: id, status: previous, gliderName: displayName(for: glider), course: course)
         }
         lapStatuses = statuses
+    }
+
+    /// For a glider on a timed lap (started, not finished): the lap time that would top today's best
+    /// reference score, and how far into it the glider is - like a ski jump's "to beat" line.
+    private func toBeat(for glider: GliderPosition) -> ToBeat? {
+        guard let course = selectedTaskCourse, let status = lapStatuses[glider.imei],
+              let start = status.start, status.finish == nil else { return nil }
+        let laps = LapScore.laps(from: turnpointPassageLog.todaysRecords) { id in
+            id.map(handicapStore.handicap(for:)) ?? GliderHandicapStore.defaultHandicap
+        }
+        guard laps.contains(where: { $0.lapSeconds != nil }),
+              let seconds = LapScore.lapSecondsToBeat(laps, distanceKm: course.distanceKm, handicap: handicapStore.handicap(for: glider.imei))
+        else { return nil }
+        return ToBeat(targetSeconds: seconds, elapsedSeconds: Date().timeIntervalSince(start))
     }
 
     /// Logs an unfinished flight that rounded at least one scoring turnpoint (競技規則56(1)), once,

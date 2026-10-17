@@ -35,12 +35,34 @@ object PartialLapDistance {
  * Ph = Rd × (500 + 500 × Rv) × Rh, where Rd = distance / the day's longest, Rv = speed / the day's
  * fastest lap (0 for a partly flown course, 規則56), and Rh = the glider's handicap / the handicap of
  * the fastest glider - or, with no completed lap, of the longest distance - taking the larger one on
- * a tie. If the top score exceeds 1000 it becomes 1000 and the rest scale with it. Unofficial: the
- * rules score each pilot's last flight of the day from 1-second IGC logs, while this scores every
- * flight the app timed. Kept in step with the iOS LapScore.
+ * a tie. If the top score exceeds 1000 it becomes 1000 and the rest scale with it. A low goal is
+ * handled per 細則7 別表(4): crossed at 280-330 m, 50 points off the result (never below 0); below
+ * 280 m, no speed points (and its speed doesn't set the day's fastest). Unofficial: the rules score
+ * each pilot's last flight of the day from 1-second IGC logs, while this scores every flight the app
+ * timed. Kept in step with the iOS LapScore.
  */
 object LapScore {
     const val DEFAULT_HANDICAP = 1.0
+    const val GOAL_MIN_ALTITUDE_M = 330.0
+    const val GOAL_NO_SPEED_BELOW_M = 280.0
+    const val LOW_GOAL_DEDUCTION = 50.0
+
+    enum class GoalPenalty {
+        NONE,
+
+        /** 別表(4)①: crossed at 280 m to under 330 m. */
+        DEDUCTION,
+
+        /** 別表(4)②: crossed under 280 m - Rv = 0. */
+        NO_SPEED_POINTS,
+    }
+
+    fun goalPenalty(altitudeM: Double?): GoalPenalty = when {
+        altitudeM == null -> GoalPenalty.NONE
+        altitudeM < GOAL_NO_SPEED_BELOW_M -> GoalPenalty.NO_SPEED_POINTS
+        altitudeM < GOAL_MIN_ALTITUDE_M -> GoalPenalty.DEDUCTION
+        else -> GoalPenalty.NONE
+    }
 
     /** Known club gliders that aren't 1.00, so laps score right even for gliders that have landed
      * and left the member list (as of 第42回関東学生グライダー競技会, 2026-10): LoRa tracker ids from
@@ -63,9 +85,20 @@ object LapScore {
         HandicapOption(1.10, "K-8, ASK13"),
     )
 
-    /** [lapSeconds] is null for a partly flown course: no speed points. */
-    data class Lap(val id: String, val distanceKm: Double, val lapSeconds: Double?, val handicap: Double) {
-        val speedKmh: Double get() = lapSeconds?.let { distanceKm / (it / 3600) } ?: 0.0
+    /** [lapSeconds] is null for a partly flown course: no speed points. [goalAltitudeM] is the goal
+     * crossing's altitude, for a completed lap. */
+    data class Lap(
+        val id: String,
+        val distanceKm: Double,
+        val lapSeconds: Double?,
+        val handicap: Double,
+        val goalAltitudeM: Double? = null,
+    ) {
+        val penalty: GoalPenalty get() = if (lapSeconds == null) GoalPenalty.NONE else goalPenalty(goalAltitudeM)
+
+        /** The speed that earns speed points: none for a partly flown course or a goal under 280 m. */
+        val speedKmh: Double
+            get() = if (lapSeconds == null || penalty == GoalPenalty.NO_SPEED_POINTS) 0.0 else distanceKm / (lapSeconds / 3600)
     }
 
     fun scores(laps: List<Lap>): Map<String, Double> {
@@ -79,6 +112,42 @@ object LapScore {
             lap.id to lap.distanceKm / maxDistance * (500 + 500 * rv) * lap.handicap / referenceHandicap
         }
         val top = scores.values.max()
-        return if (top > 1000) scores.mapValues { it.value * 1000 / top } else scores
+        val scaled = if (top > 1000) scores.mapValues { it.value * 1000 / top } else scores
+        // 別表の基本的考え方(1)(2): deductions come off the computed points, never below 0.
+        val deducted = valid.filter { it.penalty == GoalPenalty.DEDUCTION }.map { it.id }.toSet()
+        return scaled.mapValues { (id, points) -> if (id in deducted) maxOf(0.0, points - LOW_GOAL_DEDUCTION) else points }
+    }
+
+    /** The scoring laps among passage-history rows: goal rows with a lap time, and partial-lap rows. */
+    fun laps(records: List<TurnpointPassageRecord>, handicap: (String?) -> Double): List<Lap> = records.mapNotNull { record ->
+        val distanceKm = record.courseDistanceKm ?: return@mapNotNull null
+        if (!record.isScoredFlight || (record.isFinish && record.lapSeconds == null)) return@mapNotNull null
+        Lap(record.id, distanceKm, record.lapSeconds, handicap(record.gliderId), if (record.isFinish) record.altitudeM else null)
+    }
+
+    /**
+     * "To beat": the longest lap time over [distanceKm] with which a glider of [handicap] would score
+     * above everyone in [laps] - counting that its own lap is rescored with them (a faster lap becomes
+     * the day's fastest and the handicap reference, lowering the others). Assumes a goal at 330 m or
+     * above. [Double.POSITIVE_INFINITY] if any lap would do (no completed lap yet to beat), null if none.
+     */
+    fun lapSecondsToBeat(laps: List<Lap>, distanceKm: Double, handicap: Double): Double? {
+        if (laps.isEmpty() || distanceKm <= 0) return null
+        val candidate = "\u0000toBeat"
+        fun beats(lapSeconds: Double): Boolean {
+            val scores = scores(laps + Lap(candidate, distanceKm, lapSeconds, handicap))
+            val mine = scores[candidate] ?: 0.0
+            return scores.all { (id, points) -> id == candidate || points < mine }
+        }
+        var fast = 60.0
+        var slow = 6 * 3600.0
+        if (beats(slow)) return Double.POSITIVE_INFINITY
+        if (!beats(fast)) return null
+        // Faster always scores relatively better, so bisect for the slowest time that still beats.
+        repeat(40) {
+            val mid = (fast + slow) / 2
+            if (beats(mid)) fast = mid else slow = mid
+        }
+        return fast
     }
 }

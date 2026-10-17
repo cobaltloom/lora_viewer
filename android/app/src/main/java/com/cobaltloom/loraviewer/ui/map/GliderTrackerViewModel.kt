@@ -33,6 +33,7 @@ import com.cobaltloom.loraviewer.data.alert.UpperAltitudeSettings
 import com.cobaltloom.loraviewer.data.alert.bearingDegrees
 import com.cobaltloom.loraviewer.data.alert.distanceMeters
 import com.cobaltloom.loraviewer.data.alert.lapSummary
+import com.cobaltloom.loraviewer.ui.common.ToBeat
 import com.cobaltloom.loraviewer.data.favorites.FavoritesRepository
 import com.cobaltloom.loraviewer.data.favorites.GliderHandicapRepository
 import com.cobaltloom.loraviewer.data.model.AppConfig
@@ -127,6 +128,20 @@ data class GliderTrackerUiState(
         (if (isSubscribed && !glider.isAnonymous) nicknames[glider.imei] else null) ?: baseNameFor(glider)
 
     fun isFavorite(imei: String): Boolean = isSubscribed && imei in favorites
+
+    /** For a glider on a timed lap (started, not finished): the lap time that would top today's best
+     * reference score, and how far into it the glider is - like a ski jump's "to beat" line. */
+    fun toBeat(glider: GliderPosition): ToBeat? {
+        val course = selectedCourse ?: return null
+        val status = lapStatuses[glider.imei] ?: return null
+        val start = status.startMillis ?: return null
+        if (status.finishMillis != null) return null
+        val today = java.time.LocalDate.now()
+        val laps = LapScore.laps(turnpointPassageRecords.filter { it.localDate == today }) { handicapFor(it) }
+        if (laps.none { it.lapSeconds != null }) return null
+        val seconds = LapScore.lapSecondsToBeat(laps, course.distanceKm, handicapFor(glider.imei)) ?: return null
+        return ToBeat(seconds, (System.currentTimeMillis() - start) / 1000.0)
+    }
 
     fun handicapFor(id: String?): Double = id?.let { handicaps[it] ?: LapScore.builtInDefault(it) } ?: LapScore.DEFAULT_HANDICAP
 
