@@ -218,7 +218,7 @@ final class GliderTrackerViewModel: ObservableObject {
             let time = glider.positionDateTimeUTC ?? now
             guard let alt = glider.alt, alt > groundAltitudeThresholdM else {
                 tracks.removeValue(forKey: glider.imei)
-                if let alt { lastGroundFixes[glider.imei] = TimedPoint(time: time, coordinate: glider.coordinate, altitudeM: alt) }
+                if let alt = glider.alt { lastGroundFixes[glider.imei] = TimedPoint(time: time, coordinate: glider.coordinate, altitudeM: alt) }
                 continue
             }
             var track = tracks[glider.imei] ?? []
