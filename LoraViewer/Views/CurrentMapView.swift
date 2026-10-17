@@ -471,7 +471,11 @@ struct CurrentMapView: View {
                 viewModel.stopPolling()
             }
             .onChange(of: scenePhase) { _, phase in
-                if phase != .active { viewModel.saveTrailsNow() }
+                if phase == .active {
+                    viewModel.refreshTodaysFlights()
+                } else {
+                    viewModel.saveTrailsNow()
+                }
             }
             .onChange(of: alertSettings.minimumFlyingAltitudeM) { _, newValue in
                 viewModel.groundAltitudeThresholdM = newValue
@@ -488,10 +492,14 @@ struct CurrentMapView: View {
                 viewModel.startPolling()
             }
             .onChange(of: viewModel.backfilledFlights?.id) {
-                if let backfilled = viewModel.backfilledFlights {
-                    recordPastTurnpointPassages(backfilled)
-                }
                 updateLapStatuses()
+            }
+            .onChange(of: viewModel.todaysFlights?.id) {
+                if let todays = viewModel.todaysFlights { recordTodaysFlights(todays) }
+            }
+            .onChange(of: selectedTaskCourse?.id) {
+                // Another course: today's flights may have rounded its turnpoints.
+                if let todays = viewModel.todaysFlights { recordTodaysFlights(todays) }
             }
             .onChange(of: viewModel.positions) { _, newPositions in
                 centerMapIfNeeded(on: newPositions)
@@ -602,46 +610,54 @@ struct CurrentMapView: View {
         let statuses = lapCache.statuses(for: viewModel.timedTracks, course: course)
         for (id, status) in statuses {
             guard let glider = viewModel.positions.first(where: { $0.imei == id }) else { continue }
-            let gliderName = displayName(for: glider)
-            // Logged only once the first turnpoint is reached, so a flight that lands without
-            // rounding any turnpoint leaves no stray "スタート" in the history.
-            if let start = status.start, !status.passedTurnpoints.isEmpty, reportedLapEvents.insert("\(id)|start|\(start.timeIntervalSince1970)").inserted {
-                turnpointPassageLog.recordPastPassage(gliderName: gliderName, turnpointName: "スタート", altitudeM: status.startAltitudeM, timestamp: start)
-            }
-            guard let finish = status.finish,
-                  reportedLapEvents.insert("\(id)|finish|\(finish.timeIntervalSince1970)").inserted else { continue }
-            let summary = String(status.summary(courseDistanceKm: course.distanceKm, now: now).dropFirst("周回: ".count))
-            turnpointPassageLog.recordPastPassage(gliderName: gliderName, turnpointName: TurnpointPassageRecord.finishPrefix + summary, altitudeM: status.finishAltitudeM, timestamp: finish)
-            // Only announce a finish that just happened - not one found in history on reopening.
-            if now.timeIntervalSince(finish) < 5 * 60 {
-                alertNotifier.notifyTaskFinish(gliderName: gliderName, summary: summary)
-            }
+            logLapEvents(id: id, status: status, gliderName: displayName(for: glider), course: course, now: now, notify: true)
         }
         lapStatuses = statuses
     }
 
-    /// Adds turnpoint passages flown before the app was opened, found by walking each flying
-    /// glider's track from the track server. Logged at the time they happened; no notification,
-    /// since a ping about a passage from long ago would only confuse.
-    private func recordPastTurnpointPassages(_ backfilled: BackfilledFlights) {
-        guard subscriptionManager.hasFullAccess, competitionGuideline.showTaskCourse,
-              let selectedCourseIndex = competitionGuideline.selectedCourseIndex,
-              CompetitionTaskCourseData.courses.indices.contains(selectedCourseIndex)
-        else { return }
-        let course = CompetitionTaskCourseData.courses[selectedCourseIndex]
-        for (id, points) in backfilled.flights {
-            guard let glider = viewModel.positions.first(where: { $0.imei == id }) else { continue }
-            let gliderName = displayName(for: glider)
-            var previous: TimedPoint?
-            for point in points {
-                let fix = TimedPoint(time: point.time, coordinate: point.coordinate, altitudeM: point.altitudeM)
-                for name in CompetitionTaskCourseData.notifiableTurnpointNames {
-                    if let previous, TurnpointSector.isInSector(previous.coordinate, course: course, name: name) { continue }
-                    guard let t = TurnpointSector.firstEntry(from: previous, to: fix, course: course, name: name) else { continue }
-                    let entry = previous.map { TurnpointSector.interpolate($0, fix, t) } ?? fix
-                    turnpointPassageLog.recordPastPassage(gliderName: gliderName, turnpointName: name, altitudeM: entry.altitudeM, timestamp: entry.time)
+    /// Logs a lap's start (once the first turnpoint is reached) and finish to the passage history,
+    /// each once; with `notify`, also announces a finish that just happened.
+    private func logLapEvents(id: String, status: TaskLapStatus, gliderName: String, course: CompetitionTaskCourse, now: Date, notify: Bool) {
+        // Logged only once the first turnpoint is reached, so a flight that lands without
+        // rounding any turnpoint leaves no stray "スタート" in the history.
+        if let start = status.start, !status.passedTurnpoints.isEmpty, reportedLapEvents.insert("\(id)|start|\(start.timeIntervalSince1970)").inserted {
+            turnpointPassageLog.recordPastPassage(gliderName: gliderName, turnpointName: "スタート", altitudeM: status.startAltitudeM, timestamp: start)
+        }
+        guard let finish = status.finish,
+              reportedLapEvents.insert("\(id)|finish|\(finish.timeIntervalSince1970)").inserted else { return }
+        let summary = String(status.summary(courseDistanceKm: course.distanceKm, now: now).dropFirst("周回: ".count))
+        let recorded = turnpointPassageLog.recordPastPassage(gliderName: gliderName, turnpointName: TurnpointPassageRecord.finishPrefix + summary, altitudeM: status.finishAltitudeM, timestamp: finish)
+        // Only announce a finish that just happened - not one found in history on reopening.
+        if notify, recorded, now.timeIntervalSince(finish) < 5 * 60 {
+            alertNotifier.notifyTaskFinish(gliderName: gliderName, summary: summary)
+        }
+    }
+
+    /// Fills in the passage history from every flight flown today on this source (see
+    /// `GliderTrackerViewModel.todaysFlights`): turnpoint passages, and lap starts/finishes, flown
+    /// while the app was closed or showing the other source - landed gliders included. Logged at
+    /// the time they happened, without notifications; already-logged ones are skipped.
+    private func recordTodaysFlights(_ todays: TodaysFlights) {
+        guard let course = selectedTaskCourse else { return }
+        let now = Date()
+        for (id, flights) in todays.flights {
+            guard let baseName = todays.baseNames[id] else { continue }
+            let gliderName = subscriptionManager.hasFullAccess
+                ? nicknameStore.compactDisplayName(baseName: baseName, imei: id) : baseName
+            for flight in flights {
+                let points = flight.map { TimedPoint(time: $0.time, coordinate: $0.coordinate, altitudeM: $0.altitudeM) }
+                var previous: TimedPoint?
+                for fix in points {
+                    for name in CompetitionTaskCourseData.notifiableTurnpointNames {
+                        if let previous, TurnpointSector.isInSector(previous.coordinate, course: course, name: name) { continue }
+                        guard let t = TurnpointSector.firstEntry(from: previous, to: fix, course: course, name: name) else { continue }
+                        let entry = previous.map { TurnpointSector.interpolate($0, fix, t) } ?? fix
+                        turnpointPassageLog.recordPastPassage(gliderName: gliderName, turnpointName: name, altitudeM: entry.altitudeM, timestamp: entry.time)
+                    }
+                    previous = fix
                 }
-                previous = fix
+                logLapEvents(id: id, status: TaskLapCalculator.evaluate(points, course: course), gliderName: gliderName,
+                             course: course, now: now, notify: false)
             }
         }
     }

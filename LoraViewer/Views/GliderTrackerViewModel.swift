@@ -40,6 +40,12 @@ final class GliderTrackerViewModel: ObservableObject {
     private static let maxTimedPoints = 7200
     /// The latest flights fetched from the track server (see `backfillTrailsIfNeeded`).
     @Published private(set) var backfilledFlights: BackfilledFlights?
+    /// Today's flights from the track server (see `fetchTodaysFlightsIfNeeded`).
+    @Published private(set) var todaysFlights: TodaysFlights?
+    /// Set when today's flights should be fetched again: at start, after a source switch, and on
+    /// coming back to the foreground (see `refreshTodaysFlights`).
+    private var needsTodaysFlights = true
+    private var lastTodaysFlightsFetch = Date.distantPast
     static let trailColorCount = 8
     /// Kept in sync with `AlertSettings.minimumFlyingAltitudeM` by the view,
     /// since this view model has no environment access of its own.
@@ -100,6 +106,9 @@ final class GliderTrackerViewModel: ObservableObject {
             saveTrails()
             needsTrailBackfill = true
             lastTrailBackfill = .distantPast
+            todaysFlights = nil
+            needsTodaysFlights = true
+            lastTodaysFlightsFetch = .distantPast
         }
         lastDataSource = source
         do {
@@ -121,6 +130,7 @@ final class GliderTrackerViewModel: ObservableObject {
             }
             // Not awaited: a slow track server must never hold up the live refresh loop.
             Task { await backfillTrailsIfNeeded(source: source) }
+            Task { await fetchTodaysFlightsIfNeeded(source: source) }
             lastUpdated = Date()
             if errorMessage != nil { errorMessage = nil }
         } catch {
@@ -165,6 +175,35 @@ final class GliderTrackerViewModel: ObservableObject {
         guard changed else { return }
         trails = updated
         saveTrails()
+    }
+
+    /// Asks for today's flights again on the next refresh, e.g. after the app was in the background.
+    func refreshTodaysFlights() {
+        needsTodaysFlights = true
+    }
+
+    /// Fetches every flight flown today on this source, landed ones included, so passages and laps
+    /// flown while the app wasn't watching this source can be filled in. Best effort, like backfill.
+    private func fetchTodaysFlightsIfNeeded(source: DataSource) async {
+        guard needsTodaysFlights, let server = settings.trackServer,
+              Date().timeIntervalSince(lastTodaysFlightsFetch) >= Self.minBackfillInterval else { return }
+        needsTodaysFlights = false
+        lastTodaysFlightsFetch = Date()
+        guard let flights = try? await trackServerAPI.fetchTodaysFlights(
+            server: server, source: source, groundAltitudeM: groundAltitudeThresholdM
+        ), source == settings.effectiveDataSource else { return }
+        var baseNames: [String: String] = [:]
+        for id in flights.keys {
+            if let glider = positions.first(where: { $0.imei == id }) {
+                guard !glider.isAnonymous else { continue }
+                baseNames[id] = nameFor(glider)
+            } else if source == .ogn, let name = await ognAPI.baseName(forCallsign: id) {
+                baseNames[id] = name
+            }
+            // A LoRa tracker not in the current positions can't be named; it's left out.
+        }
+        guard source == settings.effectiveDataSource else { return }
+        todaysFlights = TodaysFlights(flights: flights, baseNames: baseNames)
     }
 
     private func recordTimedPoints(from positions: [GliderPosition]) {

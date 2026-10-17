@@ -76,8 +76,11 @@ class TurnpointPassageLogRepository(private val context: Context) {
         var recorded = false
         context.turnpointPassageLogDataStore.edit { prefs ->
             val existing = decode(prefs[key(source)])
+            // Goal rows carry the lap time, which can differ by a few seconds between the live track
+            // and the server's, so any two goal rows count as the same event.
+            val isFinish = turnpointName.startsWith(TurnpointPassageRecord.FINISH_PREFIX)
             if (existing.any {
-                    it.gliderName == gliderName && it.turnpointName == turnpointName &&
+                    it.gliderName == gliderName && (it.turnpointName == turnpointName || (isFinish && it.isFinish)) &&
                         kotlin.math.abs(it.timestampMillis - timestampMillis) < duplicateWindowMillis
                 }
             ) return@edit

@@ -37,6 +37,28 @@ class TrackServerTest(unittest.TestCase):
         self.assertIsNone(ts.current_flight([(now - 20, 0, 0, 300), (now - 5, 0, 0, 40)], 60, now))
         self.assertIsNone(ts.current_flight([(now - 3600, 0, 0, 300)], 60, now))
 
+    def test_split_flights_breaks_at_ground_and_silence(self):
+        pts = [(0, 0, 0, 30), (10, 0, 0, 200), (20, 0, 0, 300), (30, 0, 0, 40),  # flight 1, landed
+               (100, 0, 0, 150), (110, 0, 0, 160),                               # flight 2...
+               (110 + ts.FLIGHT_GAP_S + 1, 0, 0, 500), (120 + ts.FLIGHT_GAP_S + 1, 0, 0, 510),  # ...silence: 3
+               (2000, 0, 0, 30), (2010, 0, 0, 100)]                              # single point: dropped
+        self.assertEqual([[p[0] for p in f] for f in ts.split_flights(pts, 60)],
+                         [[10, 20], [100, 110], [110 + ts.FLIGHT_GAP_S + 1, 120 + ts.FLIGHT_GAP_S + 1]])
+
+    def test_jst_midnight(self):
+        from datetime import datetime, timezone
+        now = datetime(2026, 10, 17, 7, 0, tzinfo=timezone.utc).timestamp()  # 16:00 JST
+        self.assertEqual(ts.jst_midnight(now), datetime(2026, 10, 16, 15, 0, tzinfo=timezone.utc).timestamp())
+        early = datetime(2026, 10, 16, 16, 0, tzinfo=timezone.utc).timestamp()  # 01:00 JST on the 17th
+        self.assertEqual(ts.jst_midnight(early), datetime(2026, 10, 16, 15, 0, tzinfo=timezone.utc).timestamp())
+
+    def test_all_flights_since(self):
+        store = ts.Store()
+        for t, alt in ((0, 300), (10, 310), (100, 30), (200, 300), (210, 320)):
+            store.add("lora", "0001", t, 36.2, 139.4, alt)
+        self.assertEqual([[p[0] for p in f] for f in store.all_flights("lora", 60, 150)["0001"]], [[200, 210]])
+        self.assertEqual(len(store.all_flights("lora", 60, 0)["0001"]), 2)
+
     def test_store_spacing_and_downsample(self):
         s = ts.Store()
         for t in range(0, 100):

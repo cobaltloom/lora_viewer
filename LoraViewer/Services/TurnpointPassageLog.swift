@@ -46,8 +46,11 @@ final class TurnpointPassageLog: ObservableObject {
     @discardableResult
     func recordPastPassage(gliderName: String, turnpointName: String, altitudeM: Double?, timestamp: Date) -> Bool {
         let duplicateWindow: TimeInterval = 10 * 60
+        // Goal rows carry the lap time, which can differ by a few seconds between the live track
+        // and the server's, so any two goal rows count as the same event.
+        let isFinish = turnpointName.hasPrefix(TurnpointPassageRecord.finishPrefix)
         guard !records.contains(where: {
-            $0.gliderName == gliderName && $0.turnpointName == turnpointName
+            $0.gliderName == gliderName && ($0.turnpointName == turnpointName || (isFinish && $0.isFinish))
                 && abs($0.timestamp.timeIntervalSince(timestamp)) < duplicateWindow
         }) else { return false }
         records.append(TurnpointPassageRecord(gliderName: gliderName, turnpointName: turnpointName, altitudeM: altitudeM, timestamp: timestamp))

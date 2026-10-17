@@ -64,6 +64,18 @@ final class OGNAPI {
         }
     }
 
+    /// The name an aircraft is shown under, from its APRS callsign (e.g. "FLRDB0773"), for one that
+    /// may no longer be on the map; nil if the owner asked not to be tracked or identified.
+    func baseName(forCallsign callsign: String) async -> String? {
+        guard let devices = try? await deviceDatabase.get() else { return nil }
+        let flarmNet = (try? await flarmNetDatabase.get()) ?? [:]
+        let address = String(callsign.suffix(6)).uppercased()
+        let device = devices[address] ?? flarmNet[address]
+        if let device, !device.isTracked || !device.isIdentified { return nil }
+        let name = [device?.competitionID, device?.registration].compactMap { $0 }.joined(separator: " ")
+        return name.isEmpty ? callsign : name
+    }
+
     /// Closes the stream; the next `fetchCurrentPositions` reconnects.
     func stop() {
         queue.sync {

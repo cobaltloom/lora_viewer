@@ -47,6 +47,15 @@ class GliderRepository(
         return trackServerClient.fetchFlights(server, source, groundAltitudeM)
     }
 
+    /** Every flight flown today on [source] from the track server, or null when none is configured. */
+    suspend fun fetchTodaysFlights(source: DataSource, groundAltitudeM: Double): Map<String, List<List<TrackServerPoint>>>? {
+        val server = settingsRepository.settings.first().trackServer ?: return null
+        return trackServerClient.fetchTodaysFlights(server, source, groundAltitudeM)
+    }
+
+    /** The name an OGN aircraft is shown under, for one that may no longer be on the map. */
+    suspend fun ognBaseName(callsign: String): String? = ognApiClient.baseName(callsign)
+
     /** Closes the OGN live connection, if open - for when the map stops polling. */
     fun stopStreaming() = ognApiClient.stop()
 

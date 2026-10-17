@@ -31,10 +31,24 @@ class TrackServerClient(
     private val json = Json { ignoreUnknownKeys = true }
 
     /** Each currently flying glider's points since takeoff, keyed by the app's glider id, oldest first. */
-    suspend fun fetchFlights(server: TrackServerConfig, source: DataSource, groundAltitudeM: Double): Map<String, List<TrackServerPoint>> =
+    suspend fun fetchFlights(server: TrackServerConfig, source: DataSource, groundAltitudeM: Double): Map<String, List<TrackServerPoint>> {
+        val tracks = get("tracks", server, source, groundAltitudeM)["tracks"]?.jsonObject
+            ?: throw TrailRouteApiException.InvalidResponse()
+        return tracks.mapValues { (_, points) -> points(points.jsonArray) }
+    }
+
+    /** Every flight since midnight JST, landed ones included, keyed like [fetchFlights]: each
+     * glider's flights oldest first, each flight's points oldest first. */
+    suspend fun fetchTodaysFlights(server: TrackServerConfig, source: DataSource, groundAltitudeM: Double): Map<String, List<List<TrackServerPoint>>> {
+        val flights = get("flights", server, source, groundAltitudeM)["flights"]?.jsonObject
+            ?: throw TrailRouteApiException.InvalidResponse()
+        return flights.mapValues { (_, list) -> list.jsonArray.map { points(it.jsonArray) } }
+    }
+
+    private suspend fun get(path: String, server: TrackServerConfig, source: DataSource, groundAltitudeM: Double) =
         withContext(Dispatchers.IO) {
             val url = server.url.toHttpUrlOrNull()?.newBuilder()
-                ?.addPathSegment("tracks")
+                ?.addPathSegment(path)
                 ?.addQueryParameter("source", source.raw)
                 ?.addQueryParameter("groundAltM", groundAltitudeM.toInt().toString())
                 ?.build()
@@ -44,19 +58,17 @@ class TrackServerClient(
                 if (!response.isSuccessful) throw TrailRouteApiException.InvalidResponse()
                 response.body?.string() ?: throw TrailRouteApiException.InvalidResponse()
             }
-            val tracks = json.parseToJsonElement(body).jsonObject["tracks"]?.jsonObject
-                ?: throw TrailRouteApiException.InvalidResponse()
-            // Each point is [epochSeconds, lat, lon, altM].
-            tracks.mapValues { (_, points) ->
-                points.jsonArray.mapNotNull { p ->
-                    val a = p as? JsonArray ?: return@mapNotNull null
-                    fun num(i: Int) = (a.getOrNull(i) as? JsonPrimitive)?.doubleOrNull
-                    val t = num(0) ?: return@mapNotNull null
-                    val lat = num(1) ?: return@mapNotNull null
-                    val lon = num(2) ?: return@mapNotNull null
-                    val alt = num(3) ?: return@mapNotNull null
-                    TrackServerPoint((t * 1000).toLong(), Coordinate(lat, lon), alt)
-                }
-            }
+            json.parseToJsonElement(body).jsonObject
         }
+
+    /** Each point is [epochSeconds, lat, lon, altM]. */
+    private fun points(raw: JsonArray): List<TrackServerPoint> = raw.mapNotNull { p ->
+        val a = p as? JsonArray ?: return@mapNotNull null
+        fun num(i: Int) = (a.getOrNull(i) as? JsonPrimitive)?.doubleOrNull
+        val t = num(0) ?: return@mapNotNull null
+        val lat = num(1) ?: return@mapNotNull null
+        val lon = num(2) ?: return@mapNotNull null
+        val alt = num(3) ?: return@mapNotNull null
+        TrackServerPoint((t * 1000).toLong(), Coordinate(lat, lon), alt)
+    }
 }

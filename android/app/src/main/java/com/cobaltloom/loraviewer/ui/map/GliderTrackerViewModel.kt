@@ -227,6 +227,11 @@ class GliderTrackerViewModel(
      * source switch, and when a glider is first seen already flying. */
     private var needsTrailBackfill = true
     private var lastTrailBackfill = Instant.EPOCH
+    /** Set when today's flights should be fetched again: at start, after a source switch, and on
+     * coming back to the foreground. */
+    private var needsTodaysFlights = true
+    private var lastTodaysFlightsFetch = Instant.EPOCH
+    private var todaysFlights: TodaysFlights? = null
 
     /** Null until settings first load, so that initial load isn't mistaken for a source switch. */
     private var currentDataSource: DataSource? = null
@@ -272,7 +277,10 @@ class GliderTrackerViewModel(
         }
         viewModelScope.launch {
             competitionGuidelineRepository.settings.collect { settings ->
+                val previousCourse = _uiState.value.selectedCourse
                 _uiState.update { it.copy(competitionGuidelineSettings = settings) }
+                // Another course: today's flights may have rounded its turnpoints.
+                if (_uiState.value.selectedCourse != previousCourse) recordTodaysFlights()
             }
         }
         viewModelScope.launch {
@@ -343,6 +351,7 @@ class GliderTrackerViewModel(
 
     fun startPolling() {
         if (pollingJob?.isActive == true) return
+        refreshTodaysFlights() // back in the foreground: flights may have finished meanwhile
         pollingJob = viewModelScope.launch {
             loadConfigIfNeeded()
             while (isActive) {
@@ -379,6 +388,9 @@ class GliderTrackerViewModel(
         _uiState.update { it.copy(lapStatuses = emptyMap()) }
         needsTrailBackfill = true
         lastTrailBackfill = Instant.EPOCH
+        needsTodaysFlights = true
+        lastTodaysFlightsFetch = Instant.EPOCH
+        todaysFlights = null
         _uiState.update { it.copy(positions = emptyList(), proximityReasonsByImei = emptyMap()) }
         previouslyAlertingImeis = emptySet()
         previouslyInsideTurnpoints = emptySet()
@@ -490,6 +502,7 @@ class GliderTrackerViewModel(
             }
             // Launched separately: a slow track server must never hold up the live refresh loop.
             viewModelScope.launch { backfillTrailsIfNeeded(source, groundAltitudeM) }
+            viewModelScope.launch { fetchTodaysFlightsIfNeeded(source, groundAltitudeM) }
             _uiState.update {
                 it.copy(
                     positions = positions,
@@ -522,7 +535,6 @@ class GliderTrackerViewModel(
             timedTracks[id] = (server + live.filter { it.timeMillis > lastServerTime }).takeLast(MAX_TIMED_POINTS).toMutableList()
         }
         updateLapStatuses(_uiState.value)
-        recordPastTurnpointPassages(flights)
     }
 
     private suspend fun loadConfigIfNeeded() {
@@ -695,60 +707,116 @@ class GliderTrackerViewModel(
             _uiState.update { it.copy(lapStatuses = emptyMap()) }
             return
         }
-        val center = CompetitionAltitudeGuideline.referenceCoordinate
-        val guideline: (TimedPoint) -> Double? = { p ->
-            CompetitionAltitudeGuideline.requiredAltitudeM(distanceMeters(center.latitude, center.longitude, p.lat, p.lon) / 1000.0)
-        }
         val now = System.currentTimeMillis()
-        val statuses = lapCache.statuses(timedTracks, course, guideline)
+        val statuses = lapCache.statuses(timedTracks, course, guidelineAltitude)
         for ((id, status) in statuses) {
             val glider = state.positions.firstOrNull { it.imei == id } ?: continue
-            val gliderName = state.nameFor(glider)
-            // Logged only once the first turnpoint is reached, so a flight that lands without
-            // rounding any turnpoint leaves no stray "スタート" in the history.
-            status.startMillis?.takeIf { status.passedTurnpoints.isNotEmpty() }?.let { start ->
-                if (reportedStarts.add("$id|$start")) {
-                    turnpointPassageLogRepository.recordPastPassage(state.dataSource, gliderName, "スタート", status.startAltitudeM, start)
-                }
-            }
-            val finish = status.finishMillis ?: continue
-            if (!reportedFinishes.add("$id|$finish")) continue
-            val summary = lapSummary(status, course.distanceKm, now) { "" }.removePrefix("周回: ")
-            turnpointPassageLogRepository.recordPastPassage(state.dataSource, gliderName, TurnpointPassageRecord.FINISH_PREFIX + summary, status.finishAltitudeM, finish)
-            // Only announce a finish that just happened - not one found in history on reopening.
-            if (now - finish < RECENT_FINISH_MILLIS) alertNotifier.notifyTaskFinish(gliderName, summary)
+            logLapEvents(state, id, status, state.nameFor(glider), course, now, notify = true)
         }
         _uiState.update { it.copy(lapStatuses = statuses) }
     }
 
+    private val guidelineAltitude: (TimedPoint) -> Double? = { p ->
+        val center = CompetitionAltitudeGuideline.referenceCoordinate
+        CompetitionAltitudeGuideline.requiredAltitudeM(distanceMeters(center.latitude, center.longitude, p.lat, p.lon) / 1000.0)
+    }
+
+    /** Logs a lap's start (once the first turnpoint is reached) and finish to the passage history,
+     * each once; with [notify], also announces a finish that just happened. */
+    private suspend fun logLapEvents(
+        state: GliderTrackerUiState,
+        id: String,
+        status: TaskLapStatus,
+        gliderName: String,
+        course: CompetitionTaskCourse,
+        now: Long,
+        notify: Boolean,
+    ) {
+        // Logged only once the first turnpoint is reached, so a flight that lands without
+        // rounding any turnpoint leaves no stray "スタート" in the history.
+        status.startMillis?.takeIf { status.passedTurnpoints.isNotEmpty() }?.let { start ->
+            if (reportedStarts.add("$id|$start")) {
+                turnpointPassageLogRepository.recordPastPassage(state.dataSource, gliderName, "スタート", status.startAltitudeM, start)
+            }
+        }
+        val finish = status.finishMillis ?: return
+        if (!reportedFinishes.add("$id|$finish")) return
+        val summary = lapSummary(status, course.distanceKm, now) { "" }.removePrefix("周回: ")
+        val recorded = turnpointPassageLogRepository.recordPastPassage(
+            state.dataSource, gliderName, TurnpointPassageRecord.FINISH_PREFIX + summary, status.finishAltitudeM, finish,
+        )
+        // Only announce a finish that just happened - not one found in history on reopening.
+        if (notify && recorded && now - finish < RECENT_FINISH_MILLIS) alertNotifier.notifyTaskFinish(gliderName, summary)
+    }
+
     /** Names of [course]'s turnpoints whose 90° sector (within the turnpoint radius) contains the point. */
     /**
-     * Adds turnpoint passages flown before the app was opened, found by walking each flying
-     * glider's track from the track server. Logged at the time they happened; no notification,
-     * since a ping about a passage from long ago would only confuse.
+     * Fills in the passage history from every flight flown today on this source (see
+     * [fetchTodaysFlightsIfNeeded]): turnpoint passages, and lap starts/finishes, flown while the app
+     * was closed or showing the other source - landed gliders included. Logged at the time they
+     * happened, without notifications; already-logged ones are skipped.
      */
-    private suspend fun recordPastTurnpointPassages(flights: Map<String, List<TrackServerPoint>>) {
+    private suspend fun recordTodaysFlights() {
+        val todays = todaysFlights ?: return
         val state = _uiState.value
-        if (!state.isSubscribed || !state.competitionGuidelineSettings.showTaskCourse) return
-        val selectedCourseIndex = state.competitionGuidelineSettings.selectedCourseIndex ?: return
-        val course = CompetitionTaskCourseData.courses.getOrNull(selectedCourseIndex) ?: return
-        for ((id, points) in flights) {
-            val glider = state.positions.firstOrNull { it.imei == id } ?: continue
-            val gliderName = state.nameFor(glider)
-            var previous: TimedPoint? = null
-            for (point in points) {
-                val fix = TimedPoint(point.timeMillis, point.coordinate.latitude, point.coordinate.longitude, point.altitudeM)
-                for (name in CompetitionTaskCourseData.notifiableTurnpointNames) {
-                    val wasInside = previous?.let { TurnpointSector.isInSector(it.lat, it.lon, course, name) } ?: false
-                    if (wasInside) continue
-                    val t = TurnpointSector.firstEntry(previous, fix, course, name) ?: continue
-                    val entry = previous?.let { TurnpointSector.interpolate(it, fix, t) } ?: fix
-                    turnpointPassageLogRepository.recordPastPassage(
-                        state.dataSource, gliderName, name, entry.altitudeM, entry.timeMillis,
-                    )
+        val course = state.selectedCourse ?: return
+        if (todays.source != state.dataSource) return
+        val now = System.currentTimeMillis()
+        for ((id, flights) in todays.flights) {
+            val baseName = todays.baseNames[id] ?: continue
+            val gliderName = (if (state.isSubscribed) state.nicknames[id] else null) ?: baseName
+            for (flight in flights) {
+                val points = flight.map { TimedPoint(it.timeMillis, it.coordinate.latitude, it.coordinate.longitude, it.altitudeM) }
+                var previous: TimedPoint? = null
+                for (fix in points) {
+                    for (name in CompetitionTaskCourseData.notifiableTurnpointNames) {
+                        if (previous != null && TurnpointSector.isInSector(previous.lat, previous.lon, course, name)) continue
+                        val t = TurnpointSector.firstEntry(previous, fix, course, name) ?: continue
+                        val entry = previous?.let { TurnpointSector.interpolate(it, fix, t) } ?: fix
+                        turnpointPassageLogRepository.recordPastPassage(state.dataSource, gliderName, name, entry.altitudeM, entry.timeMillis)
+                    }
+                    previous = fix
                 }
-                previous = fix
+                logLapEvents(state, id, TaskLapCalculator.evaluate(points, course, guidelineAltitude), gliderName, course, now, notify = false)
             }
         }
     }
+
+    /** Asks for today's flights again on the next refresh, e.g. after the app was in the background. */
+    private fun refreshTodaysFlights() {
+        needsTodaysFlights = true
+    }
+
+    /** Fetches every flight flown today on this source, landed ones included, so passages and laps
+     * flown while the app wasn't watching this source can be filled in. Best effort, like backfill. */
+    private suspend fun fetchTodaysFlightsIfNeeded(source: DataSource, groundAltitudeM: Double) {
+        val now = Instant.now()
+        if (!needsTodaysFlights || Duration.between(lastTodaysFlightsFetch, now) < MIN_BACKFILL_INTERVAL) return
+        needsTodaysFlights = false
+        lastTodaysFlightsFetch = now
+        val flights = runCatching { repository.fetchTodaysFlights(source, groundAltitudeM) }.getOrNull() ?: return
+        if (source != repository.currentDataSource()) return
+        val state = _uiState.value
+        val baseNames = mutableMapOf<String, String>()
+        for (id in flights.keys) {
+            val glider = state.positions.firstOrNull { it.imei == id }
+            when {
+                glider != null -> if (!glider.isAnonymous) baseNames[id] = state.baseNameFor(glider)
+                source == DataSource.OGN -> repository.ognBaseName(id)?.let { baseNames[id] = it }
+                // A LoRa tracker not in the current positions can't be named; it's left out.
+                else -> Unit
+            }
+        }
+        if (source != repository.currentDataSource()) return
+        todaysFlights = TodaysFlights(source, flights, baseNames)
+        recordTodaysFlights()
+    }
 }
+
+/** Today's flights from the track server, with each glider's base name (see
+ * [GliderTrackerViewModel.fetchTodaysFlightsIfNeeded]). */
+private class TodaysFlights(
+    val source: DataSource,
+    val flights: Map<String, List<List<TrackServerPoint>>>,
+    val baseNames: Map<String, String>,
+)
