@@ -249,16 +249,44 @@ enum PartialLapDistance {
 /// day's fastest lap (0 for a partly flown course, 規則56), and Rh = the glider's handicap / the
 /// handicap of the fastest glider - or, with no completed lap, of the longest distance - taking
 /// the larger one on a tie. If the top score exceeds 1000 it becomes 1000 and the rest scale with
-/// it. Unofficial: the rules score each pilot's last flight of the day from 1-second IGC logs,
-/// while this scores every flight the app timed.
+/// it. A low goal is handled per 細則7 別表(4): crossed at 280-330 m, 50 points off the result
+/// (never below 0); below 280 m, no speed points (and its speed doesn't set the day's fastest).
+/// Unofficial: the rules score each pilot's last flight of the day from 1-second IGC logs, while
+/// this scores every flight the app timed.
 enum LapScore {
+    static let goalMinAltitudeM = 330.0
+    static let goalNoSpeedBelowM = 280.0
+    static let lowGoalDeduction = 50.0
+
+    enum GoalPenalty {
+        case none
+        /// 別表(4)①: crossed at 280 m to under 330 m.
+        case deduction
+        /// 別表(4)②: crossed under 280 m - Rv = 0.
+        case noSpeedPoints
+    }
+
+    static func goalPenalty(altitudeM: Double?) -> GoalPenalty {
+        guard let altitudeM else { return .none }
+        if altitudeM < goalNoSpeedBelowM { return .noSpeedPoints }
+        if altitudeM < goalMinAltitudeM { return .deduction }
+        return .none
+    }
+
     struct Lap {
         let id: UUID
         let distanceKm: Double
         /// nil for a partly flown course: no speed points.
         let lapSeconds: Double?
         let handicap: Double
-        var speedKmh: Double { lapSeconds.map { distanceKm / ($0 / 3600) } ?? 0 }
+        /// The goal crossing's altitude, for a completed lap.
+        var goalAltitudeM: Double? = nil
+        var penalty: GoalPenalty { lapSeconds == nil ? .none : LapScore.goalPenalty(altitudeM: goalAltitudeM) }
+        /// The speed that earns speed points: none for a partly flown course or a goal under 280 m.
+        var speedKmh: Double {
+            guard let lapSeconds, penalty != .noSpeedPoints else { return 0 }
+            return distanceKm / (lapSeconds / 3600)
+        }
     }
 
     static func scores(_ laps: [Lap]) -> [UUID: Double] {
@@ -273,6 +301,10 @@ enum LapScore {
         })
         if let top = scores.values.max(), top > 1000 {
             scores = scores.mapValues { $0 * 1000 / top }
+        }
+        // 別表の基本的考え方(1)(2): deductions come off the computed points, never below 0.
+        for lap in laps where lap.penalty == .deduction {
+            scores[lap.id] = max(0, (scores[lap.id] ?? 0) - lowGoalDeduction)
         }
         return scores
     }

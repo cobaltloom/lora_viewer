@@ -70,4 +70,22 @@ class LapScoreTest {
         assertEquals(500.0, s.getValue("a"), 1e-9) // Rd 1, Rv 0, Rh 0.90/0.90
         assertEquals(11.4 / 14.6 * 500 * 1.00 / 0.90, s.getValue("b"), 1e-9)
     }
+
+    @Test
+    fun lowGoalsAreDeductedOrLoseSpeedPoints() {
+        // 細則7 別表(4): 280-330 m is 50 points off; under 280 m, Rv = 0 and its speed isn't the day's best.
+        val s = LapScore.scores(
+            listOf(
+                LapScore.Lap("ok", 26.4, 30 * 60.0, 1.0, goalAltitudeM = 400.0),
+                LapScore.Lap("low", 26.4, 30 * 60.0, 1.0, goalAltitudeM = 300.0),
+                LapScore.Lap("tooLow", 26.4, 20 * 60.0, 1.0, goalAltitudeM = 250.0), // fastest, but no speed points
+                LapScore.Lap("exactly330", 26.4, 30 * 60.0, 1.0, goalAltitudeM = 330.0),
+            ),
+        )
+        assertEquals(1000.0, s.getValue("ok"), 1e-9)
+        assertEquals(950.0, s.getValue("low"), 1e-9)
+        assertEquals(500.0, s.getValue("tooLow"), 1e-9)
+        assertEquals(1000.0, s.getValue("exactly330"), 1e-9)
+        assertEquals(LapScore.GoalPenalty.NONE, LapScore.goalPenalty(null))
+    }
 }

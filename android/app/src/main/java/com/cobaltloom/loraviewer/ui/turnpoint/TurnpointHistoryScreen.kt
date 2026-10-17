@@ -68,7 +68,13 @@ fun TurnpointHistoryScreen(viewModel: GliderTrackerViewModel, onBack: () -> Unit
             todaysRecords.mapNotNull { record ->
                 val distanceKm = record.courseDistanceKm ?: return@mapNotNull null
                 if (!record.isScoredFlight || (record.isFinish && record.lapSeconds == null)) return@mapNotNull null
-                LapScore.Lap(record.id, distanceKm, record.lapSeconds, uiState.handicapFor(record.gliderId))
+                LapScore.Lap(
+                    record.id,
+                    distanceKm,
+                    record.lapSeconds,
+                    uiState.handicapFor(record.gliderId),
+                    goalAltitudeM = if (record.isFinish) record.altitudeM else null,
+                )
             },
         )
     }
@@ -137,7 +143,7 @@ fun TurnpointHistoryScreen(viewModel: GliderTrackerViewModel, onBack: () -> Unit
                     if (scores.isNotEmpty()) {
                         item(key = "scoreNote") {
                             Text(
-                                "参考得点は競技規則53の式(距離・速度・ハンディキャップ)で、この端末が計時した飛行ごとに計算した目安です。周回できなかった飛行は、規則56(1)により細則2の距離表の距離点のみです。公式成績は各選手のその日最後の飛行をIGCロガーで判定します。ハンディキャップは関東大会の出場機には機種に合わせた値が入っており、それ以外は1.00です。得点の行をタップするか、メンバー一覧で機体ごとに変更できます。",
+                                "参考得点は競技規則53の式(距離・速度・ハンディキャップ)で、この端末が計時した飛行ごとに計算した目安です。周回できなかった飛行は、規則56(1)により細則2の距離表の距離点のみです。ゴール高度が280〜330m未満は50点減点、280m未満は速度点なしです(細則7 別表)。公式成績は各選手のその日最後の飛行をIGCロガーで判定します。ハンディキャップは関東大会の出場機には機種に合わせた値が入っており、それ以外は1.00です。得点の行をタップするか、メンバー一覧で機体ごとに変更できます。",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
@@ -208,7 +214,7 @@ private fun TurnpointPassageRow(
             var expanded by remember { mutableStateOf(false) }
             Box {
                 Text(
-                    "参考得点 %.1f点(ハンデ %.2f)".format(score, handicap),
+                    "参考得点 %.1f点(ハンデ %.2f%s)".format(score, handicap, goalPenaltyNote(record)),
                     style = MaterialTheme.typography.bodyMedium,
                     color = FinishGreen,
                     fontWeight = FontWeight.Bold,
@@ -227,6 +233,16 @@ private fun TurnpointPassageRow(
                 }
             }
         }
+    }
+}
+
+/** "・ゴール高度330m未満 -50点" / "・ゴール280m未満のため速度点なし" for a low goal (細則7 別表(4)). */
+private fun goalPenaltyNote(record: TurnpointPassageRecord): String {
+    if (!record.isFinish) return ""
+    return when (LapScore.goalPenalty(record.altitudeM)) {
+        LapScore.GoalPenalty.NONE -> ""
+        LapScore.GoalPenalty.DEDUCTION -> "・ゴール高度330m未満 -50点"
+        LapScore.GoalPenalty.NO_SPEED_POINTS -> "・ゴール280m未満のため速度点なし"
     }
 }
 

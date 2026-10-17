@@ -42,7 +42,8 @@ struct TurnpointPassageHistoryView: View {
             guard record.isScoredFlight, let distanceKm = record.courseDistanceKm,
                   record.isPartialLap || record.lapSeconds != nil else { return nil }
             let handicap = record.gliderID.map(handicapStore.handicap(for:)) ?? GliderHandicapStore.defaultHandicap
-            return LapScore.Lap(id: record.id, distanceKm: distanceKm, lapSeconds: record.lapSeconds, handicap: handicap)
+            return LapScore.Lap(id: record.id, distanceKm: distanceKm, lapSeconds: record.lapSeconds, handicap: handicap,
+                                goalAltitudeM: record.isFinish ? record.altitudeM : nil)
         })
     }
 
@@ -68,7 +69,7 @@ struct TurnpointPassageHistoryView: View {
                         Text("周回・得点")
                     } footer: {
                         if !scores.isEmpty {
-                            Text("参考得点は競技規則53の式(距離・速度・ハンディキャップ)で、この端末が計時した飛行ごとに計算した目安です。周回できなかった飛行は、規則56(1)により細則2の距離表の距離点のみです。公式成績は各選手のその日最後の飛行をIGCロガーで判定します。ハンディキャップは関東大会の出場機には機種に合わせた値が入っており、それ以外は1.00です。得点の行をタップするか、メンバー一覧で機体ごとに変更できます。")
+                            Text("参考得点は競技規則53の式(距離・速度・ハンディキャップ)で、この端末が計時した飛行ごとに計算した目安です。周回できなかった飛行は、規則56(1)により細則2の距離表の距離点のみです。ゴール高度が280〜330m未満は50点減点、280m未満は速度点なしです(細則7 別表)。公式成績は各選手のその日最後の飛行をIGCロガーで判定します。ハンディキャップは関東大会の出場機には機種に合わせた値が入っており、それ以外は1.00です。得点の行をタップするか、メンバー一覧で機体ごとに変更できます。")
                         }
                     }
                 }
@@ -93,6 +94,16 @@ struct TurnpointPassageHistoryView: View {
                     }
                 }
             }
+        }
+    }
+
+    /// "・ゴール高度不足 -50点" / "・ゴール280m未満のため速度点なし" for a low goal (細則7 別表(4)).
+    private static func goalPenaltyNote(_ record: TurnpointPassageRecord) -> String {
+        guard record.isFinish else { return "" }
+        switch LapScore.goalPenalty(altitudeM: record.altitudeM) {
+        case .none: return ""
+        case .deduction: return "・ゴール高度330m未満 -50点"
+        case .noSpeedPoints: return "・ゴール280m未満のため速度点なし"
         }
     }
 
@@ -128,7 +139,7 @@ struct TurnpointPassageHistoryView: View {
                         }
                     }
                 } label: {
-                    Text("参考得点 \(score, specifier: "%.1f")点(ハンデ \(handicapStore.handicap(for: gliderID), specifier: "%.2f"))")
+                    Text("参考得点 \(score, specifier: "%.1f")点(ハンデ \(handicapStore.handicap(for: gliderID), specifier: "%.2f")\(Self.goalPenaltyNote(record)))")
                         .font(.subheadline.bold())
                         .foregroundStyle(.green)
                 }
