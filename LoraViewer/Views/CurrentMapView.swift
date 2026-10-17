@@ -339,7 +339,7 @@ struct CurrentMapView: View {
                         lapSummary: selectedTaskCourse.flatMap { course in
                             lapStatuses[selectedGlider.imei]?.summary(courseDistanceKm: course.distanceKm, now: Date())
                         },
-                        toBeat: toBeatText(for: selectedGlider)
+                        toBeat: toBeat(for: selectedGlider)
                     )
                         .padding()
                         .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -628,8 +628,8 @@ struct CurrentMapView: View {
     }
 
     /// For a glider on a timed lap (started, not finished): the lap time that would top today's best
-    /// reference score, and how long it has left - like a ski jump's "to beat" line.
-    private func toBeatText(for glider: GliderPosition) -> String? {
+    /// reference score, and how far into it the glider is - like a ski jump's "to beat" line.
+    private func toBeat(for glider: GliderPosition) -> ToBeat? {
         guard let course = selectedTaskCourse, let status = lapStatuses[glider.imei],
               let start = status.start, status.finish == nil else { return nil }
         let laps = LapScore.laps(from: turnpointPassageLog.todaysRecords) { id in
@@ -638,12 +638,7 @@ struct CurrentMapView: View {
         guard laps.contains(where: { $0.lapSeconds != nil }),
               let seconds = LapScore.lapSecondsToBeat(laps, distanceKm: course.distanceKm, handicap: handicapStore.handicap(for: glider.imei))
         else { return nil }
-        if seconds.isInfinite { return "1位越え: 周回すれば上回る" }
-        let remaining = seconds - Date().timeIntervalSince(start)
-        let limit = TaskLapStatus.format(seconds.rounded(.down))
-        return remaining > 0
-            ? "1位越え: \(limit)以内(あと\(TaskLapStatus.format(remaining.rounded(.down))))"
-            : "1位越え: \(limit)以内(超過)"
+        return ToBeat(targetSeconds: seconds, elapsedSeconds: Date().timeIntervalSince(start))
     }
 
     /// Logs an unfinished flight that rounded at least one scoring turnpoint (競技規則56(1)), once,

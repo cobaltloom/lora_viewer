@@ -42,16 +42,16 @@ struct TurnpointPassageHistoryView: View {
         }
     }
 
-    /// "To beat" lines: the lap time each handicap class needs to top today's best score, over the
+    /// "To beat" rows: the lap time each handicap class needs to top today's best score, over the
     /// day's course distance. Shown once someone has completed a lap; 0.90-1.00 always, the slower
     /// classes only when such a glider has scored today.
-    private func toBeatLines(_ laps: [LapScore.Lap]) -> [String] {
+    private func toBeatRows(_ laps: [LapScore.Lap]) -> [ToBeatCard.Row] {
         guard let distanceKm = laps.filter({ $0.lapSeconds != nil }).map(\.distanceKm).max() else { return [] }
         let handicaps = Set([0.90, 0.95, 1.00] + laps.map(\.handicap)).sorted()
         return handicaps.compactMap { handicap in
-            guard let seconds = LapScore.lapSecondsToBeat(laps, distanceKm: distanceKm, handicap: handicap) else { return nil }
-            let time = seconds.isInfinite ? "周回すれば上回る" : "\(TaskLapStatus.format(seconds.rounded(.down)))以内"
-            return String(format: "ハンデ%.2f", handicap) + ": " + time
+            LapScore.lapSecondsToBeat(laps, distanceKm: distanceKm, handicap: handicap).map {
+                ToBeatCard.Row(handicap: handicap, seconds: $0)
+            }
         }
     }
 
@@ -59,21 +59,19 @@ struct TurnpointPassageHistoryView: View {
         let laps = todaysLaps
         let scores = LapScore.scores(laps)
         let finishes = todaysScoredFlights(scores: scores)
-        let toBeat = toBeatLines(laps)
+        let toBeat = toBeatRows(laps)
+        let leader = finishes.first { record in scores[record.id] == scores.values.max() }
         List {
             if log.todaysRecords.isEmpty {
                 ContentUnavailableView("本日の旋回点通過はまだありません", systemImage: "airplane")
             } else {
                 if !finishes.isEmpty {
                     Section {
-                        if !toBeat.isEmpty {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("1位を上回るのに必要な周回時間")
-                                    .font(.caption.bold())
-                                ForEach(toBeat, id: \.self) { Text($0) }
-                                    .font(.caption.monospacedDigit())
-                            }
-                            .foregroundStyle(.blue)
+                        if !toBeat.isEmpty, let leader, let leaderScore = scores[leader.id] {
+                            ToBeatCard(leaderName: leader.gliderName, leaderScore: leaderScore,
+                                       leaderLapSeconds: leader.lapSeconds, rows: toBeat)
+                                .listRowInsets(EdgeInsets(top: 6, leading: 0, bottom: 6, trailing: 0))
+                                .listRowBackground(Color.clear)
                         }
                         Picker("並び順", selection: $sortOrder) {
                             ForEach(FinishSortOrder.allCases) { order in
@@ -164,5 +162,70 @@ struct TurnpointPassageHistoryView: View {
                 }
             }
         }
+    }
+}
+
+/// The history's to-beat panel, styled after a ski jump broadcast: today's leader, then the lap
+/// time each handicap class must beat to take the lead (see `LapScore.lapSecondsToBeat`).
+struct ToBeatCard: View {
+    struct Row: Identifiable {
+        let handicap: Double
+        /// `.infinity` when any completed lap would do.
+        let seconds: Double
+        var id: Double { handicap }
+    }
+
+    let leaderName: String
+    let leaderScore: Double
+    let leaderLapSeconds: Double?
+    let rows: [Row]
+
+    private static func types(for handicap: Double) -> String {
+        GliderHandicapStore.options.first { $0.value == handicap }?.types ?? ""
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .center) {
+                ToBeatTag()
+                Spacer()
+                VStack(alignment: .trailing, spacing: 1) {
+                    Text("1位  \(leaderName)")
+                        .font(.caption.weight(.bold))
+                        .lineLimit(1)
+                    HStack(spacing: 6) {
+                        if let leaderLapSeconds {
+                            Text(ToBeat.clock(leaderLapSeconds))
+                        }
+                        Text(String(format: "%.1f点", leaderScore))
+                    }
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(.white.opacity(0.75))
+                }
+            }
+            ForEach(rows) { row in
+                HStack(alignment: .firstTextBaseline, spacing: 10) {
+                    Text(String(format: "%.2f", row.handicap))
+                        .font(.caption.weight(.bold).monospacedDigit())
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .overlay(RoundedRectangle(cornerRadius: 4).stroke(.white.opacity(0.6)))
+                    Text(Self.types(for: row.handicap))
+                        .font(.caption2)
+                        .foregroundStyle(.white.opacity(0.65))
+                        .lineLimit(1)
+                    Spacer(minLength: 4)
+                    Text(row.seconds.isInfinite ? "周回で1位" : ToBeat.clock(row.seconds))
+                        .font(.system(.title2, design: .rounded).weight(.bold).monospacedDigit())
+                        .foregroundStyle(Color.toBeatAccent)
+                }
+            }
+            Text("この時間より速く周回すると1位(ゴール330m以上で通過した場合)")
+                .font(.caption2)
+                .foregroundStyle(.white.opacity(0.6))
+        }
+        .padding(14)
+        .background(Color.toBeatPanel, in: RoundedRectangle(cornerRadius: 14))
+        .foregroundStyle(.white)
     }
 }

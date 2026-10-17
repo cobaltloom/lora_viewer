@@ -22,13 +22,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.cobaltloom.loraviewer.data.alert.AlertSeverity
 import com.cobaltloom.loraviewer.data.alert.GliderAlertReason
 import com.cobaltloom.loraviewer.data.alert.overallSeverity
 import com.cobaltloom.loraviewer.data.model.GliderPosition
+import com.cobaltloom.loraviewer.ui.common.ToBeat
+import com.cobaltloom.loraviewer.ui.common.ToBeatBadge
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -42,7 +43,7 @@ fun GliderDetailCard(
     /** One line of task lap progress, when a task course is selected and the glider is being timed. */
     lapSummary: String? = null,
     /** "To beat" for a lap in progress: what it needs to top today's best score. */
-    toBeat: String? = null,
+    toBeat: ToBeat? = null,
     onToggleFavorite: () -> Unit,
     onEditName: () -> Unit,
     onDismiss: () -> Unit,
@@ -127,12 +128,7 @@ fun GliderDetailCard(
                 )
             }
             if (toBeat != null) {
-                Text(
-                    text = toBeat,
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF1565C0),
-                )
+                ToBeatBadge(toBeat, modifier = Modifier.padding(top = 4.dp))
             }
 
             Text(

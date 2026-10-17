@@ -43,8 +43,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.cobaltloom.loraviewer.data.alert.LapScore
-import com.cobaltloom.loraviewer.data.alert.formatLapDuration
 import com.cobaltloom.loraviewer.data.alert.TurnpointPassageRecord
+import com.cobaltloom.loraviewer.ui.common.ToBeatCard
+import com.cobaltloom.loraviewer.ui.common.ToBeatRow
 import com.cobaltloom.loraviewer.ui.map.FinishSortOrder
 import com.cobaltloom.loraviewer.ui.map.GliderTrackerViewModel
 import java.time.Instant
@@ -74,9 +75,7 @@ fun TurnpointHistoryScreen(viewModel: GliderTrackerViewModel, onBack: () -> Unit
             emptyList()
         } else {
             (listOf(0.90, 0.95, 1.00) + laps.map { it.handicap }).distinct().sorted().mapNotNull { handicap ->
-                val seconds = LapScore.lapSecondsToBeat(laps, distanceKm, handicap) ?: return@mapNotNull null
-                val time = if (seconds.isInfinite()) "周回すれば上回る" else "${formatLapDuration((seconds * 1000).toLong())}以内"
-                "ハンデ%.2f: %s".format(handicap, time)
+                LapScore.lapSecondsToBeat(laps, distanceKm, handicap)?.let { ToBeatRow(handicap, it) }
             }
         }
     }
@@ -121,12 +120,17 @@ fun TurnpointHistoryScreen(viewModel: GliderTrackerViewModel, onBack: () -> Unit
             LazyColumn(modifier = Modifier.padding(padding).fillMaxSize()) {
                 if (todaysFinishes.isNotEmpty()) {
                     item(key = "finishesHeader") { SectionHeader("周回・得点") }
-                    if (toBeat.isNotEmpty()) {
+                    val topScore = scores.values.maxOrNull()
+                    val leader = todaysFinishes.firstOrNull { scores[it.id] == topScore }
+                    if (toBeat.isNotEmpty() && leader != null && topScore != null) {
                         item(key = "toBeat") {
-                            Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
-                                Text("1位を上回るのに必要な周回時間", style = MaterialTheme.typography.labelMedium, color = ToBeatBlue)
-                                toBeat.forEach { Text(it, style = MaterialTheme.typography.bodySmall, color = ToBeatBlue) }
-                            }
+                            ToBeatCard(
+                                leaderName = leader.gliderName,
+                                leaderScore = topScore,
+                                leaderLapSeconds = leader.lapSeconds,
+                                rows = toBeat,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                            )
                         }
                     }
                     item(key = "sortOrder") {
@@ -257,5 +261,4 @@ private fun goalPenaltyNote(record: TurnpointPassageRecord): String {
 }
 
 private val FinishGreen = Color(0xFF2E7D32)
-private val ToBeatBlue = Color(0xFF1565C0)
 private val PartialOrange = Color(0xFFEF6C00)
