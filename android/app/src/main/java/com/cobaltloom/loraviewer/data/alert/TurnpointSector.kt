@@ -11,10 +11,10 @@ import kotlin.math.hypot
  * fix. Kept in step with the iOS app's TurnpointSector (CompetitionTaskCourse.swift).
  */
 object TurnpointSector {
-    /** Fixes further apart than this aren't joined: LoRa drops a fix now and then (gaps of 1-2 min
+    /** Fixes further apart than this aren't joined: LoRa drops fixes now and then (gaps of 2-3 min
      * happen), but much longer means lost reception, and a straight line across it could invent a
      * passage. Such a fix is checked on its own. */
-    const val MAX_JOIN_GAP_MILLIS = 120_000L
+    const val MAX_JOIN_GAP_MILLIS = 180_000L
     private const val SAMPLE_SPACING_M = 25.0
     private const val MAX_SAMPLES = 400
 

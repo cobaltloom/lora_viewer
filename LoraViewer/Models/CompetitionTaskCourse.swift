@@ -110,10 +110,10 @@ private func shortestAngleDifference(from a: Double, to b: Double) -> Double {
 /// consecutive fixes catches that, and times the entry where the line enters rather than at the next
 /// fix. Kept in step with the Android app's TurnpointSector.kt, which has the unit tests.
 enum TurnpointSector {
-    /// Fixes further apart than this aren't joined: LoRa drops a fix now and then (gaps of 1-2 min
+    /// Fixes further apart than this aren't joined: LoRa drops fixes now and then (gaps of 2-3 min
     /// happen), but much longer means lost reception, and a straight line across it could invent a
     /// passage. Such a fix is checked on its own.
-    static let maxJoinGap: TimeInterval = 120
+    static let maxJoinGap: TimeInterval = 180
     private static let sampleSpacingM = 25.0
     private static let maxSamples = 400
 

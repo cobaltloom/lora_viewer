@@ -32,7 +32,7 @@ class TurnpointSectorTest {
 
     @Test
     fun fixesTooFarApartAreNotJoined() {
-        val late = fix(2300.0, bisector + 30, 150)
+        val late = fix(2300.0, bisector + 30, 240)
         assertNull(TurnpointSector.firstEntry(before, late, course, "千代田"))
     }
 
