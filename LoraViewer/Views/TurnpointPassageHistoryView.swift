@@ -5,11 +5,33 @@ import SwiftUI
 struct TurnpointPassageHistoryView: View {
     @ObservedObject var log: TurnpointPassageLog
     @EnvironmentObject private var handicapStore: GliderHandicapStore
+    @AppStorage("finishSortOrder") private var sortOrder: FinishSortOrder = .score
+
+    enum FinishSortOrder: String, CaseIterable, Identifiable {
+        case score, lapTime, time
+        var id: String { rawValue }
+        var label: String {
+            switch self {
+            case .score: return "得点順"
+            case .lapTime: return "所要時間順"
+            case .time: return "時刻順"
+            }
+        }
+    }
 
     /// Today's goal rows (lap completed, with time and speed), pinned above the full history so they
-    /// don't get buried among the turnpoint passages - highest reference score first.
+    /// don't get buried among the turnpoint passages - in the chosen order. Rows without a score or
+    /// lap time (saved before scoring) go last in those orders.
     private func todaysFinishes(scores: [UUID: Double]) -> [TurnpointPassageRecord] {
-        log.todaysRecords.filter(\.isFinish).sorted { (scores[$0.id] ?? -1) > (scores[$1.id] ?? -1) }
+        let finishes = log.todaysRecords.filter(\.isFinish) // newest first
+        switch sortOrder {
+        case .score:
+            return finishes.sorted { (scores[$0.id] ?? -1) > (scores[$1.id] ?? -1) }
+        case .lapTime:
+            return finishes.sorted { ($0.lapSeconds ?? .infinity) < ($1.lapSeconds ?? .infinity) }
+        case .time:
+            return finishes
+        }
     }
 
     /// Reference scores for today's goal rows that carry a lap time (see `LapScore`).
@@ -30,6 +52,12 @@ struct TurnpointPassageHistoryView: View {
             } else {
                 if !finishes.isEmpty {
                     Section {
+                        Picker("並び順", selection: $sortOrder) {
+                            ForEach(FinishSortOrder.allCases) { order in
+                                Text(order.label).tag(order)
+                            }
+                        }
+                        .pickerStyle(.segmented)
                         ForEach(finishes) { record in
                             row(for: record, score: scores[record.id])
                         }

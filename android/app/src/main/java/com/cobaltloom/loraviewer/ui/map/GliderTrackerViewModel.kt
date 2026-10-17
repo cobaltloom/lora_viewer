@@ -851,3 +851,10 @@ private class TodaysFlights(
     val flights: Map<String, List<List<TrackServerPoint>>>,
     val baseNames: Map<String, String>,
 )
+
+/** Orders for the passage history's completed laps. */
+enum class FinishSortOrder(val label: String) {
+    SCORE("得点順"),
+    LAP_TIME("所要時間順"),
+    TIME("時刻順"),
+}

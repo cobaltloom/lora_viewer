@@ -1,5 +1,6 @@
 package com.cobaltloom.loraviewer.ui.turnpoint
 
+import android.content.Context
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -19,6 +20,7 @@ import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -36,10 +38,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.cobaltloom.loraviewer.data.alert.LapScore
 import com.cobaltloom.loraviewer.data.alert.TurnpointPassageRecord
+import com.cobaltloom.loraviewer.ui.map.FinishSortOrder
 import com.cobaltloom.loraviewer.ui.map.GliderTrackerViewModel
 import java.time.Instant
 import java.time.LocalDate
@@ -69,9 +73,19 @@ fun TurnpointHistoryScreen(viewModel: GliderTrackerViewModel, onBack: () -> Unit
         )
     }
     // Goal rows (lap completed, with time and speed), pinned above the full history so they don't
-    // get buried among the turnpoint passages - highest reference score first.
-    val todaysFinishes = remember(todaysRecords, scores) {
-        todaysRecords.filter { it.isFinish }.sortedByDescending { scores[it.id] ?: -1.0 }
+    // get buried among the turnpoint passages - in the chosen order. Rows without a score or lap time
+    // (saved before scoring) go last in those orders.
+    val prefs = LocalContext.current.getSharedPreferences("turnpoint_history", Context.MODE_PRIVATE)
+    var sortOrder by remember {
+        mutableStateOf(runCatching { FinishSortOrder.valueOf(prefs.getString("finishSortOrder", null)!!) }.getOrDefault(FinishSortOrder.SCORE))
+    }
+    val todaysFinishes = remember(todaysRecords, scores, sortOrder) {
+        val finishes = todaysRecords.filter { it.isFinish } // newest first
+        when (sortOrder) {
+            FinishSortOrder.SCORE -> finishes.sortedByDescending { scores[it.id] ?: -1.0 }
+            FinishSortOrder.LAP_TIME -> finishes.sortedBy { it.lapSeconds ?: Double.MAX_VALUE }
+            FinishSortOrder.TIME -> finishes
+        }
     }
 
     Scaffold(
@@ -97,6 +111,23 @@ fun TurnpointHistoryScreen(viewModel: GliderTrackerViewModel, onBack: () -> Unit
             LazyColumn(modifier = Modifier.padding(padding).fillMaxSize()) {
                 if (todaysFinishes.isNotEmpty()) {
                     item(key = "finishesHeader") { SectionHeader("周回達成") }
+                    item(key = "sortOrder") {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            FinishSortOrder.entries.forEach { order ->
+                                FilterChip(
+                                    selected = sortOrder == order,
+                                    onClick = {
+                                        sortOrder = order
+                                        prefs.edit().putString("finishSortOrder", order.name).apply()
+                                    },
+                                    label = { Text(order.label) },
+                                )
+                            }
+                        }
+                    }
                     items(todaysFinishes, key = { "finish-${it.id}" }) { record ->
                         TurnpointPassageRow(record, scores[record.id], uiState.handicapFor(record.gliderId)) { id, value -> viewModel.setHandicap(id, value) }
                         HorizontalDivider()
