@@ -37,7 +37,7 @@ struct TurnpointPassageHistoryView: View {
                         Text("周回達成")
                     } footer: {
                         if !scores.isEmpty {
-                            Text("参考得点は競技規則53の式(距離・速度・ハンディキャップ)で、この端末が計時した周回ごとに計算した目安です。公式成績は各選手のその日最後の飛行をIGCロガーで判定します。ハンディキャップはメンバー一覧で機体ごとに設定できます(未設定は1.00)。")
+                            Text("参考得点は競技規則53の式(距離・速度・ハンディキャップ)で、この端末が計時した周回ごとに計算した目安です。公式成績は各選手のその日最後の飛行をIGCロガーで判定します。ハンディキャップは関東大会の出場機には機種に合わせた値が入っており、それ以外は1.00です。得点の行をタップするか、メンバー一覧で機体ごとに変更できます。")
                         }
                     }
                 }
@@ -82,11 +82,22 @@ struct TurnpointPassageHistoryView: View {
                 .font(.subheadline)
                 .foregroundStyle(record.isFinish ? .primary : .secondary)
                 .fontWeight(record.isFinish ? .semibold : .regular)
-            if let score {
-                let handicap = record.gliderID.map(handicapStore.handicap(for:)) ?? GliderHandicapStore.defaultHandicap
-                Text("参考得点 \(score, specifier: "%.1f")点(ハンデ \(handicap, specifier: "%.2f"))")
-                    .font(.subheadline.bold())
-                    .foregroundStyle(.green)
+            if let score, let gliderID = record.gliderID {
+                // Tappable, so a glider that has left the member list can still get its handicap.
+                Menu {
+                    Picker("ハンディキャップ", selection: Binding(
+                        get: { handicapStore.handicap(for: gliderID) },
+                        set: { handicapStore.setHandicap($0, for: gliderID) }
+                    )) {
+                        ForEach(GliderHandicapStore.options) { option in
+                            Text(String(format: "%.2f", option.value) + "  " + option.types).tag(option.value)
+                        }
+                    }
+                } label: {
+                    Text("参考得点 \(score, specifier: "%.1f")点(ハンデ \(handicapStore.handicap(for: gliderID), specifier: "%.2f"))")
+                        .font(.subheadline.bold())
+                        .foregroundStyle(.green)
+                }
             }
         }
     }

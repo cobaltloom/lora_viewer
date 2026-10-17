@@ -127,7 +127,7 @@ data class GliderTrackerUiState(
 
     fun isFavorite(imei: String): Boolean = isSubscribed && imei in favorites
 
-    fun handicapFor(id: String?): Double = id?.let { handicaps[it] } ?: LapScore.DEFAULT_HANDICAP
+    fun handicapFor(id: String?): Double = id?.let { handicaps[it] ?: LapScore.builtInDefault(it) } ?: LapScore.DEFAULT_HANDICAP
 
     /** The color of [imei]'s trail and trail name tag - distinct among gliders currently flying. */
     fun trailColorFor(imei: String): Color = gliderColor(trailColorSlots[imei], imei)

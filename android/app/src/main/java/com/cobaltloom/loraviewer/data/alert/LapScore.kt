@@ -14,6 +14,19 @@ data class HandicapOption(val value: Double, val types: String)
 object LapScore {
     const val DEFAULT_HANDICAP = 1.0
 
+    /** Known club gliders that aren't 1.00, so laps score right even for gliders that have landed
+     * and left the member list (as of 第42回関東学生グライダー競技会, 2026-10): LoRa tracker ids from
+     * the site's board, and the FLARM each glider was seen carrying. Spare LoRa trackers
+     * (000D-000F) move between gliders, so they're left out. Kept in step with iOS. */
+    val builtInHandicaps = mapOf(
+        "0006" to 0.90, "ICA84C247" to 0.90, // 早稲田 LS4
+        "0007" to 0.95, "FLRDB0774" to 0.95, // 明治 DG-100G
+        "0008" to 0.90, "FLRDB0775" to 0.90, // 慶應 Discus
+        "000B" to 0.90, "ICA841083" to 0.90, // 法政 Discus
+    )
+
+    fun builtInDefault(id: String): Double = builtInHandicaps[id] ?: DEFAULT_HANDICAP
+
     val handicapOptions = listOf(
         HandicapOption(0.90, "Discus, LS4, LS8, ASW24, ASW28"),
         HandicapOption(0.95, "G102(引込脚), シーラス, ASW19, DG-101G, クラブリベレ"),

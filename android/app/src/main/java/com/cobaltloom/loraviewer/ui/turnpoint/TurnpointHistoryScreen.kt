@@ -1,12 +1,13 @@
 package com.cobaltloom.loraviewer.ui.turnpoint
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -15,6 +16,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Flag
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -27,7 +30,9 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -93,13 +98,13 @@ fun TurnpointHistoryScreen(viewModel: GliderTrackerViewModel, onBack: () -> Unit
                 if (todaysFinishes.isNotEmpty()) {
                     item(key = "finishesHeader") { SectionHeader("周回達成") }
                     items(todaysFinishes, key = { "finish-${it.id}" }) { record ->
-                        TurnpointPassageRow(record, scores[record.id], uiState.handicapFor(record.gliderId))
+                        TurnpointPassageRow(record, scores[record.id], uiState.handicapFor(record.gliderId)) { id, value -> viewModel.setHandicap(id, value) }
                         HorizontalDivider()
                     }
                     if (scores.isNotEmpty()) {
                         item(key = "scoreNote") {
                             Text(
-                                "参考得点は競技規則53の式(距離・速度・ハンディキャップ)で、この端末が計時した周回ごとに計算した目安です。公式成績は各選手のその日最後の飛行をIGCロガーで判定します。ハンディキャップはメンバー一覧で機体ごとに設定できます(未設定は1.00)。",
+                                "参考得点は競技規則53の式(距離・速度・ハンディキャップ)で、この端末が計時した周回ごとに計算した目安です。公式成績は各選手のその日最後の飛行をIGCロガーで判定します。ハンディキャップは関東大会の出場機には機種に合わせた値が入っており、それ以外は1.00です。得点の行をタップするか、メンバー一覧で機体ごとに変更できます。",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
@@ -109,7 +114,7 @@ fun TurnpointHistoryScreen(viewModel: GliderTrackerViewModel, onBack: () -> Unit
                     item(key = "allHeader") { SectionHeader("すべての履歴") }
                 }
                 items(todaysRecords, key = { it.id }) { record ->
-                    TurnpointPassageRow(record, scores[record.id], uiState.handicapFor(record.gliderId))
+                    TurnpointPassageRow(record, scores[record.id], uiState.handicapFor(record.gliderId)) { id, value -> viewModel.setHandicap(id, value) }
                     HorizontalDivider()
                 }
             }
@@ -128,7 +133,12 @@ private fun SectionHeader(title: String) {
 }
 
 @Composable
-private fun TurnpointPassageRow(record: TurnpointPassageRecord, score: Double?, handicap: Double) {
+private fun TurnpointPassageRow(
+    record: TurnpointPassageRecord,
+    score: Double?,
+    handicap: Double,
+    onSetHandicap: (String, Double) -> Unit,
+) {
     Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp)) {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -150,13 +160,30 @@ private fun TurnpointPassageRow(record: TurnpointPassageRecord, score: Double?, 
             color = if (record.isFinish) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
             fontWeight = if (record.isFinish) FontWeight.SemiBold else null,
         )
-        if (score != null) {
-            Text(
-                "参考得点 %.1f点(ハンデ %.2f)".format(score, handicap),
-                style = MaterialTheme.typography.bodyMedium,
-                color = FinishGreen,
-                fontWeight = FontWeight.Bold,
-            )
+        val gliderId = record.gliderId
+        if (score != null && gliderId != null) {
+            // Tappable, so a glider that has left the member list can still get its handicap.
+            var expanded by remember { mutableStateOf(false) }
+            Box {
+                Text(
+                    "参考得点 %.1f点(ハンデ %.2f)".format(score, handicap),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = FinishGreen,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.clickable { expanded = true },
+                )
+                DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                    LapScore.handicapOptions.forEach { option ->
+                        DropdownMenuItem(
+                            text = { Text("%.2f  %s".format(option.value, option.types)) },
+                            onClick = {
+                                onSetHandicap(gliderId, option.value)
+                                expanded = false
+                            },
+                        )
+                    }
+                }
+            }
         }
     }
 }

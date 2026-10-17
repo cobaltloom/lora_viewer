@@ -13,7 +13,8 @@ private val Context.handicapDataStore by preferencesDataStore(name = "glider_han
 /**
  * Each glider's competition handicap (競技規則53), set per glider in the member list and used for the
  * reference scores of completed laps. Kept on this device, keyed by tracker id (LoRa IMEI or OGN
- * callsign - they never collide, so one table serves both sources); 1.00 when unset.
+ * callsign - they never collide, so one table serves both sources). Unset gliders use
+ * [LapScore.builtInHandicaps], else 1.00.
  */
 class GliderHandicapRepository(private val context: Context) {
     val handicaps: Flow<Map<String, Double>> = context.handicapDataStore.data.map { prefs ->
@@ -23,7 +24,7 @@ class GliderHandicapRepository(private val context: Context) {
     suspend fun setHandicap(id: String, value: Double) {
         context.handicapDataStore.edit { prefs ->
             val key = doublePreferencesKey(id)
-            if (value == LapScore.DEFAULT_HANDICAP) prefs.remove(key) else prefs[key] = value
+            if (value == LapScore.builtInDefault(id)) prefs.remove(key) else prefs[key] = value
         }
     }
 }
