@@ -33,6 +33,13 @@ data class TurnpointPassageRecord(
 ) {
     val localDate: LocalDate
         get() = Instant.ofEpochMilli(timestampMillis).atZone(ZoneId.systemDefault()).toLocalDate()
+
+    /** A completed lap, logged as "ゴール 所要…・平均…" (see GliderTrackerViewModel.updateLapStatuses). */
+    val isFinish: Boolean get() = turnpointName.startsWith(FINISH_PREFIX)
+
+    companion object {
+        const val FINISH_PREFIX = "ゴール "
+    }
 }
 
 /**
@@ -61,14 +68,19 @@ class TurnpointPassageLogRepository(private val context: Context) {
     /**
      * Records a passage found afterwards in the track server's history (flown while the app was
      * closed), at the time it actually happened - unless the same glider already has a record for
-     * this turnpoint within 10 minutes (e.g. the live check caught it when the app opened).
+     * this turnpoint within 10 minutes (e.g. the live check caught it when the app opened). Also
+     * used for live passages, timed by the fix. Returns whether it was recorded.
      */
-    suspend fun recordPastPassage(source: DataSource, gliderName: String, turnpointName: String, altitudeM: Double?, timestampMillis: Long) {
+    suspend fun recordPastPassage(source: DataSource, gliderName: String, turnpointName: String, altitudeM: Double?, timestampMillis: Long): Boolean {
         val duplicateWindowMillis = 10 * 60 * 1000L
+        var recorded = false
         context.turnpointPassageLogDataStore.edit { prefs ->
             val existing = decode(prefs[key(source)])
+            // Goal rows carry the lap time, which can differ by a few seconds between the live track
+            // and the server's, so any two goal rows count as the same event.
+            val isFinish = turnpointName.startsWith(TurnpointPassageRecord.FINISH_PREFIX)
             if (existing.any {
-                    it.gliderName == gliderName && it.turnpointName == turnpointName &&
+                    it.gliderName == gliderName && (it.turnpointName == turnpointName || (isFinish && it.isFinish)) &&
                         kotlin.math.abs(it.timestampMillis - timestampMillis) < duplicateWindowMillis
                 }
             ) return@edit
@@ -79,14 +91,9 @@ class TurnpointPassageLogRepository(private val context: Context) {
                 timestampMillis = timestampMillis,
             )
             prefs[key(source)] = json.encodeToString(prune(existing + record))
+            recorded = true
         }
-    }
-
-    suspend fun record(source: DataSource, gliderName: String, turnpointName: String, altitudeM: Double?) {
-        context.turnpointPassageLogDataStore.edit { prefs ->
-            val updated = prune(decode(prefs[key(source)]) + TurnpointPassageRecord(gliderName = gliderName, turnpointName = turnpointName, altitudeM = altitudeM))
-            prefs[key(source)] = json.encodeToString(updated)
-        }
+        return recorded
     }
 
     suspend fun clearToday(source: DataSource) {

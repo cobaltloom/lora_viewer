@@ -14,6 +14,11 @@ HTTP API (behind Caddy for HTTPS):
       -> {"generatedAt": <epoch s>, "tracks": {"<id>": [[t, lat, lon, altM], ...]}}
       One entry per glider that is currently flying (latest fix within 10 min and
       above groundAltM), holding its points since it was last at/below groundAltM.
+  GET /flights?source=ogn|lora&groundAltM=60   (header X-Api-Key)
+      -> {"generatedAt": <epoch s>, "flights": {"<id>": [[[t, lat, lon, altM], ...], ...]}}
+      Every flight (run of points above groundAltM) since midnight JST, landed ones
+      included, so the apps can fill in turnpoint passages and laps flown while they
+      weren't watching that source.
   GET /health -> counts, for monitoring.
 
 Standard library only, so it runs on a stock Debian python3.
@@ -46,9 +51,13 @@ MIN_POINT_SPACING_S = 5          # store at most one point per 5 s per glider
 FLYING_RECENT_S = 10 * 60        # "currently flying" = latest fix this recent...
 MAX_FLIGHT_S = 12 * 3600         # ...and a returned segment never spans more than this
 MAX_POINTS_PER_TRACK = 1000      # downsampled to at most this many points per response
-LORA_POLL_S = 10
+MAX_POINTS_PER_FLIGHT = 3000     # /flights: 4 h at 5 s, enough to time turnpoint entries
+FLIGHT_GAP_S = 10 * 60           # /flights: a silence this long ends a flight
+JST_OFFSET_S = 9 * 3600
+LORA_POLL_S = 5                  # LoRa fixes come every ~7-15 s; 10 s polling missed some
+TAKEOFF_GROUND_POINT_S = 60      # a flight starts with its last ground point this recent (see split_flights)
 SNAPSHOT_S = 60
-VERSION = "1.0"
+VERSION = "1.2"
 
 OGN_HOST, OGN_PORT = "aprs.glidernet.org", 14580
 # 20 km around Menuma airfield's center (JSAL guideline: N36°12'41" E139°25'08") - enough for the
@@ -107,6 +116,16 @@ class Store:
                 result[gid] = downsample(seg, MAX_POINTS_PER_TRACK)
         return result
 
+    def all_flights(self, source, ground_alt, since):
+        with self.lock:
+            snapshot = {gid: [p for p in pts if p[0] >= since] for gid, pts in self.tracks[source].items()}
+        result = {}
+        for gid, pts in snapshot.items():
+            segs = [downsample(seg, MAX_POINTS_PER_FLIGHT) for seg in split_flights(pts, ground_alt)]
+            if segs:
+                result[gid] = segs
+        return result
+
     def save(self, path):
         with self.lock:
             data = json.dumps(self.tracks)
@@ -130,7 +149,8 @@ class Store:
 
 
 def current_flight(pts, ground_alt, now):
-    """Points since the glider was last at/below ground_alt, if it is flying now."""
+    """Points since the glider was last at/below ground_alt, if it is flying now (with that last
+    ground point, as split_flights does)."""
     if not pts:
         return None
     last = pts[-1]
@@ -139,7 +159,34 @@ def current_flight(pts, ground_alt, now):
     start = len(pts) - 1
     while start > 0 and pts[start - 1][3] > ground_alt and last[0] - pts[start - 1][0] <= MAX_FLIGHT_S:
         start -= 1
+    if start > 0 and pts[start][0] - pts[start - 1][0] <= TAKEOFF_GROUND_POINT_S:
+        start -= 1
     return pts[start:]
+
+
+def split_flights(pts, ground_alt):
+    """Runs of at least two points above ground_alt, broken at ground points and long silences.
+    Each starts with the ground point just before takeoff, if recent: a winch launch can cross the
+    start line between that and the first airborne fix, which sparse LoRa fixes often do."""
+    flights, current, last_ground = [], [], None
+    for p in pts:
+        if p[3] <= ground_alt or (current and p[0] - current[-1][0] > FLIGHT_GAP_S):
+            if sum(1 for q in current if q[3] > ground_alt) >= 2:
+                flights.append(current)
+            current = []
+        if p[3] <= ground_alt:
+            last_ground = p
+        else:
+            if not current and last_ground and p[0] - last_ground[0] <= TAKEOFF_GROUND_POINT_S:
+                current.append(last_ground)
+            current.append(p)
+    if sum(1 for q in current if q[3] > ground_alt) >= 2:
+        flights.append(current)
+    return flights
+
+
+def jst_midnight(now):
+    return (now + JST_OFFSET_S) // 86400 * 86400 - JST_OFFSET_S
 
 
 def downsample(pts, limit):
@@ -308,7 +355,7 @@ class Handler(BaseHTTPRequestHandler):
             with self.store.lock:
                 counts = {s: len(v) for s, v in self.store.tracks.items()}
             return self._json({"ok": True, "gliders": counts})
-        if url.path != "/tracks":
+        if url.path not in ("/tracks", "/flights"):
             return self._json({"error": "not found"}, 404)
         if not API_KEY or self.headers.get("X-Api-Key") != API_KEY:
             return self._json({"error": "unauthorized"}, 401)
@@ -319,6 +366,10 @@ class Handler(BaseHTTPRequestHandler):
         ground = _num(q.get("groundAltM", ["60"])[0])
         ground = 60.0 if ground is None else ground
         now = time.time()
+        if url.path == "/flights":
+            flights = self.store.all_flights(source, ground, jst_midnight(now))
+            return self._json({"generatedAt": int(now),
+                               "flights": {k: [[list(p) for p in seg] for seg in v] for k, v in flights.items()}})
         tracks = self.store.flights(source, ground, now)
         self._json({"generatedAt": int(now), "tracks": {k: [list(p) for p in v] for k, v in tracks.items()}})
 

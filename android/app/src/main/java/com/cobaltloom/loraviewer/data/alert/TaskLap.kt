@@ -40,6 +40,40 @@ data class TaskLapStatus(
     val isGoalTooLow: Boolean get() = finishAltitudeM != null && finishAltitudeM < TaskLapCalculator.MIN_GOAL_ALTITUDE_M
 }
 
+/**
+ * Remembers each glider's last lap status so a refresh only re-times gliders whose track changed.
+ * A finished lap is reused while its track just grows at the end, since points after the finish
+ * can't change it (start, turnpoints and finish are each the first match in order).
+ */
+class TaskLapCache {
+    private data class Entry(val course: CompetitionTaskCourse, val firstMillis: Long, val lastMillis: Long, val size: Int, val status: TaskLapStatus)
+
+    private val entries = mutableMapOf<String, Entry>()
+
+    fun statuses(
+        tracks: Map<String, List<TimedPoint>>,
+        course: CompetitionTaskCourse,
+        requiredAltitudeM: (TimedPoint) -> Double?,
+    ): Map<String, TaskLapStatus> {
+        entries.keys.retainAll(tracks.keys)
+        return tracks.mapValues { (id, points) ->
+            val first = points.firstOrNull()?.timeMillis
+            val last = points.lastOrNull()?.timeMillis
+            val entry = entries[id]
+            if (entry != null && first != null && last != null && entry.course == course && entry.firstMillis == first &&
+                ((entry.lastMillis == last && entry.size == points.size) || (entry.status.finishMillis != null && points.size >= entry.size))
+            ) {
+                return@mapValues entry.status
+            }
+            val status = TaskLapCalculator.evaluate(points, course, requiredAltitudeM)
+            if (first != null && last != null) entries[id] = Entry(course, first, last, points.size, status)
+            status
+        }
+    }
+
+    fun clear() = entries.clear()
+}
+
 object TaskLapCalculator {
     /** 規則50(5): goal line crossing altitude (MSL). */
     const val MIN_GOAL_ALTITUDE_M = 330.0
@@ -51,7 +85,8 @@ object TaskLapCalculator {
      * Times [points] (one flight, oldest first) around [course]: the start line crossing, then each
      * interior turnpoint in order - inside its 90° / 2 km sector and not below the safety guideline
      * altitude at that spot ([requiredAltitudeM], rule 37(1)②) - then the first goal line crossing
-     * after the last turnpoint.
+     * after the last turnpoint. Turnpoints are checked along the line between fixes (see
+     * [TurnpointSector.firstEntry]), so a sector clipped between two sparse fixes still counts.
      */
     fun evaluate(
         points: List<TimedPoint>,
@@ -64,27 +99,30 @@ object TaskLapCalculator {
             return TaskLapStatus(null, null, emptyList(), turnpoints.size, null, null)
         }
         val passed = mutableListOf<Pair<String, Long>>()
+        // The segment points[index - 1] → points[index] is checked, from the start crossing on.
         var index = start.afterIndex
+        var lastEntry = 0.0
         while (index < points.size && passed.size < turnpoints.size) {
-            val p = points[index]
+            val a = points[index - 1]
+            val b = points[index]
             val name = turnpoints[passed.size]
-            if (isInSector(p, course, name) && p.altitudeM >= (requiredAltitudeM(p) ?: Double.NEGATIVE_INFINITY)) {
-                passed += name to p.timeMillis
+            val t = TurnpointSector.firstEntry(a, b, course, name) { t ->
+                val p = TurnpointSector.interpolate(a, b, t)
+                p.altitudeM >= (requiredAltitudeM(p) ?: Double.NEGATIVE_INFINITY)
             }
-            index++
+            if (t != null) {
+                // The next turnpoint is looked for from the same segment, in case it's that close.
+                passed += name to TurnpointSector.interpolate(a, b, t).timeMillis
+                lastEntry = t
+            } else {
+                index++
+            }
         }
         if (passed.size < turnpoints.size) {
             return TaskLapStatus(start.timeMillis, start.altitudeM, passed, turnpoints.size, null, null)
         }
-        val finish = firstCrossing(points, index - 1, goalLineA, goalLineB)
+        val finish = firstCrossing(points, index - 1, goalLineA, goalLineB, minFraction = lastEntry)
         return TaskLapStatus(start.timeMillis, start.altitudeM, passed, turnpoints.size, finish?.timeMillis, finish?.altitudeM)
-    }
-
-    private fun isInSector(p: TimedPoint, course: CompetitionTaskCourse, name: String): Boolean {
-        val tp = CompetitionTaskCourseData.turnpoints[name] ?: return false
-        val bisector = CompetitionTaskCourseData.sectorBearing(course, name) ?: return false
-        return distanceMeters(tp.latitude, tp.longitude, p.lat, p.lon) <= CompetitionTaskCourseData.TURNPOINT_RADIUS_KM * 1000 &&
-            CompetitionTaskCourseData.isBearing(bearingDegrees(tp.latitude, tp.longitude, p.lat, p.lon), bisector)
     }
 
     // ---- line crossings, on a local flat projection around the field (fine at this scale)
@@ -116,13 +154,21 @@ object TaskLapCalculator {
 
     private class Crossing(val timeMillis: Long, val altitudeM: Double, val afterIndex: Int)
 
-    /** The first track segment from [fromIndex] on that crosses segment a-b, with time and altitude
+    /** The first track segment from [fromIndex] on that crosses segment a-b - on segment [fromIndex]
+     * itself, only at or past [minFraction] of the way along it - with time and altitude
      * interpolated to the crossing point. */
-    private fun firstCrossing(points: List<TimedPoint>, fromIndex: Int, a: Pair<Double, Double>, b: Pair<Double, Double>): Crossing? {
+    private fun firstCrossing(
+        points: List<TimedPoint>,
+        fromIndex: Int,
+        a: Pair<Double, Double>,
+        b: Pair<Double, Double>,
+        minFraction: Double = 0.0,
+    ): Crossing? {
         for (i in maxOf(fromIndex, 0) until points.size - 1) {
             val p = points[i]
             val q = points[i + 1]
             val t = segmentIntersection(x(p.lon), y(p.lat), x(q.lon), y(q.lat), a, b) ?: continue
+            if (i == fromIndex && t < minFraction) continue
             return Crossing(
                 timeMillis = p.timeMillis + ((q.timeMillis - p.timeMillis) * t).toLong(),
                 altitudeM = p.altitudeM + (q.altitudeM - p.altitudeM) * t,

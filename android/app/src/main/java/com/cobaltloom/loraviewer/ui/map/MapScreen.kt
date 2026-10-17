@@ -41,6 +41,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
@@ -54,6 +55,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -175,10 +179,32 @@ fun MapScreen(
         cameraPositionState.animate(CameraUpdateFactory.newLatLngBounds(paddedBounds(uiState.positions), 24))
     }
 
-    // Kept up to date as the map is panned/zoomed, so distance labels on the alert circles can be
-    // placed on whichever side of the circle faces the visible area, instead of a fixed compass
-    // point that can pan or zoom out of view.
-    val cameraTarget = cameraPositionState.position.target
+    // Updated once the map stops moving, so distance labels on the alert circles can be placed on
+    // whichever side of the circle faces the visible area, instead of a fixed compass point that
+    // can pan or zoom out of view. Not read live: that recomposed the whole map on every frame.
+    var cameraTarget by remember { mutableStateOf(cameraPositionState.position.target) }
+    LaunchedEffect(cameraPositionState.isMoving) {
+        if (!cameraPositionState.isMoving) cameraTarget = cameraPositionState.position.target
+    }
+
+    // Polling (and the OGN stream) only runs while the app is on screen: alerts aren't needed with
+    // the screen off, and keeping it going in the background drained the battery and heated the
+    // phone. Trails are saved periodically (see GliderTrailRepository); the rest is saved on leaving.
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_START -> viewModel.startPolling()
+                Lifecycle.Event.ON_STOP -> {
+                    viewModel.stopPolling()
+                    viewModel.saveTrailsNow()
+                }
+                else -> Unit
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     // Names are decluttered by zoom, like MapKit does on iOS. Bucketed to quarter zoom levels so
     // markers aren't re-rasterized on every frame of a pinch.

@@ -10,6 +10,10 @@ struct TurnpointPassageRecord: Identifiable, Codable {
     let altitudeM: Double?
     let timestamp: Date
 
+    /// A completed lap, logged as "ゴール 所要…・平均…" (see `CurrentMapView.updateLapStatuses`).
+    var isFinish: Bool { turnpointName.hasPrefix(Self.finishPrefix) }
+    static let finishPrefix = "ゴール "
+
     init(gliderName: String, turnpointName: String, altitudeM: Double?, timestamp: Date = Date()) {
         self.id = UUID()
         self.gliderName = gliderName

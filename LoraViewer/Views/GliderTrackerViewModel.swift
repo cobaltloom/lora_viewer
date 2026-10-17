@@ -38,8 +38,19 @@ final class GliderTrackerViewModel: ObservableObject {
     /// server), kept for lap timing. Dropped when the glider lands, like its trail.
     @Published private(set) var timedTracks: [String: [TimedPoint]] = [:]
     private static let maxTimedPoints = 7200
+    /// Each glider's latest fix at/below the ground threshold: a new flight's timed track starts
+    /// with it if recent, since a winch launch can cross the start line between it and the first
+    /// airborne fix (LoRa fixes are ~15 s apart).
+    private var lastGroundFixes: [String: TimedPoint] = [:]
+    private static let takeoffGroundFixMaxAge: TimeInterval = 60
     /// The latest flights fetched from the track server (see `backfillTrailsIfNeeded`).
     @Published private(set) var backfilledFlights: BackfilledFlights?
+    /// Today's flights from the track server (see `fetchTodaysFlightsIfNeeded`).
+    @Published private(set) var todaysFlights: TodaysFlights?
+    /// Set when today's flights should be fetched again: at start, after a source switch, and on
+    /// coming back to the foreground (see `refreshTodaysFlights`).
+    private var needsTodaysFlights = true
+    private var lastTodaysFlightsFetch = Date.distantPast
     static let trailColorCount = 8
     /// Kept in sync with `AlertSettings.minimumFlyingAltitudeM` by the view,
     /// since this view model has no environment access of its own.
@@ -47,6 +58,10 @@ final class GliderTrackerViewModel: ObservableObject {
 
     private let maxTrailPointsPerGlider = 2000
     private let trailsStorageKey = "gliderTrails"
+    /// Live trail points are saved at most this often (plus on going to the background, see
+    /// `saveTrailsNow`): JSON-encoding every trail on each 2 s refresh kept the CPU busy.
+    private static let trailSaveInterval: TimeInterval = 30
+    private var lastTrailSave = Date.distantPast
 
     private let api: TrailRouteAPI
     private let ognAPI = OGNAPI()
@@ -84,8 +99,10 @@ final class GliderTrackerViewModel: ObservableObject {
     }
 
     func refreshOnce() async {
-        isLoading = true
-        defer { isLoading = false }
+        // Only for the first fetch: toggling this on every refresh re-rendered the whole map twice.
+        let showsLoading = lastUpdated == nil
+        if showsLoading { isLoading = true }
+        defer { if showsLoading { isLoading = false } }
         let source = settings.effectiveDataSource
         if let lastDataSource, lastDataSource != source {
             positions = []
@@ -94,6 +111,9 @@ final class GliderTrackerViewModel: ObservableObject {
             saveTrails()
             needsTrailBackfill = true
             lastTrailBackfill = .distantPast
+            todaysFlights = nil
+            needsTodaysFlights = true
+            lastTodaysFlightsFetch = .distantPast
         }
         lastDataSource = source
         do {
@@ -115,8 +135,9 @@ final class GliderTrackerViewModel: ObservableObject {
             }
             // Not awaited: a slow track server must never hold up the live refresh loop.
             Task { await backfillTrailsIfNeeded(source: source) }
+            Task { await fetchTodaysFlightsIfNeeded(source: source) }
             lastUpdated = Date()
-            errorMessage = nil
+            if errorMessage != nil { errorMessage = nil }
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -161,16 +182,50 @@ final class GliderTrackerViewModel: ObservableObject {
         saveTrails()
     }
 
+    /// Asks for today's flights again on the next refresh, e.g. after the app was in the background.
+    func refreshTodaysFlights() {
+        needsTodaysFlights = true
+    }
+
+    /// Fetches every flight flown today on this source, landed ones included, so passages and laps
+    /// flown while the app wasn't watching this source can be filled in. Best effort, like backfill.
+    private func fetchTodaysFlightsIfNeeded(source: DataSource) async {
+        guard needsTodaysFlights, let server = settings.trackServer,
+              Date().timeIntervalSince(lastTodaysFlightsFetch) >= Self.minBackfillInterval else { return }
+        needsTodaysFlights = false
+        lastTodaysFlightsFetch = Date()
+        guard let flights = try? await trackServerAPI.fetchTodaysFlights(
+            server: server, source: source, groundAltitudeM: groundAltitudeThresholdM
+        ), source == settings.effectiveDataSource else { return }
+        var baseNames: [String: String] = [:]
+        for id in flights.keys {
+            if let glider = positions.first(where: { $0.imei == id }) {
+                guard !glider.isAnonymous else { continue }
+                baseNames[id] = nameFor(glider)
+            } else if source == .ogn, let name = await ognAPI.baseName(forCallsign: id) {
+                baseNames[id] = name
+            }
+            // A LoRa tracker not in the current positions can't be named; it's left out.
+        }
+        guard source == settings.effectiveDataSource else { return }
+        todaysFlights = TodaysFlights(flights: flights, baseNames: baseNames)
+    }
+
     private func recordTimedPoints(from positions: [GliderPosition]) {
         var tracks = timedTracks.filter { id, _ in positions.contains { $0.imei == id } }
         let now = Date()
         for glider in positions {
+            let time = glider.positionDateTimeUTC ?? now
             guard let alt = glider.alt, alt > groundAltitudeThresholdM else {
                 tracks.removeValue(forKey: glider.imei)
+                if let alt = glider.alt { lastGroundFixes[glider.imei] = TimedPoint(time: time, coordinate: glider.coordinate, altitudeM: alt) }
                 continue
             }
-            let time = glider.positionDateTimeUTC ?? now
             var track = tracks[glider.imei] ?? []
+            if track.isEmpty, let ground = lastGroundFixes[glider.imei], ground.time < time,
+               time.timeIntervalSince(ground.time) <= Self.takeoffGroundFixMaxAge {
+                track.append(ground)
+            }
             if let last = track.last, time <= last.time { continue }
             track.append(TimedPoint(time: time, coordinate: glider.coordinate, altitudeM: alt))
             tracks[glider.imei] = Array(track.suffix(Self.maxTimedPoints))
@@ -179,12 +234,17 @@ final class GliderTrackerViewModel: ObservableObject {
     }
 
     private func recordTrailPoints(from positions: [GliderPosition]) {
+        // Built on a copy and assigned once, so `trails` publishes (and reassigns color slots) once
+        // per refresh rather than once per glider.
+        var updated = trails
+        var changed = false
+        var landed = false
         for glider in positions {
             guard let alt = glider.alt, alt > groundAltitudeThresholdM else {
-                trails.removeValue(forKey: glider.imei)
+                if updated.removeValue(forKey: glider.imei) != nil { changed = true; landed = true }
                 continue
             }
-            var points = trails[glider.imei] ?? []
+            var points = updated[glider.imei] ?? []
             if let last = points.last, last.latitude == glider.lat, last.longitude == glider.lon {
                 continue
             }
@@ -192,9 +252,15 @@ final class GliderTrackerViewModel: ObservableObject {
             if points.count > maxTrailPointsPerGlider {
                 points.removeFirst(points.count - maxTrailPointsPerGlider)
             }
-            trails[glider.imei] = points
+            updated[glider.imei] = points
+            changed = true
         }
-        saveTrails()
+        guard changed else { return }
+        trails = updated
+        // A landing is saved at once, so a reopened app doesn't bring back a finished flight's trail.
+        if landed || Date().timeIntervalSince(lastTrailSave) >= Self.trailSaveInterval {
+            saveTrails()
+        }
     }
 
     private func assignTrailColorSlots() {
@@ -215,7 +281,13 @@ final class GliderTrackerViewModel: ObservableObject {
         trails = decoded.mapValues { $0.map(\.coordinate) }
     }
 
+    /// Saves any trail points not yet saved; called when the app goes to the background.
+    func saveTrailsNow() {
+        saveTrails()
+    }
+
     private func saveTrails() {
+        lastTrailSave = Date()
         let encoded = trails.mapValues { $0.map(TrailPoint.init) }
         guard let data = try? JSONEncoder().encode(encoded) else { return }
         UserDefaults.standard.set(data, forKey: trailsStorageKey)

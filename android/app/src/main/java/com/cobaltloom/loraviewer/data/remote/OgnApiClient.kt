@@ -58,6 +58,17 @@ class OgnApiClient(
         }
     }
 
+    /** The name an aircraft is shown under, from its APRS callsign (e.g. "FLRDB0773"), for one that
+     * may no longer be on the map; null if the owner asked not to be tracked or identified. */
+    suspend fun baseName(callsign: String): String? {
+        val devices = runCatching { deviceDatabase.get() }.getOrNull() ?: return null
+        val flarmNet = runCatching { flarmNetDatabase.get() }.getOrDefault(emptyMap())
+        val address = callsign.takeLast(6).uppercase()
+        val device = devices[address] ?: flarmNet[address]
+        if (device != null && (!device.isTracked || !device.isIdentified)) return null
+        return listOfNotNull(device?.competitionId, device?.registration).joinToString(" ").ifEmpty { callsign }
+    }
+
     /** Closes the stream; the next [fetchCurrentPositions] reconnects. */
     fun stop() {
         streamJob?.cancel()

@@ -28,6 +28,8 @@ struct CurrentMapView: View {
     @State private var lapStatuses: [String: TaskLapStatus] = [:]
     /// "imei|time" of starts/finishes already logged (finishes also notified), so each is reported once.
     @State private var reportedLapEvents: Set<String> = []
+    @State private var lapCache = TaskLapCache()
+    @Environment(\.scenePhase) private var scenePhase
     @State private var showSettings = false
     /// Launch-time LoRa/OGN chooser, so people notice OGN is available at all. Shown once per launch
     /// until "次回から表示しない" is checked.
@@ -48,6 +50,9 @@ struct CurrentMapView: View {
     /// turnpoint's sector, so passage notifications fire once on entry
     /// rather than repeatedly while a glider lingers inside.
     @State private var glidersInsideTurnpoints: Set<String> = []
+    /// Each glider's fix as of the previous update, so a sector entry can be found along the line
+    /// from it to the new fix (see `TurnpointSector.firstEntry`).
+    @State private var previousTurnpointFixes: [String: TimedPoint] = [:]
     /// Proximity reasons (see `ProximityAlertSettings`) for the most recent
     /// position update, keyed by glider imei, merged into `alertReasons(for:)`.
     @State private var proximityReasonsByIMEI: [String: [GliderAlertReason]] = [:]
@@ -93,15 +98,15 @@ struct CurrentMapView: View {
         // someone could enable them during a trial and keep the alerts
         // after lapsing.
         guard subscriptionManager.hasFullAccess else { return [] }
+        // Every alert is Menuma-specific, so only for gliders within 15 km of the field center.
+        guard CompetitionAltitudeGuideline.isWithinAlertRadius(glider) else { return [] }
         var reasons: [GliderAlertReason] = []
         // When one or more gliders are favorited, only they are checked against the custom
         // altitude alert and competition guideline — otherwise, e.g. a glider flying from a
         // different field than the one these are configured for triggers noise notifications
         // for gliders the person tracking them doesn't actually care about. With no favorites
         // set, every glider is checked, same as before this distinction existed.
-        // Both are Menuma-specific, so only for gliders within 15 km of the field center.
-        if favoritesStore.favoriteIMEIs.isEmpty || favoritesStore.isFavorite(glider.imei),
-           CompetitionAltitudeGuideline.isWithinAlertRadius(glider) {
+        if favoritesStore.favoriteIMEIs.isEmpty || favoritesStore.isFavorite(glider.imei) {
             if let severity = alertSettings.alertSeverity(for: glider) {
                 reasons.append(GliderAlertReason(label: "カスタム設定", severity: severity))
             }
@@ -287,13 +292,16 @@ struct CurrentMapView: View {
                     }
                     UserAnnotation()
                 }
-                .mapStyle(mapStyleIsSatellite ? .hybrid(elevation: .realistic) : .standard(elevation: .realistic))
+                // Flat, not 3D terrain: the Menuma area gains nothing visible from it, and rendering terrain
+                // kept the GPU busy enough to make phones run hot.
+                .mapStyle(mapStyleIsSatellite ? .hybrid(elevation: .flat) : .standard(elevation: .flat))
                 .mapControls {
                     MapCompass()
                     MapScaleView()
                     MapUserLocationButton()
                 }
-                .onMapCameraChange(frequency: .continuous) { context in
+                // Only once a pan/zoom ends: updating on every frame rebuilt the whole map content each frame.
+                .onMapCameraChange(frequency: .onEnd) { context in
                     visibleRegionCenter = context.region.center
                 }
                 .overlay(alignment: .bottomLeading) {
@@ -462,6 +470,13 @@ struct CurrentMapView: View {
             .onDisappear {
                 viewModel.stopPolling()
             }
+            .onChange(of: scenePhase) { _, phase in
+                if phase == .active {
+                    viewModel.refreshTodaysFlights()
+                } else {
+                    viewModel.saveTrailsNow()
+                }
+            }
             .onChange(of: alertSettings.minimumFlyingAltitudeM) { _, newValue in
                 viewModel.groundAltitudeThresholdM = newValue
             }
@@ -477,10 +492,14 @@ struct CurrentMapView: View {
                 viewModel.startPolling()
             }
             .onChange(of: viewModel.backfilledFlights?.id) {
-                if let backfilled = viewModel.backfilledFlights {
-                    recordPastTurnpointPassages(backfilled)
-                }
                 updateLapStatuses()
+            }
+            .onChange(of: viewModel.todaysFlights?.id) {
+                if let todays = viewModel.todaysFlights { recordTodaysFlights(todays) }
+            }
+            .onChange(of: selectedTaskCourse?.id) {
+                // Another course: today's flights may have rounded its turnpoints.
+                if let todays = viewModel.todaysFlights { recordTodaysFlights(todays) }
             }
             .onChange(of: viewModel.positions) { _, newPositions in
                 centerMapIfNeeded(on: newPositions)
@@ -534,20 +553,36 @@ struct CurrentMapView: View {
               CompetitionTaskCourseData.courses.indices.contains(selectedCourseIndex)
         else { return }
         let selectedCourse = CompetitionTaskCourseData.courses[selectedCourseIndex]
+        let now = Date()
         var currentlyInside: Set<String> = []
+        var fixes: [String: TimedPoint] = [:]
         for glider in positions {
-            let gliderCoordinate = CLLocationCoordinate2D(latitude: glider.lat, longitude: glider.lon)
-            for name in Self.turnpointSectors(containing: gliderCoordinate, in: selectedCourse) {
+            // Timed by the fix itself, not by when it reached the app: LoRa fixes can arrive tens of
+            // seconds late.
+            let fix = TimedPoint(time: glider.positionDateTimeUTC ?? now, coordinate: glider.coordinate, altitudeM: glider.alt ?? 0)
+            fixes[glider.imei] = fix
+            let previous = previousTurnpointFixes[glider.imei].flatMap { $0.time < fix.time ? $0 : nil }
+            for name in CompetitionTaskCourseData.notifiableTurnpointNames {
                 let key = "\(glider.imei)|\(name)"
-                currentlyInside.insert(key)
-                if !glidersInsideTurnpoints.contains(key) {
-                    let gliderName = displayName(for: glider)
-                    alertNotifier.notifyTurnpointPassage(gliderName: gliderName, turnpointName: name, altitudeM: glider.alt)
-                    turnpointPassageLog.record(gliderName: gliderName, turnpointName: name, altitudeM: glider.alt)
+                if TurnpointSector.isInSector(fix.coordinate, course: selectedCourse, name: name) {
+                    currentlyInside.insert(key)
+                }
+                guard !glidersInsideTurnpoints.contains(key) else { continue }
+                // A repeat of the same fix (polled again before a new one arrived) has no new line.
+                if previous == nil, previousTurnpointFixes[glider.imei] != nil { continue }
+                guard let t = TurnpointSector.firstEntry(from: previous, to: fix, course: selectedCourse, name: name) else { continue }
+                let entry = previous.map { TurnpointSector.interpolate($0, fix, t) } ?? fix
+                let gliderName = displayName(for: glider)
+                let altitudeM = glider.alt.map { _ in entry.altitudeM }
+                // Deduped like a backfilled passage, so a glider skimming a sector's edge isn't
+                // announced over and over.
+                if turnpointPassageLog.recordPastPassage(gliderName: gliderName, turnpointName: name, altitudeM: altitudeM, timestamp: entry.time) {
+                    alertNotifier.notifyTurnpointPassage(gliderName: gliderName, turnpointName: name, altitudeM: altitudeM)
                 }
             }
         }
         glidersInsideTurnpoints = currentlyInside
+        previousTurnpointFixes = fixes
     }
 
     private func offerDataSourcePromptIfNeeded() {
@@ -572,59 +607,57 @@ struct CurrentMapView: View {
             return
         }
         let now = Date()
-        let statuses = viewModel.timedTracks.mapValues { TaskLapCalculator.evaluate($0, course: course) }
+        let statuses = lapCache.statuses(for: viewModel.timedTracks, course: course)
         for (id, status) in statuses {
             guard let glider = viewModel.positions.first(where: { $0.imei == id }) else { continue }
-            let gliderName = displayName(for: glider)
-            // Logged only once the first turnpoint is reached, so a flight that lands without
-            // rounding any turnpoint leaves no stray "スタート" in the history.
-            if let start = status.start, !status.passedTurnpoints.isEmpty, reportedLapEvents.insert("\(id)|start|\(start.timeIntervalSince1970)").inserted {
-                turnpointPassageLog.recordPastPassage(gliderName: gliderName, turnpointName: "スタート", altitudeM: status.startAltitudeM, timestamp: start)
-            }
-            guard let finish = status.finish,
-                  reportedLapEvents.insert("\(id)|finish|\(finish.timeIntervalSince1970)").inserted else { continue }
-            let summary = String(status.summary(courseDistanceKm: course.distanceKm, now: now).dropFirst("周回: ".count))
-            turnpointPassageLog.recordPastPassage(gliderName: gliderName, turnpointName: "ゴール \(summary)", altitudeM: status.finishAltitudeM, timestamp: finish)
-            // Only announce a finish that just happened - not one found in history on reopening.
-            if now.timeIntervalSince(finish) < 5 * 60 {
-                alertNotifier.notifyTaskFinish(gliderName: gliderName, summary: summary)
-            }
+            logLapEvents(id: id, status: status, gliderName: displayName(for: glider), course: course, now: now, notify: true)
         }
         lapStatuses = statuses
     }
 
-    /// Names of the selected course's turnpoints whose 90° sector (within the turnpoint radius)
-    /// contains `coordinate`.
-    private static func turnpointSectors(containing coordinate: CLLocationCoordinate2D, in course: CompetitionTaskCourse) -> [String] {
-        let location = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
-        return CompetitionTaskCourseData.notifiableTurnpointNames.filter { name in
-            guard let turnpoint = CompetitionTaskCourseData.turnpoints[name],
-                  let bisector = CompetitionTaskCourseData.sectorBearing(in: course, turnpointName: name) else { return false }
-            let distanceKm = CLLocation(latitude: turnpoint.latitude, longitude: turnpoint.longitude).distance(from: location) / 1000.0
-            guard distanceKm <= CompetitionTaskCourseData.turnpointRadiusKm else { return false }
-            return CompetitionTaskCourseData.isBearing(turnpoint.bearingDegrees(to: coordinate), withinSectorCenteredOn: bisector)
+    /// Logs a lap's start (once the first turnpoint is reached) and finish to the passage history,
+    /// each once; with `notify`, also announces a finish that just happened.
+    private func logLapEvents(id: String, status: TaskLapStatus, gliderName: String, course: CompetitionTaskCourse, now: Date, notify: Bool) {
+        // Logged only once the first turnpoint is reached, so a flight that lands without
+        // rounding any turnpoint leaves no stray "スタート" in the history.
+        if let start = status.start, !status.passedTurnpoints.isEmpty, reportedLapEvents.insert("\(id)|start|\(start.timeIntervalSince1970)").inserted {
+            turnpointPassageLog.recordPastPassage(gliderName: gliderName, turnpointName: "スタート", altitudeM: status.startAltitudeM, timestamp: start)
+        }
+        guard let finish = status.finish,
+              reportedLapEvents.insert("\(id)|finish|\(finish.timeIntervalSince1970)").inserted else { return }
+        let summary = String(status.summary(courseDistanceKm: course.distanceKm, now: now).dropFirst("周回: ".count))
+        let recorded = turnpointPassageLog.recordPastPassage(gliderName: gliderName, turnpointName: TurnpointPassageRecord.finishPrefix + summary, altitudeM: status.finishAltitudeM, timestamp: finish)
+        // Only announce a finish that just happened - not one found in history on reopening.
+        if notify, recorded, now.timeIntervalSince(finish) < 5 * 60 {
+            alertNotifier.notifyTaskFinish(gliderName: gliderName, summary: summary)
         }
     }
 
-    /// Adds turnpoint passages flown before the app was opened, found by walking each flying
-    /// glider's track from the track server. Logged at the time they happened; no notification,
-    /// since a ping about a passage from long ago would only confuse.
-    private func recordPastTurnpointPassages(_ backfilled: BackfilledFlights) {
-        guard subscriptionManager.hasFullAccess, competitionGuideline.showTaskCourse,
-              let selectedCourseIndex = competitionGuideline.selectedCourseIndex,
-              CompetitionTaskCourseData.courses.indices.contains(selectedCourseIndex)
-        else { return }
-        let course = CompetitionTaskCourseData.courses[selectedCourseIndex]
-        for (id, points) in backfilled.flights {
-            guard let glider = viewModel.positions.first(where: { $0.imei == id }) else { continue }
-            let gliderName = displayName(for: glider)
-            var inside: Set<String> = []
-            for point in points {
-                let now = Set(Self.turnpointSectors(containing: point.coordinate, in: course))
-                for name in now.subtracting(inside) {
-                    turnpointPassageLog.recordPastPassage(gliderName: gliderName, turnpointName: name, altitudeM: point.altitudeM, timestamp: point.time)
+    /// Fills in the passage history from every flight flown today on this source (see
+    /// `GliderTrackerViewModel.todaysFlights`): turnpoint passages, and lap starts/finishes, flown
+    /// while the app was closed or showing the other source - landed gliders included. Logged at
+    /// the time they happened, without notifications; already-logged ones are skipped.
+    private func recordTodaysFlights(_ todays: TodaysFlights) {
+        guard let course = selectedTaskCourse else { return }
+        let now = Date()
+        for (id, flights) in todays.flights {
+            guard let baseName = todays.baseNames[id] else { continue }
+            let gliderName = subscriptionManager.hasFullAccess
+                ? nicknameStore.compactDisplayName(baseName: baseName, imei: id) : baseName
+            for flight in flights {
+                let points = flight.map { TimedPoint(time: $0.time, coordinate: $0.coordinate, altitudeM: $0.altitudeM) }
+                var previous: TimedPoint?
+                for fix in points {
+                    for name in CompetitionTaskCourseData.notifiableTurnpointNames {
+                        if let previous, TurnpointSector.isInSector(previous.coordinate, course: course, name: name) { continue }
+                        guard let t = TurnpointSector.firstEntry(from: previous, to: fix, course: course, name: name) else { continue }
+                        let entry = previous.map { TurnpointSector.interpolate($0, fix, t) } ?? fix
+                        turnpointPassageLog.recordPastPassage(gliderName: gliderName, turnpointName: name, altitudeM: entry.altitudeM, timestamp: entry.time)
+                    }
+                    previous = fix
                 }
-                inside = now
+                logLapEvents(id: id, status: TaskLapCalculator.evaluate(points, course: course), gliderName: gliderName,
+                             course: course, now: now, notify: false)
             }
         }
     }
@@ -645,7 +678,10 @@ struct CurrentMapView: View {
             proximityWarningPairs = []
             return
         }
-        let flying = positions.filter { ($0.alt ?? 0) > alertSettings.minimumFlyingAltitudeM }
+        // Like the altitude alerts, only near Menuma: gliders at other fields aren't this field's concern.
+        let flying = positions.filter {
+            ($0.alt ?? 0) > alertSettings.minimumFlyingAltitudeM && CompetitionAltitudeGuideline.isWithinAlertRadius($0)
+        }
         let referenceLocation = CLLocation(latitude: alertSettings.referenceCoordinate.latitude, longitude: alertSettings.referenceCoordinate.longitude)
         let patternRadiusM = proximityAlertSettings.patternExclusionRadiusKm * 1000
         let patternCeilingM = proximityAlertSettings.patternExclusionCeilingM

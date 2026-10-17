@@ -69,6 +69,43 @@ struct TaskLapStatus {
     }
 }
 
+/// Remembers each glider's last lap status so a refresh only re-times gliders whose track changed.
+/// A finished lap is reused while its track just grows at the end, since points after the finish
+/// can't change it (start, turnpoints and finish are each the first match in order).
+final class TaskLapCache {
+    private struct Entry {
+        let courseKey: String
+        let firstTime: Date
+        let lastTime: Date
+        let count: Int
+        let status: TaskLapStatus
+    }
+
+    private var entries: [String: Entry] = [:]
+
+    func statuses(for tracks: [String: [TimedPoint]], course: CompetitionTaskCourse) -> [String: TaskLapStatus] {
+        let courseKey = course.turnpointNames.joined(separator: ",")
+        entries = entries.filter { tracks[$0.key] != nil }
+        var result: [String: TaskLapStatus] = [:]
+        for (id, points) in tracks {
+            guard let first = points.first?.time, let last = points.last?.time else {
+                result[id] = TaskLapCalculator.evaluate(points, course: course)
+                continue
+            }
+            if let entry = entries[id], entry.courseKey == courseKey, entry.firstTime == first,
+               (entry.lastTime == last && entry.count == points.count)
+                || (entry.status.finish != nil && points.count >= entry.count) {
+                result[id] = entry.status
+                continue
+            }
+            let status = TaskLapCalculator.evaluate(points, course: course)
+            entries[id] = Entry(courseKey: courseKey, firstTime: first, lastTime: last, count: points.count, status: status)
+            result[id] = status
+        }
+        return result
+    }
+}
+
 enum TaskLapCalculator {
     /// 規則50(5): goal line crossing altitude (MSL).
     static let minGoalAltitudeM = 330.0
@@ -78,36 +115,38 @@ enum TaskLapCalculator {
     /// Times `points` (one flight, oldest first) around `course`: the start line crossing, then each
     /// interior turnpoint in order - inside its 90° / 2 km sector and not below the safety guideline
     /// altitude there (rule 37(1)②) - then the first goal line crossing after the last turnpoint.
+    /// Turnpoints are checked along the line between fixes (see `TurnpointSector.firstEntry`), so a
+    /// sector clipped between two sparse fixes still counts.
     static func evaluate(_ points: [TimedPoint], course: CompetitionTaskCourse) -> TaskLapStatus {
         let turnpoints = Array(course.turnpointNames.dropFirst().dropLast())
         guard let start = firstCrossing(points, from: 0, a: startLine.a, b: startLine.b) else {
             return TaskLapStatus(start: nil, startAltitudeM: nil, passedTurnpoints: [], totalTurnpoints: turnpoints.count, finish: nil, finishAltitudeM: nil)
         }
         var passed: [(name: String, time: Date)] = []
+        // The segment points[index - 1] → points[index] is checked, from the start crossing on.
         var index = start.afterIndex
+        var lastEntry = 0.0
         while index < points.count, passed.count < turnpoints.count {
-            let p = points[index]
+            let a = points[index - 1], b = points[index]
             let name = turnpoints[passed.count]
-            if isInSector(p, course: course, name: name), p.altitudeM >= (requiredAltitudeM(at: p) ?? -.infinity) {
-                passed.append((name, p.time))
+            let t = TurnpointSector.firstEntry(from: a, to: b, course: course, name: name) { t in
+                let p = TurnpointSector.interpolate(a, b, t)
+                return p.altitudeM >= (requiredAltitudeM(at: p) ?? -.infinity)
             }
-            index += 1
+            if let t {
+                // The next turnpoint is looked for from the same segment, in case it's that close.
+                passed.append((name, TurnpointSector.interpolate(a, b, t).time))
+                lastEntry = t
+            } else {
+                index += 1
+            }
         }
         guard passed.count == turnpoints.count else {
             return TaskLapStatus(start: start.time, startAltitudeM: start.altitudeM, passedTurnpoints: passed, totalTurnpoints: turnpoints.count, finish: nil, finishAltitudeM: nil)
         }
-        let finish = firstCrossing(points, from: index - 1, a: goalLine.a, b: goalLine.b)
+        let finish = firstCrossing(points, from: index - 1, a: goalLine.a, b: goalLine.b, minFraction: lastEntry)
         return TaskLapStatus(start: start.time, startAltitudeM: start.altitudeM, passedTurnpoints: passed, totalTurnpoints: turnpoints.count,
                              finish: finish?.time, finishAltitudeM: finish?.altitudeM)
-    }
-
-    private static func isInSector(_ p: TimedPoint, course: CompetitionTaskCourse, name: String) -> Bool {
-        guard let tp = CompetitionTaskCourseData.turnpoints[name],
-              let bisector = CompetitionTaskCourseData.sectorBearing(in: course, turnpointName: name) else { return false }
-        let distance = CLLocation(latitude: tp.latitude, longitude: tp.longitude)
-            .distance(from: CLLocation(latitude: p.coordinate.latitude, longitude: p.coordinate.longitude))
-        return distance <= CompetitionTaskCourseData.turnpointRadiusKm * 1000
-            && CompetitionTaskCourseData.isBearing(tp.bearingDegrees(to: p.coordinate), withinSectorCenteredOn: bisector)
     }
 
     private static func requiredAltitudeM(at p: TimedPoint) -> Double? {
@@ -148,13 +187,14 @@ enum TaskLapCalculator {
         let afterIndex: Int
     }
 
-    /// The first track segment from `from` on that crosses segment a-b, with time and altitude
-    /// interpolated to the crossing point.
-    private static func firstCrossing(_ points: [TimedPoint], from: Int, a: XY, b: XY) -> Crossing? {
-        guard points.count >= 2 else { return nil }
+    /// The first track segment from `from` on that crosses segment a-b - on segment `from` itself,
+    /// only at or past `minFraction` of the way along it - with time and altitude interpolated to
+    /// the crossing point.
+    private static func firstCrossing(_ points: [TimedPoint], from: Int, a: XY, b: XY, minFraction: Double = 0) -> Crossing? {
+        guard points.count >= 2, max(from, 0) < points.count - 1 else { return nil }
         for i in max(from, 0)..<(points.count - 1) {
             let p = points[i], q = points[i + 1]
-            guard let t = intersection(xy(p.coordinate), xy(q.coordinate), a, b) else { continue }
+            guard let t = intersection(xy(p.coordinate), xy(q.coordinate), a, b), i != from || t >= minFraction else { continue }
             return Crossing(
                 time: p.time.addingTimeInterval(q.time.timeIntervalSince(p.time) * t),
                 altitudeM: p.altitudeM + (q.altitudeM - p.altitudeM) * t,
