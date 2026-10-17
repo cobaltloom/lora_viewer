@@ -4,31 +4,49 @@ import SwiftUI
 /// backup to the push notification, in case it was missed.
 struct TurnpointPassageHistoryView: View {
     @ObservedObject var log: TurnpointPassageLog
+    @EnvironmentObject private var handicapStore: GliderHandicapStore
 
     /// Today's goal rows (lap completed, with time and speed), pinned above the full history so they
-    /// don't get buried among the turnpoint passages.
-    private var todaysFinishes: [TurnpointPassageRecord] {
-        log.todaysRecords.filter(\.isFinish)
+    /// don't get buried among the turnpoint passages - highest reference score first.
+    private func todaysFinishes(scores: [UUID: Double]) -> [TurnpointPassageRecord] {
+        log.todaysRecords.filter(\.isFinish).sorted { (scores[$0.id] ?? -1) > (scores[$1.id] ?? -1) }
+    }
+
+    /// Reference scores for today's goal rows that carry a lap time (see `LapScore`).
+    private var todaysScores: [UUID: Double] {
+        LapScore.scores(log.todaysRecords.compactMap { record in
+            guard record.isFinish, let lapSeconds = record.lapSeconds, let distanceKm = record.courseDistanceKm else { return nil }
+            let handicap = record.gliderID.map(handicapStore.handicap(for:)) ?? GliderHandicapStore.defaultHandicap
+            return LapScore.Lap(id: record.id, distanceKm: distanceKm, lapSeconds: lapSeconds, handicap: handicap)
+        })
     }
 
     var body: some View {
+        let scores = todaysScores
+        let finishes = todaysFinishes(scores: scores)
         List {
             if log.todaysRecords.isEmpty {
                 ContentUnavailableView("本日の旋回点通過はまだありません", systemImage: "airplane")
             } else {
-                if !todaysFinishes.isEmpty {
-                    Section("周回達成") {
-                        ForEach(todaysFinishes) { record in
-                            row(for: record)
+                if !finishes.isEmpty {
+                    Section {
+                        ForEach(finishes) { record in
+                            row(for: record, score: scores[record.id])
+                        }
+                    } header: {
+                        Text("周回達成")
+                    } footer: {
+                        if !scores.isEmpty {
+                            Text("参考得点は競技規則53の式(距離・速度・ハンディキャップ)で、この端末が計時した周回ごとに計算した目安です。公式成績は各選手のその日最後の飛行をIGCロガーで判定します。ハンディキャップはメンバー一覧で機体ごとに設定できます(未設定は1.00)。")
                         }
                     }
                 }
                 Section {
                     ForEach(log.todaysRecords) { record in
-                        row(for: record)
+                        row(for: record, score: scores[record.id])
                     }
                 } header: {
-                    if !todaysFinishes.isEmpty {
+                    if !finishes.isEmpty {
                         Text("すべての履歴")
                     }
                 }
@@ -47,7 +65,7 @@ struct TurnpointPassageHistoryView: View {
         }
     }
 
-    private func row(for record: TurnpointPassageRecord) -> some View {
+    private func row(for record: TurnpointPassageRecord, score: Double?) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             HStack {
                 if record.isFinish {
@@ -64,6 +82,12 @@ struct TurnpointPassageHistoryView: View {
                 .font(.subheadline)
                 .foregroundStyle(record.isFinish ? .primary : .secondary)
                 .fontWeight(record.isFinish ? .semibold : .regular)
+            if let score {
+                let handicap = record.gliderID.map(handicapStore.handicap(for:)) ?? GliderHandicapStore.defaultHandicap
+                Text("参考得点 \(score, specifier: "%.1f")点(ハンデ \(handicap, specifier: "%.2f"))")
+                    .font(.subheadline.bold())
+                    .foregroundStyle(.green)
+            }
         }
     }
 }

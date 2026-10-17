@@ -33,6 +33,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.cobaltloom.loraviewer.data.alert.LapScore
 import com.cobaltloom.loraviewer.data.alert.TurnpointPassageRecord
 import com.cobaltloom.loraviewer.ui.map.GliderTrackerViewModel
 import java.time.Instant
@@ -51,9 +52,22 @@ fun TurnpointHistoryScreen(viewModel: GliderTrackerViewModel, onBack: () -> Unit
         val today = LocalDate.now()
         uiState.turnpointPassageRecords.filter { it.localDate == today }.sortedByDescending { it.timestampMillis }
     }
+    // Reference scores for today's goal rows that carry a lap time (see LapScore).
+    val scores = remember(todaysRecords, uiState.handicaps) {
+        LapScore.scores(
+            todaysRecords.mapNotNull { record ->
+                val lapSeconds = record.lapSeconds ?: return@mapNotNull null
+                val distanceKm = record.courseDistanceKm ?: return@mapNotNull null
+                if (!record.isFinish) return@mapNotNull null
+                LapScore.Lap(record.id, distanceKm, lapSeconds, uiState.handicapFor(record.gliderId))
+            },
+        )
+    }
     // Goal rows (lap completed, with time and speed), pinned above the full history so they don't
-    // get buried among the turnpoint passages.
-    val todaysFinishes = remember(todaysRecords) { todaysRecords.filter { it.isFinish } }
+    // get buried among the turnpoint passages - highest reference score first.
+    val todaysFinishes = remember(todaysRecords, scores) {
+        todaysRecords.filter { it.isFinish }.sortedByDescending { scores[it.id] ?: -1.0 }
+    }
 
     Scaffold(
         topBar = {
@@ -79,13 +93,23 @@ fun TurnpointHistoryScreen(viewModel: GliderTrackerViewModel, onBack: () -> Unit
                 if (todaysFinishes.isNotEmpty()) {
                     item(key = "finishesHeader") { SectionHeader("周回達成") }
                     items(todaysFinishes, key = { "finish-${it.id}" }) { record ->
-                        TurnpointPassageRow(record)
+                        TurnpointPassageRow(record, scores[record.id], uiState.handicapFor(record.gliderId))
                         HorizontalDivider()
+                    }
+                    if (scores.isNotEmpty()) {
+                        item(key = "scoreNote") {
+                            Text(
+                                "参考得点は競技規則53の式(距離・速度・ハンディキャップ)で、この端末が計時した周回ごとに計算した目安です。公式成績は各選手のその日最後の飛行をIGCロガーで判定します。ハンディキャップはメンバー一覧で機体ごとに設定できます(未設定は1.00)。",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                            )
+                        }
                     }
                     item(key = "allHeader") { SectionHeader("すべての履歴") }
                 }
                 items(todaysRecords, key = { it.id }) { record ->
-                    TurnpointPassageRow(record)
+                    TurnpointPassageRow(record, scores[record.id], uiState.handicapFor(record.gliderId))
                     HorizontalDivider()
                 }
             }
@@ -104,7 +128,7 @@ private fun SectionHeader(title: String) {
 }
 
 @Composable
-private fun TurnpointPassageRow(record: TurnpointPassageRecord) {
+private fun TurnpointPassageRow(record: TurnpointPassageRecord, score: Double?, handicap: Double) {
     Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp)) {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -126,6 +150,14 @@ private fun TurnpointPassageRow(record: TurnpointPassageRecord) {
             color = if (record.isFinish) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
             fontWeight = if (record.isFinish) FontWeight.SemiBold else null,
         )
+        if (score != null) {
+            Text(
+                "参考得点 %.1f点(ハンデ %.2f)".format(score, handicap),
+                style = MaterialTheme.typography.bodyMedium,
+                color = FinishGreen,
+                fontWeight = FontWeight.Bold,
+            )
+        }
     }
 }
 

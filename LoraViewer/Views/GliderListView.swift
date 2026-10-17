@@ -5,6 +5,7 @@ struct GliderListView: View {
     @EnvironmentObject private var favoritesStore: FavoritesStore
     @EnvironmentObject private var nicknameStore: NicknameStore
     @EnvironmentObject private var subscriptionManager: SubscriptionManager
+    @EnvironmentObject private var handicapStore: GliderHandicapStore
     @State private var showBoardScan = false
     @State private var showPaywall = false
 
@@ -66,6 +67,10 @@ struct GliderListView: View {
                             if let date = glider.positionDateTimeUTC {
                                 Text(date, style: .time)
                             }
+                            Spacer()
+                            if !glider.isAnonymous {
+                                handicapMenu(for: glider.imei)
+                            }
                         }
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
@@ -96,6 +101,26 @@ struct GliderListView: View {
         }
         .sheet(isPresented: $showPaywall) {
             PaywallView()
+        }
+    }
+
+    /// The glider's competition handicap, used for the reference scores of its completed laps.
+    private func handicapMenu(for id: String) -> some View {
+        Menu {
+            Picker("ハンディキャップ", selection: Binding(
+                get: { handicapStore.handicap(for: id) },
+                set: { handicapStore.setHandicap($0, for: id) }
+            )) {
+                ForEach(GliderHandicapStore.options) { option in
+                    Text(String(format: "%.2f", option.value) + "  " + option.types).tag(option.value)
+                }
+            }
+        } label: {
+            Text(String(format: "ハンデ %.2f", handicapStore.handicap(for: id)))
+                .font(.caption)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .overlay(Capsule().stroke(.secondary.opacity(0.5)))
         }
     }
 }

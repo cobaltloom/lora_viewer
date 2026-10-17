@@ -215,3 +215,32 @@ enum TaskLapCalculator {
         return (0...1).contains(t) && (0...1).contains(u) ? t : nil
     }
 }
+
+/// Reference scores for the day's completed laps, per 競技規則53: Ph = Rd × (500 + 500 × Rv) × Rh,
+/// where Rd = distance / the day's longest, Rv = speed / the day's fastest, and Rh = the glider's
+/// handicap / the handicap of the fastest glider (the larger one on a tie). If the top score
+/// exceeds 1000 it becomes 1000 and the rest scale with it. Only completed laps are scored, so
+/// with one course a day every Rd is 1. Unofficial: the rules score each pilot's last flight of
+/// the day from 1-second IGC logs, while this scores every lap the app timed.
+enum LapScore {
+    struct Lap {
+        let id: UUID
+        let distanceKm: Double
+        let lapSeconds: Double
+        let handicap: Double
+        var speedKmh: Double { distanceKm / (lapSeconds / 3600) }
+    }
+
+    static func scores(_ laps: [Lap]) -> [UUID: Double] {
+        let laps = laps.filter { $0.lapSeconds > 0 && $0.distanceKm > 0 }
+        guard let maxSpeed = laps.map(\.speedKmh).max(), let maxDistance = laps.map(\.distanceKm).max() else { return [:] }
+        let referenceHandicap = laps.filter { $0.speedKmh == maxSpeed }.map(\.handicap).max() ?? 1
+        var scores = Dictionary(uniqueKeysWithValues: laps.map { lap in
+            (lap.id, lap.distanceKm / maxDistance * (500 + 500 * lap.speedKmh / maxSpeed) * lap.handicap / referenceHandicap)
+        })
+        if let top = scores.values.max(), top > 1000 {
+            scores = scores.mapValues { $0 * 1000 / top }
+        }
+        return scores
+    }
+}

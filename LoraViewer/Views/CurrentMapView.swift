@@ -12,6 +12,7 @@ struct CurrentMapView: View {
     @EnvironmentObject private var upperAltitudeGuideline: UpperAltitudeGuideline
     @EnvironmentObject private var proximityAlertSettings: ProximityAlertSettings
     @EnvironmentObject private var subscriptionManager: SubscriptionManager
+    @EnvironmentObject private var handicapStore: GliderHandicapStore
     @StateObject private var viewModel: GliderTrackerViewModel
     @StateObject private var locationManager = LocationManager()
     @StateObject private var alertNotifier = AlertNotifier()
@@ -443,6 +444,7 @@ struct CurrentMapView: View {
             .sheet(isPresented: $showTurnpointHistory) {
                 NavigationStack {
                     TurnpointPassageHistoryView(log: turnpointPassageLog)
+                        .environmentObject(handicapStore)
                         .toolbar {
                             ToolbarItem(placement: .topBarLeading) {
                                 Button("閉じる") { showTurnpointHistory = false }
@@ -626,7 +628,9 @@ struct CurrentMapView: View {
         guard let finish = status.finish,
               reportedLapEvents.insert("\(id)|finish|\(finish.timeIntervalSince1970)").inserted else { return }
         let summary = String(status.summary(courseDistanceKm: course.distanceKm, now: now).dropFirst("周回: ".count))
-        let recorded = turnpointPassageLog.recordPastPassage(gliderName: gliderName, turnpointName: TurnpointPassageRecord.finishPrefix + summary, altitudeM: status.finishAltitudeM, timestamp: finish)
+        let recorded = turnpointPassageLog.recordPastPassage(gliderName: gliderName, turnpointName: TurnpointPassageRecord.finishPrefix + summary,
+                                                             altitudeM: status.finishAltitudeM, timestamp: finish,
+                                                             gliderID: id, lapSeconds: status.lapDuration, courseDistanceKm: course.distanceKm)
         // Only announce a finish that just happened - not one found in history on reopening.
         if notify, recorded, now.timeIntervalSince(finish) < 5 * 60 {
             alertNotifier.notifyTaskFinish(gliderName: gliderName, summary: summary)

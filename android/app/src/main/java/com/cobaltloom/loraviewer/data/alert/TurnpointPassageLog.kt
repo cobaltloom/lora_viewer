@@ -30,6 +30,11 @@ data class TurnpointPassageRecord(
     val turnpointName: String,
     val altitudeM: Double?,
     val timestampMillis: Long = System.currentTimeMillis(),
+    /** For goal rows: the glider's id, lap time and course distance, so the history can give each
+     * completed lap a reference score (see [LapScore]). Absent in older records and other rows. */
+    val gliderId: String? = null,
+    val lapSeconds: Double? = null,
+    val courseDistanceKm: Double? = null,
 ) {
     val localDate: LocalDate
         get() = Instant.ofEpochMilli(timestampMillis).atZone(ZoneId.systemDefault()).toLocalDate()
@@ -71,7 +76,16 @@ class TurnpointPassageLogRepository(private val context: Context) {
      * this turnpoint within 10 minutes (e.g. the live check caught it when the app opened). Also
      * used for live passages, timed by the fix. Returns whether it was recorded.
      */
-    suspend fun recordPastPassage(source: DataSource, gliderName: String, turnpointName: String, altitudeM: Double?, timestampMillis: Long): Boolean {
+    suspend fun recordPastPassage(
+        source: DataSource,
+        gliderName: String,
+        turnpointName: String,
+        altitudeM: Double?,
+        timestampMillis: Long,
+        gliderId: String? = null,
+        lapSeconds: Double? = null,
+        courseDistanceKm: Double? = null,
+    ): Boolean {
         val duplicateWindowMillis = 10 * 60 * 1000L
         var recorded = false
         context.turnpointPassageLogDataStore.edit { prefs ->
@@ -79,16 +93,27 @@ class TurnpointPassageLogRepository(private val context: Context) {
             // Goal rows carry the lap time, which can differ by a few seconds between the live track
             // and the server's, so any two goal rows count as the same event.
             val isFinish = turnpointName.startsWith(TurnpointPassageRecord.FINISH_PREFIX)
-            if (existing.any {
-                    it.gliderName == gliderName && (it.turnpointName == turnpointName || (isFinish && it.isFinish)) &&
-                        kotlin.math.abs(it.timestampMillis - timestampMillis) < duplicateWindowMillis
+            val duplicate = existing.indexOfFirst {
+                it.gliderName == gliderName && (it.turnpointName == turnpointName || (isFinish && it.isFinish)) &&
+                    kotlin.math.abs(it.timestampMillis - timestampMillis) < duplicateWindowMillis
+            }
+            if (duplicate >= 0) {
+                // A goal row saved before lap scoring gets its lap time now, so it can be scored.
+                if (existing[duplicate].lapSeconds == null && lapSeconds != null) {
+                    val updated = existing.toMutableList()
+                    updated[duplicate] = existing[duplicate].copy(gliderId = gliderId, lapSeconds = lapSeconds, courseDistanceKm = courseDistanceKm)
+                    prefs[key(source)] = json.encodeToString(updated)
                 }
-            ) return@edit
+                return@edit
+            }
             val record = TurnpointPassageRecord(
                 gliderName = gliderName,
                 turnpointName = turnpointName,
                 altitudeM = altitudeM,
                 timestampMillis = timestampMillis,
+                gliderId = gliderId,
+                lapSeconds = lapSeconds,
+                courseDistanceKm = courseDistanceKm,
             )
             prefs[key(source)] = json.encodeToString(prune(existing + record))
             recorded = true

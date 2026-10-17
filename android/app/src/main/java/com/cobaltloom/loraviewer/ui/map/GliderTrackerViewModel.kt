@@ -17,6 +17,7 @@ import com.cobaltloom.loraviewer.data.alert.CompetitionTaskCourse
 import com.cobaltloom.loraviewer.data.alert.CompetitionTaskCourseData
 import com.cobaltloom.loraviewer.data.alert.Coordinate
 import com.cobaltloom.loraviewer.data.alert.GliderAlertReason
+import com.cobaltloom.loraviewer.data.alert.LapScore
 import com.cobaltloom.loraviewer.data.alert.ProximityAlertSettings
 import com.cobaltloom.loraviewer.data.alert.ProximityAlertSettingsRepository
 import com.cobaltloom.loraviewer.data.alert.TaskLapCache
@@ -32,6 +33,7 @@ import com.cobaltloom.loraviewer.data.alert.bearingDegrees
 import com.cobaltloom.loraviewer.data.alert.distanceMeters
 import com.cobaltloom.loraviewer.data.alert.lapSummary
 import com.cobaltloom.loraviewer.data.favorites.FavoritesRepository
+import com.cobaltloom.loraviewer.data.favorites.GliderHandicapRepository
 import com.cobaltloom.loraviewer.data.model.AppConfig
 import com.cobaltloom.loraviewer.data.model.GliderPosition
 import com.cobaltloom.loraviewer.data.nickname.NicknameRepository
@@ -60,6 +62,8 @@ data class GliderTrackerUiState(
     val config: AppConfig? = null,
     val positions: List<GliderPosition> = emptyList(),
     val nicknames: Map<String, String> = emptyMap(),
+    /** Each glider's competition handicap, by id (see [GliderHandicapRepository]). */
+    val handicaps: Map<String, Double> = emptyMap(),
     val nicknameSyncMode: NicknameSyncMode = NicknameSyncMode.SYNCED,
     val favorites: Set<String> = emptySet(),
     val alertSettings: AlertSettings = AlertSettings(),
@@ -122,6 +126,8 @@ data class GliderTrackerUiState(
         (if (isSubscribed && !glider.isAnonymous) nicknames[glider.imei] else null) ?: baseNameFor(glider)
 
     fun isFavorite(imei: String): Boolean = isSubscribed && imei in favorites
+
+    fun handicapFor(id: String?): Double = id?.let { handicaps[it] } ?: LapScore.DEFAULT_HANDICAP
 
     /** The color of [imei]'s trail and trail name tag - distinct among gliders currently flying. */
     fun trailColorFor(imei: String): Color = gliderColor(trailColorSlots[imei], imei)
@@ -187,6 +193,7 @@ class GliderTrackerViewModel(
     private val repository: GliderRepository,
     private val nicknameRepository: NicknameRepository,
     private val favoritesRepository: FavoritesRepository,
+    private val handicapRepository: GliderHandicapRepository,
     private val alertSettingsRepository: AlertSettingsRepository,
     private val competitionGuidelineRepository: CompetitionGuidelineRepository,
     private val upperAltitudeGuidelineRepository: UpperAltitudeGuidelineRepository,
@@ -268,6 +275,9 @@ class GliderTrackerViewModel(
         }
         viewModelScope.launch {
             nicknameRepository.syncMode.collect { mode -> _uiState.update { it.copy(nicknameSyncMode = mode) } }
+        }
+        viewModelScope.launch {
+            handicapRepository.handicaps.collect { handicaps -> _uiState.update { it.copy(handicaps = handicaps) } }
         }
         viewModelScope.launch {
             favoritesRepository.favoritesBySource.collect { bySource ->
@@ -435,6 +445,10 @@ class GliderTrackerViewModel(
 
     fun setNicknameSyncMode(mode: NicknameSyncMode) {
         viewModelScope.launch { nicknameRepository.setSyncMode(mode) }
+    }
+
+    fun setHandicap(id: String, value: Double) {
+        viewModelScope.launch { handicapRepository.setHandicap(id, value) }
     }
 
     fun toggleFavorite(imei: String) {
@@ -760,6 +774,7 @@ class GliderTrackerViewModel(
         val summary = lapSummary(status, course.distanceKm, now) { "" }.removePrefix("周回: ")
         val recorded = turnpointPassageLogRepository.recordPastPassage(
             state.dataSource, gliderName, TurnpointPassageRecord.FINISH_PREFIX + summary, status.finishAltitudeM, finish,
+            gliderId = id, lapSeconds = status.lapMillis?.let { it / 1000.0 }, courseDistanceKm = course.distanceKm,
         )
         // Only announce a finish that just happened - not one found in history on reopening.
         if (notify && recorded && now - finish < RECENT_FINISH_MILLIS) alertNotifier.notifyTaskFinish(gliderName, summary)

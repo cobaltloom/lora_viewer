@@ -12,6 +12,7 @@ struct LoraViewerApp: App {
     @StateObject private var upperAltitudeGuideline = UpperAltitudeGuideline()
     @StateObject private var proximityAlertSettings = ProximityAlertSettings()
     @StateObject private var subscriptionManager = SubscriptionManager()
+    @StateObject private var handicapStore = GliderHandicapStore()
 
     init() {
         FirebaseApp.configure()
@@ -29,6 +30,7 @@ struct LoraViewerApp: App {
                 .environmentObject(upperAltitudeGuideline)
                 .environmentObject(proximityAlertSettings)
                 .environmentObject(subscriptionManager)
+                .environmentObject(handicapStore)
         }
     }
 }

@@ -50,3 +50,41 @@ final class FavoritesStore: ObservableObject {
         UserDefaults.standard.set(Array(favoriteIMEIs), forKey: Self.storageKey(for: dataSource))
     }
 }
+
+/// Each glider's competition handicap (競技規則53), set per glider in the member list and used for
+/// the reference scores of completed laps. Kept on this device, keyed by tracker id (LoRa IMEI or
+/// OGN callsign - they never collide, so one table serves both sources); 1.00 when unset.
+final class GliderHandicapStore: ObservableObject {
+    struct Option: Identifiable {
+        let value: Double
+        let types: String
+        var id: Double { value }
+    }
+
+    /// The rule's handicap table, with the glider types each value covers.
+    static let options: [Option] = [
+        Option(value: 0.90, types: "Discus, LS4, LS8, ASW24, ASW28"),
+        Option(value: 0.95, types: "G102(引込脚), シーラス, ASW19, DG-101G, クラブリベレ"),
+        Option(value: 1.00, types: "ASK23, SZD51, ASK21, G102(固定脚)"),
+        Option(value: 1.05, types: "Ka6, SZD50, PW-5"),
+        Option(value: 1.10, types: "K-8, ASK13"),
+    ]
+    static let defaultHandicap = 1.0
+    private static let storageKey = "gliderHandicaps"
+
+    @Published private(set) var handicaps: [String: Double] {
+        didSet { UserDefaults.standard.set(handicaps, forKey: Self.storageKey) }
+    }
+
+    init() {
+        handicaps = UserDefaults.standard.dictionary(forKey: Self.storageKey) as? [String: Double] ?? [:]
+    }
+
+    func handicap(for id: String) -> Double {
+        handicaps[id] ?? Self.defaultHandicap
+    }
+
+    func setHandicap(_ value: Double, for id: String) {
+        handicaps[id] = value == Self.defaultHandicap ? nil : value
+    }
+}
