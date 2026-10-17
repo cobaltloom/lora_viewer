@@ -117,4 +117,37 @@ object LapScore {
         val deducted = valid.filter { it.penalty == GoalPenalty.DEDUCTION }.map { it.id }.toSet()
         return scaled.mapValues { (id, points) -> if (id in deducted) maxOf(0.0, points - LOW_GOAL_DEDUCTION) else points }
     }
+
+    /** The scoring laps among passage-history rows: goal rows with a lap time, and partial-lap rows. */
+    fun laps(records: List<TurnpointPassageRecord>, handicap: (String?) -> Double): List<Lap> = records.mapNotNull { record ->
+        val distanceKm = record.courseDistanceKm ?: return@mapNotNull null
+        if (!record.isScoredFlight || (record.isFinish && record.lapSeconds == null)) return@mapNotNull null
+        Lap(record.id, distanceKm, record.lapSeconds, handicap(record.gliderId), if (record.isFinish) record.altitudeM else null)
+    }
+
+    /**
+     * "To beat": the longest lap time over [distanceKm] with which a glider of [handicap] would score
+     * above everyone in [laps] - counting that its own lap is rescored with them (a faster lap becomes
+     * the day's fastest and the handicap reference, lowering the others). Assumes a goal at 330 m or
+     * above. [Double.POSITIVE_INFINITY] if any lap would do (no completed lap yet to beat), null if none.
+     */
+    fun lapSecondsToBeat(laps: List<Lap>, distanceKm: Double, handicap: Double): Double? {
+        if (laps.isEmpty() || distanceKm <= 0) return null
+        val candidate = "\u0000toBeat"
+        fun beats(lapSeconds: Double): Boolean {
+            val scores = scores(laps + Lap(candidate, distanceKm, lapSeconds, handicap))
+            val mine = scores[candidate] ?: 0.0
+            return scores.all { (id, points) -> id == candidate || points < mine }
+        }
+        var fast = 60.0
+        var slow = 6 * 3600.0
+        if (beats(slow)) return Double.POSITIVE_INFINITY
+        if (!beats(fast)) return null
+        // Faster always scores relatively better, so bisect for the slowest time that still beats.
+        repeat(40) {
+            val mid = (fast + slow) / 2
+            if (beats(mid)) fast = mid else slow = mid
+        }
+        return fast
+    }
 }

@@ -308,4 +308,37 @@ enum LapScore {
         }
         return scores
     }
+
+    /// The scoring laps among passage-history rows: goal rows with a lap time, and partial-lap rows.
+    static func laps(from records: [TurnpointPassageRecord], handicap: (String?) -> Double) -> [Lap] {
+        records.compactMap { record in
+            guard record.isScoredFlight, let distanceKm = record.courseDistanceKm,
+                  record.isPartialLap || record.lapSeconds != nil else { return nil }
+            return Lap(id: record.id, distanceKm: distanceKm, lapSeconds: record.lapSeconds, handicap: handicap(record.gliderID),
+                       goalAltitudeM: record.isFinish ? record.altitudeM : nil)
+        }
+    }
+
+    /// "To beat": the longest lap time over `distanceKm` with which a glider of `handicap` would
+    /// score above everyone in `laps` - counting that its own lap is rescored with them (a faster lap
+    /// becomes the day's fastest and the handicap reference, lowering the others). Assumes a goal at
+    /// 330 m or above. `.infinity` if any lap would do (no completed lap yet to beat), nil if none.
+    static func lapSecondsToBeat(_ laps: [Lap], distanceKm: Double, handicap: Double) -> Double? {
+        guard !laps.isEmpty, distanceKm > 0 else { return nil }
+        let candidate = UUID()
+        func beats(_ lapSeconds: Double) -> Bool {
+            let scores = self.scores(laps + [Lap(id: candidate, distanceKm: distanceKm, lapSeconds: lapSeconds, handicap: handicap)])
+            let mine = scores[candidate] ?? 0
+            return scores.allSatisfy { $0.key == candidate || $0.value < mine }
+        }
+        var fast = 60.0, slow = 6 * 3600.0
+        if beats(slow) { return .infinity }
+        guard beats(fast) else { return nil }
+        // Faster always scores relatively better, so bisect for the slowest time that still beats.
+        for _ in 0..<40 {
+            let mid = (fast + slow) / 2
+            if beats(mid) { fast = mid } else { slow = mid }
+        }
+        return fast
+    }
 }

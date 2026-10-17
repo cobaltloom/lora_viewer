@@ -32,6 +32,7 @@ import com.cobaltloom.loraviewer.data.alert.UpperAltitudeGuidelineRepository
 import com.cobaltloom.loraviewer.data.alert.UpperAltitudeSettings
 import com.cobaltloom.loraviewer.data.alert.bearingDegrees
 import com.cobaltloom.loraviewer.data.alert.distanceMeters
+import com.cobaltloom.loraviewer.data.alert.formatLapDuration
 import com.cobaltloom.loraviewer.data.alert.lapSummary
 import com.cobaltloom.loraviewer.data.favorites.FavoritesRepository
 import com.cobaltloom.loraviewer.data.favorites.GliderHandicapRepository
@@ -127,6 +128,23 @@ data class GliderTrackerUiState(
         (if (isSubscribed && !glider.isAnonymous) nicknames[glider.imei] else null) ?: baseNameFor(glider)
 
     fun isFavorite(imei: String): Boolean = isSubscribed && imei in favorites
+
+    /** For a glider on a timed lap (started, not finished): the lap time that would top today's best
+     * reference score, and how long it has left - like a ski jump's "to beat" line. */
+    fun toBeatText(glider: GliderPosition): String? {
+        val course = selectedCourse ?: return null
+        val status = lapStatuses[glider.imei] ?: return null
+        val start = status.startMillis ?: return null
+        if (status.finishMillis != null) return null
+        val today = java.time.LocalDate.now()
+        val laps = LapScore.laps(turnpointPassageRecords.filter { it.localDate == today }) { handicapFor(it) }
+        if (laps.none { it.lapSeconds != null }) return null
+        val seconds = LapScore.lapSecondsToBeat(laps, course.distanceKm, handicapFor(glider.imei)) ?: return null
+        if (seconds.isInfinite()) return "1位越え: 周回すれば上回る"
+        val limit = formatLapDuration((seconds * 1000).toLong())
+        val remainingMillis = (seconds * 1000).toLong() - (System.currentTimeMillis() - start)
+        return if (remainingMillis > 0) "1位越え: ${limit}以内(あと${formatLapDuration(remainingMillis)})" else "1位越え: ${limit}以内(超過)"
+    }
 
     fun handicapFor(id: String?): Double = id?.let { handicaps[it] ?: LapScore.builtInDefault(it) } ?: LapScore.DEFAULT_HANDICAP
 

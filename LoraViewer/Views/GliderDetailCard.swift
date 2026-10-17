@@ -6,6 +6,8 @@ struct GliderDetailCard: View {
     let alertReasons: [GliderAlertReason]
     /// One line of task lap progress, when a task course is selected and the glider is being timed.
     var lapSummary: String? = nil
+    /// "To beat" for a lap in progress: what it needs to top today's best score.
+    var toBeat: String? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -57,6 +59,11 @@ struct GliderDetailCard: View {
             if let lapSummary {
                 Text(lapSummary)
                     .font(.subheadline)
+            }
+            if let toBeat {
+                Text(toBeat)
+                    .font(.subheadline.bold())
+                    .foregroundStyle(.blue)
             }
             Text(String(format: "%.5f, %.5f", glider.lat, glider.lon))
                 .font(.caption)

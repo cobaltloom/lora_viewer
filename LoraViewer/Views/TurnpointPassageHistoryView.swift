@@ -36,26 +36,45 @@ struct TurnpointPassageHistoryView: View {
         }
     }
 
-    /// Reference scores for today's goal and partial-lap rows that carry scoring data (see `LapScore`).
-    private var todaysScores: [UUID: Double] {
-        LapScore.scores(log.todaysRecords.compactMap { record in
-            guard record.isScoredFlight, let distanceKm = record.courseDistanceKm,
-                  record.isPartialLap || record.lapSeconds != nil else { return nil }
-            let handicap = record.gliderID.map(handicapStore.handicap(for:)) ?? GliderHandicapStore.defaultHandicap
-            return LapScore.Lap(id: record.id, distanceKm: distanceKm, lapSeconds: record.lapSeconds, handicap: handicap,
-                                goalAltitudeM: record.isFinish ? record.altitudeM : nil)
-        })
+    private var todaysLaps: [LapScore.Lap] {
+        LapScore.laps(from: log.todaysRecords) { id in
+            id.map(handicapStore.handicap(for:)) ?? GliderHandicapStore.defaultHandicap
+        }
+    }
+
+    /// "To beat" lines: the lap time each handicap class needs to top today's best score, over the
+    /// day's course distance. Shown once someone has completed a lap; 0.90-1.00 always, the slower
+    /// classes only when such a glider has scored today.
+    private func toBeatLines(_ laps: [LapScore.Lap]) -> [String] {
+        guard let distanceKm = laps.filter({ $0.lapSeconds != nil }).map(\.distanceKm).max() else { return [] }
+        let handicaps = Set([0.90, 0.95, 1.00] + laps.map(\.handicap)).sorted()
+        return handicaps.compactMap { handicap in
+            guard let seconds = LapScore.lapSecondsToBeat(laps, distanceKm: distanceKm, handicap: handicap) else { return nil }
+            let time = seconds.isInfinite ? "周回すれば上回る" : "\(TaskLapStatus.format(seconds.rounded(.down)))以内"
+            return String(format: "ハンデ%.2f", handicap) + ": " + time
+        }
     }
 
     var body: some View {
-        let scores = todaysScores
+        let laps = todaysLaps
+        let scores = LapScore.scores(laps)
         let finishes = todaysScoredFlights(scores: scores)
+        let toBeat = toBeatLines(laps)
         List {
             if log.todaysRecords.isEmpty {
                 ContentUnavailableView("本日の旋回点通過はまだありません", systemImage: "airplane")
             } else {
                 if !finishes.isEmpty {
                     Section {
+                        if !toBeat.isEmpty {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("1位を上回るのに必要な周回時間")
+                                    .font(.caption.bold())
+                                ForEach(toBeat, id: \.self) { Text($0) }
+                                    .font(.caption.monospacedDigit())
+                            }
+                            .foregroundStyle(.blue)
+                        }
                         Picker("並び順", selection: $sortOrder) {
                             ForEach(FinishSortOrder.allCases) { order in
                                 Text(order.label).tag(order)
@@ -69,7 +88,7 @@ struct TurnpointPassageHistoryView: View {
                         Text("周回・得点")
                     } footer: {
                         if !scores.isEmpty {
-                            Text("参考得点は競技規則53の式(距離・速度・ハンディキャップ)で、この端末が計時した飛行ごとに計算した目安です。周回できなかった飛行は、規則56(1)により細則2の距離表の距離点のみです。ゴール高度が280〜330m未満は50点減点、280m未満は速度点なしです(細則7 別表)。公式成績は各選手のその日最後の飛行をIGCロガーで判定します。ハンディキャップは関東大会の出場機には機種に合わせた値が入っており、それ以外は1.00です。得点の行をタップするか、メンバー一覧で機体ごとに変更できます。")
+                            Text("参考得点は競技規則53の式(距離・速度・ハンディキャップ)で、この端末が計時した飛行ごとに計算した目安です。周回できなかった飛行は、規則56(1)により細則2の距離表の距離点のみです。ゴール高度が280〜330m未満は50点減点、280m未満は速度点なしです(細則7 別表)。「1位を上回るのに必要な周回時間」は、その時間で周回すると全員の得点を計算し直した結果1位になる時間です(ゴール高度330m以上の場合)。公式成績は各選手のその日最後の飛行をIGCロガーで判定します。ハンディキャップは関東大会の出場機には機種に合わせた値が入っており、それ以外は1.00です。得点の行をタップするか、メンバー一覧で機体ごとに変更できます。")
                         }
                     }
                 }

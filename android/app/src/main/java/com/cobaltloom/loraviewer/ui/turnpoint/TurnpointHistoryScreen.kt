@@ -43,6 +43,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.cobaltloom.loraviewer.data.alert.LapScore
+import com.cobaltloom.loraviewer.data.alert.formatLapDuration
 import com.cobaltloom.loraviewer.data.alert.TurnpointPassageRecord
 import com.cobaltloom.loraviewer.ui.map.FinishSortOrder
 import com.cobaltloom.loraviewer.ui.map.GliderTrackerViewModel
@@ -62,21 +63,22 @@ fun TurnpointHistoryScreen(viewModel: GliderTrackerViewModel, onBack: () -> Unit
         val today = LocalDate.now()
         uiState.turnpointPassageRecords.filter { it.localDate == today }.sortedByDescending { it.timestampMillis }
     }
-    // Reference scores for today's goal rows that carry a lap time (see LapScore).
-    val scores = remember(todaysRecords, uiState.handicaps) {
-        LapScore.scores(
-            todaysRecords.mapNotNull { record ->
-                val distanceKm = record.courseDistanceKm ?: return@mapNotNull null
-                if (!record.isScoredFlight || (record.isFinish && record.lapSeconds == null)) return@mapNotNull null
-                LapScore.Lap(
-                    record.id,
-                    distanceKm,
-                    record.lapSeconds,
-                    uiState.handicapFor(record.gliderId),
-                    goalAltitudeM = if (record.isFinish) record.altitudeM else null,
-                )
-            },
-        )
+    // Reference scores for today's goal and partial-lap rows that carry scoring data (see LapScore).
+    val laps = remember(todaysRecords, uiState.handicaps) { LapScore.laps(todaysRecords) { uiState.handicapFor(it) } }
+    val scores = remember(laps) { LapScore.scores(laps) }
+    // "To beat": the lap time each handicap class needs to top today's best score, over the day's
+    // course distance. 0.90-1.00 always, the slower classes only when such a glider has scored today.
+    val toBeat = remember(laps) {
+        val distanceKm = laps.filter { it.lapSeconds != null }.maxOfOrNull { it.distanceKm }
+        if (distanceKm == null) {
+            emptyList()
+        } else {
+            (listOf(0.90, 0.95, 1.00) + laps.map { it.handicap }).distinct().sorted().mapNotNull { handicap ->
+                val seconds = LapScore.lapSecondsToBeat(laps, distanceKm, handicap) ?: return@mapNotNull null
+                val time = if (seconds.isInfinite()) "周回すれば上回る" else "${formatLapDuration((seconds * 1000).toLong())}以内"
+                "ハンデ%.2f: %s".format(handicap, time)
+            }
+        }
     }
     // Goal and partial-lap rows, pinned above the full history so they don't get buried among the
     // turnpoint passages - in the chosen order. Partial laps (no lap time) follow the laps by lap
@@ -119,6 +121,14 @@ fun TurnpointHistoryScreen(viewModel: GliderTrackerViewModel, onBack: () -> Unit
             LazyColumn(modifier = Modifier.padding(padding).fillMaxSize()) {
                 if (todaysFinishes.isNotEmpty()) {
                     item(key = "finishesHeader") { SectionHeader("周回・得点") }
+                    if (toBeat.isNotEmpty()) {
+                        item(key = "toBeat") {
+                            Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
+                                Text("1位を上回るのに必要な周回時間", style = MaterialTheme.typography.labelMedium, color = ToBeatBlue)
+                                toBeat.forEach { Text(it, style = MaterialTheme.typography.bodySmall, color = ToBeatBlue) }
+                            }
+                        }
+                    }
                     item(key = "sortOrder") {
                         Row(
                             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
@@ -143,7 +153,7 @@ fun TurnpointHistoryScreen(viewModel: GliderTrackerViewModel, onBack: () -> Unit
                     if (scores.isNotEmpty()) {
                         item(key = "scoreNote") {
                             Text(
-                                "参考得点は競技規則53の式(距離・速度・ハンディキャップ)で、この端末が計時した飛行ごとに計算した目安です。周回できなかった飛行は、規則56(1)により細則2の距離表の距離点のみです。ゴール高度が280〜330m未満は50点減点、280m未満は速度点なしです(細則7 別表)。公式成績は各選手のその日最後の飛行をIGCロガーで判定します。ハンディキャップは関東大会の出場機には機種に合わせた値が入っており、それ以外は1.00です。得点の行をタップするか、メンバー一覧で機体ごとに変更できます。",
+                                "参考得点は競技規則53の式(距離・速度・ハンディキャップ)で、この端末が計時した飛行ごとに計算した目安です。周回できなかった飛行は、規則56(1)により細則2の距離表の距離点のみです。ゴール高度が280〜330m未満は50点減点、280m未満は速度点なしです(細則7 別表)。「1位を上回るのに必要な周回時間」は、その時間で周回すると全員の得点を計算し直した結果1位になる時間です(ゴール高度330m以上の場合)。公式成績は各選手のその日最後の飛行をIGCロガーで判定します。ハンディキャップは関東大会の出場機には機種に合わせた値が入っており、それ以外は1.00です。得点の行をタップするか、メンバー一覧で機体ごとに変更できます。",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
@@ -247,4 +257,5 @@ private fun goalPenaltyNote(record: TurnpointPassageRecord): String {
 }
 
 private val FinishGreen = Color(0xFF2E7D32)
+private val ToBeatBlue = Color(0xFF1565C0)
 private val PartialOrange = Color(0xFFEF6C00)

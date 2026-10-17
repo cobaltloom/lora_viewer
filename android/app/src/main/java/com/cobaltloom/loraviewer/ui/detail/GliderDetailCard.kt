@@ -22,6 +22,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.cobaltloom.loraviewer.data.alert.AlertSeverity
@@ -40,6 +41,8 @@ fun GliderDetailCard(
     alertReasons: List<GliderAlertReason>,
     /** One line of task lap progress, when a task course is selected and the glider is being timed. */
     lapSummary: String? = null,
+    /** "To beat" for a lap in progress: what it needs to top today's best score. */
+    toBeat: String? = null,
     onToggleFavorite: () -> Unit,
     onEditName: () -> Unit,
     onDismiss: () -> Unit,
@@ -121,6 +124,14 @@ fun GliderDetailCard(
                     text = lapSummary,
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.padding(top = 2.dp),
+                )
+            }
+            if (toBeat != null) {
+                Text(
+                    text = toBeat,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF1565C0),
                 )
             }
 

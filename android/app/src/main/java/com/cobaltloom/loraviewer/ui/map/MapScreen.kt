@@ -578,6 +578,7 @@ fun MapScreen(
                             }
                         }
                     },
+                    toBeat = uiState.toBeatText(glider),
                     onToggleFavorite = {
                         if (uiState.isSubscribed) viewModel.toggleFavorite(glider.imei) else onRequireSubscription()
                     },

@@ -88,4 +88,21 @@ class LapScoreTest {
         assertEquals(1000.0, s.getValue("exactly330"), 1e-9)
         assertEquals(LapScore.GoalPenalty.NONE, LapScore.goalPenalty(null))
     }
+
+    @Test
+    fun toBeatTimesRescoreTheField() {
+        // 2026-10-17's laps: 中央 (ASK23B 1.00) leads with 26:15 over 26.4 km.
+        val laps = listOf(lap("chuo", 26, 15, 1.00), lap("keio", 27, 52, 0.90), partial("gakushuin", 20.1, 1.00))
+        val chuoSeconds = 26 * 60 + 15.0
+        // Same handicap as the leader: just be faster.
+        assertEquals(chuoSeconds, LapScore.lapSecondsToBeat(laps, 26.4, 1.00)!!, 0.5)
+        // A 0.90 glider that becomes the fastest makes itself the handicap reference, so 中央's
+        // (500 + 500 v₀/v) × 1.00/0.90 must fall under its 1000: v > 1.25 v₀.
+        assertEquals(chuoSeconds / 1.25, LapScore.lapSecondsToBeat(laps, 26.4, 0.90)!!, 0.5)
+        // 0.95: (1 + v₀/v) / 0.95 < 2, so v > v₀ / (2 × 0.95 - 1).
+        assertEquals(chuoSeconds * (2 * 0.95 - 1), LapScore.lapSecondsToBeat(laps, 26.4, 0.95)!!, 0.5)
+        // Only partial laps so far: any completed lap beats them.
+        assertTrue(LapScore.lapSecondsToBeat(listOf(partial("p", 20.1, 1.0)), 26.4, 1.0)!!.isInfinite())
+        assertEquals(null, LapScore.lapSecondsToBeat(emptyList(), 26.4, 1.0))
+    }
 }
