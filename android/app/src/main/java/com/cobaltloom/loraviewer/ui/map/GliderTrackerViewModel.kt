@@ -694,7 +694,7 @@ class GliderTrackerViewModel(
             val finish = status.finishMillis ?: continue
             if (!reportedFinishes.add("$id|$finish")) continue
             val summary = lapSummary(status, course.distanceKm, now) { "" }.removePrefix("周回: ")
-            turnpointPassageLogRepository.recordPastPassage(state.dataSource, gliderName, "ゴール $summary", status.finishAltitudeM, finish)
+            turnpointPassageLogRepository.recordPastPassage(state.dataSource, gliderName, TurnpointPassageRecord.FINISH_PREFIX + summary, status.finishAltitudeM, finish)
             // Only announce a finish that just happened - not one found in history on reopening.
             if (now - finish < RECENT_FINISH_MILLIS) alertNotifier.notifyTaskFinish(gliderName, summary)
         }

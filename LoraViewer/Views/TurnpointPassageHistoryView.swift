@@ -5,23 +5,31 @@ import SwiftUI
 struct TurnpointPassageHistoryView: View {
     @ObservedObject var log: TurnpointPassageLog
 
+    /// Today's goal rows (lap completed, with time and speed), pinned above the full history so they
+    /// don't get buried among the turnpoint passages.
+    private var todaysFinishes: [TurnpointPassageRecord] {
+        log.todaysRecords.filter(\.isFinish)
+    }
+
     var body: some View {
         List {
             if log.todaysRecords.isEmpty {
                 ContentUnavailableView("本日の旋回点通過はまだありません", systemImage: "airplane")
             } else {
-                ForEach(log.todaysRecords) { record in
-                    VStack(alignment: .leading, spacing: 2) {
-                        HStack {
-                            Text(record.gliderName)
-                                .bold()
-                            Spacer()
-                            Text(record.timestamp, style: .time)
-                                .foregroundStyle(.secondary)
+                if !todaysFinishes.isEmpty {
+                    Section("周回達成") {
+                        ForEach(todaysFinishes) { record in
+                            row(for: record)
                         }
-                        Text("\(record.turnpointName)・\(record.altitudeM.map { "\(Int($0))m" } ?? "高度不明")")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                    }
+                }
+                Section {
+                    ForEach(log.todaysRecords) { record in
+                        row(for: record)
+                    }
+                } header: {
+                    if !todaysFinishes.isEmpty {
+                        Text("すべての履歴")
                     }
                 }
             }
@@ -36,6 +44,26 @@ struct TurnpointPassageHistoryView: View {
                     }
                 }
             }
+        }
+    }
+
+    private func row(for record: TurnpointPassageRecord) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack {
+                if record.isFinish {
+                    Image(systemName: "flag.checkered")
+                        .foregroundStyle(.green)
+                }
+                Text(record.gliderName)
+                    .bold()
+                Spacer()
+                Text(record.timestamp, style: .time)
+                    .foregroundStyle(.secondary)
+            }
+            Text("\(record.turnpointName)・\(record.altitudeM.map { "\(Int($0))m" } ?? "高度不明")")
+                .font(.subheadline)
+                .foregroundStyle(record.isFinish ? .primary : .secondary)
+                .fontWeight(record.isFinish ? .semibold : .regular)
         }
     }
 }

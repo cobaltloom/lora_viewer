@@ -592,7 +592,7 @@ struct CurrentMapView: View {
             guard let finish = status.finish,
                   reportedLapEvents.insert("\(id)|finish|\(finish.timeIntervalSince1970)").inserted else { continue }
             let summary = String(status.summary(courseDistanceKm: course.distanceKm, now: now).dropFirst("周回: ".count))
-            turnpointPassageLog.recordPastPassage(gliderName: gliderName, turnpointName: "ゴール \(summary)", altitudeM: status.finishAltitudeM, timestamp: finish)
+            turnpointPassageLog.recordPastPassage(gliderName: gliderName, turnpointName: TurnpointPassageRecord.finishPrefix + summary, altitudeM: status.finishAltitudeM, timestamp: finish)
             // Only announce a finish that just happened - not one found in history on reopening.
             if now.timeIntervalSince(finish) < 5 * 60 {
                 alertNotifier.notifyTaskFinish(gliderName: gliderName, summary: summary)

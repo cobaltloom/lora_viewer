@@ -33,6 +33,13 @@ data class TurnpointPassageRecord(
 ) {
     val localDate: LocalDate
         get() = Instant.ofEpochMilli(timestampMillis).atZone(ZoneId.systemDefault()).toLocalDate()
+
+    /** A completed lap, logged as "ゴール 所要…・平均…" (see GliderTrackerViewModel.updateLapStatuses). */
+    val isFinish: Boolean get() = turnpointName.startsWith(FINISH_PREFIX)
+
+    companion object {
+        const val FINISH_PREFIX = "ゴール "
+    }
 }
 
 /**

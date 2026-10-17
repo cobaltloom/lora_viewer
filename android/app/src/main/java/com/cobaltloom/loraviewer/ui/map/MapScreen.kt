@@ -187,11 +187,20 @@ fun MapScreen(
         if (!cameraPositionState.isMoving) cameraTarget = cameraPositionState.position.target
     }
 
-    // Trails are saved periodically (see GliderTrailRepository); save the rest on leaving the app.
+    // Polling (and the OGN stream) only runs while the app is on screen: alerts aren't needed with
+    // the screen off, and keeping it going in the background drained the battery and heated the
+    // phone. Trails are saved periodically (see GliderTrailRepository); the rest is saved on leaving.
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_STOP) viewModel.saveTrailsNow()
+            when (event) {
+                Lifecycle.Event.ON_START -> viewModel.startPolling()
+                Lifecycle.Event.ON_STOP -> {
+                    viewModel.stopPolling()
+                    viewModel.saveTrailsNow()
+                }
+                else -> Unit
+            }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
