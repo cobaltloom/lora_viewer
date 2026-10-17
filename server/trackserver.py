@@ -57,7 +57,7 @@ JST_OFFSET_S = 9 * 3600
 LORA_POLL_S = 5                  # LoRa fixes come every ~7-15 s; 10 s polling missed some
 TAKEOFF_GROUND_POINT_S = 60      # a flight starts with its last ground point this recent (see split_flights)
 SNAPSHOT_S = 60
-VERSION = "1.1"
+VERSION = "1.2"
 
 OGN_HOST, OGN_PORT = "aprs.glidernet.org", 14580
 # 20 km around Menuma airfield's center (JSAL guideline: N36°12'41" E139°25'08") - enough for the
