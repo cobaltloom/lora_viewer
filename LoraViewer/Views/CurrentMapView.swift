@@ -98,15 +98,15 @@ struct CurrentMapView: View {
         // someone could enable them during a trial and keep the alerts
         // after lapsing.
         guard subscriptionManager.hasFullAccess else { return [] }
+        // Every alert is Menuma-specific, so only for gliders within 15 km of the field center.
+        guard CompetitionAltitudeGuideline.isWithinAlertRadius(glider) else { return [] }
         var reasons: [GliderAlertReason] = []
         // When one or more gliders are favorited, only they are checked against the custom
         // altitude alert and competition guideline — otherwise, e.g. a glider flying from a
         // different field than the one these are configured for triggers noise notifications
         // for gliders the person tracking them doesn't actually care about. With no favorites
         // set, every glider is checked, same as before this distinction existed.
-        // Both are Menuma-specific, so only for gliders within 15 km of the field center.
-        if favoritesStore.favoriteIMEIs.isEmpty || favoritesStore.isFavorite(glider.imei),
-           CompetitionAltitudeGuideline.isWithinAlertRadius(glider) {
+        if favoritesStore.favoriteIMEIs.isEmpty || favoritesStore.isFavorite(glider.imei) {
             if let severity = alertSettings.alertSeverity(for: glider) {
                 reasons.append(GliderAlertReason(label: "カスタム設定", severity: severity))
             }
@@ -678,7 +678,10 @@ struct CurrentMapView: View {
             proximityWarningPairs = []
             return
         }
-        let flying = positions.filter { ($0.alt ?? 0) > alertSettings.minimumFlyingAltitudeM }
+        // Like the altitude alerts, only near Menuma: gliders at other fields aren't this field's concern.
+        let flying = positions.filter {
+            ($0.alt ?? 0) > alertSettings.minimumFlyingAltitudeM && CompetitionAltitudeGuideline.isWithinAlertRadius($0)
+        }
         let referenceLocation = CLLocation(latitude: alertSettings.referenceCoordinate.latitude, longitude: alertSettings.referenceCoordinate.longitude)
         let patternRadiusM = proximityAlertSettings.patternExclusionRadiusKm * 1000
         let patternCeilingM = proximityAlertSettings.patternExclusionCeilingM

@@ -137,15 +137,15 @@ data class GliderTrackerUiState(
     /** Every alert rule currently triggered for [glider], each with its own severity. All altitude
      * alerts are a subscription feature, so nothing is reported while unsubscribed. */
     fun alertReasons(glider: GliderPosition): List<GliderAlertReason> {
-        if (!isSubscribed) return emptyList()
+        // Every alert is Menuma-specific, so only for gliders within 15 km of the field center.
+        if (!isSubscribed || !CompetitionAltitudeGuideline.isWithinAlertRadius(glider)) return emptyList()
         val reasons = mutableListOf<GliderAlertReason>()
         // When one or more gliders are favorited, only they are checked against the custom
         // altitude alert and competition guideline - otherwise, e.g. a glider flying from a
         // different field than the one these are configured for triggers noise notifications
         // for gliders the person tracking them doesn't actually care about. With no favorites
         // set, every glider is checked, same as before this distinction existed.
-        // Both are Menuma-specific, so only for gliders within 15 km of the field center.
-        if ((favorites.isEmpty() || glider.imei in favorites) && CompetitionAltitudeGuideline.isWithinAlertRadius(glider)) {
+        if (favorites.isEmpty() || glider.imei in favorites) {
             alertSettings.alertSeverity(glider)?.let {
                 reasons.add(GliderAlertReason("カスタム設定", it))
             }
@@ -579,7 +579,10 @@ class GliderTrackerViewModel(
             proximityWarningPairs = emptySet()
             return emptyMap()
         }
-        val flying = state.positions.filter { (it.alt ?: 0.0) > state.alertSettings.minimumFlyingAltitudeM }
+        // Like the altitude alerts, only near Menuma: gliders at other fields aren't this field's concern.
+        val flying = state.positions.filter {
+            (it.alt ?: 0.0) > state.alertSettings.minimumFlyingAltitudeM && CompetitionAltitudeGuideline.isWithinAlertRadius(it)
+        }
         val reference = state.alertSettings.referenceCoordinate
         val patternRadiusM = settings.patternExclusionRadiusKm * 1000
         val patternCeilingM = settings.patternExclusionCeilingM
