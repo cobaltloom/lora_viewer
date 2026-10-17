@@ -179,6 +179,8 @@ struct ToBeatCard: View {
     let leaderScore: Double
     let leaderLapSeconds: Double?
     let rows: [Row]
+    /// Rows whose glider types are shown in full; tapping a row toggles it.
+    @State private var expandedRows: Set<Double> = []
 
     private static func types(for handicap: Double) -> String {
         GliderHandicapStore.options.first { $0.value == handicap }?.types ?? ""
@@ -204,6 +206,7 @@ struct ToBeatCard: View {
                 }
             }
             ForEach(rows) { row in
+                let isExpanded = expandedRows.contains(row.handicap)
                 HStack(alignment: .firstTextBaseline, spacing: 10) {
                     Text(String(format: "%.2f", row.handicap))
                         .font(.caption.weight(.bold).monospacedDigit())
@@ -213,11 +216,18 @@ struct ToBeatCard: View {
                     Text(Self.types(for: row.handicap))
                         .font(.caption2)
                         .foregroundStyle(.white.opacity(0.65))
-                        .lineLimit(1)
+                        .lineLimit(isExpanded ? nil : 1)
+                        .fixedSize(horizontal: false, vertical: isExpanded)
                     Spacer(minLength: 4)
                     Text(row.seconds.isInfinite ? "周回で1位" : ToBeat.clock(row.seconds))
                         .font(.system(.title2, design: .rounded).weight(.bold).monospacedDigit())
                         .foregroundStyle(Color.toBeatAccent)
+                }
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        if isExpanded { expandedRows.remove(row.handicap) } else { expandedRows.insert(row.handicap) }
+                    }
                 }
             }
             Text("この時間より速く周回すると1位(ゴール330m以上で通過した場合)")

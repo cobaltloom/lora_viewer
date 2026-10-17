@@ -2,6 +2,7 @@ package com.cobaltloom.loraviewer.ui.common
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,6 +15,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -22,6 +27,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.cobaltloom.loraviewer.data.alert.LapScore
@@ -126,7 +132,13 @@ fun ToBeatCard(leaderName: String, leaderScore: Double, leaderLapSeconds: Double
             }
         }
         rows.forEach { row ->
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            // Tapping a row shows its glider types in full instead of one truncated line.
+            var expanded by remember(row.handicap) { mutableStateOf(false) }
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier.fillMaxWidth().clickable { expanded = !expanded },
+            ) {
                 Text(
                     "%.2f".format(row.handicap),
                     color = Color.White,
@@ -138,7 +150,8 @@ fun ToBeatCard(leaderName: String, leaderScore: Double, leaderLapSeconds: Double
                     LapScore.handicapOptions.firstOrNull { it.value == row.handicap }?.types.orEmpty(),
                     color = Color.White.copy(alpha = 0.65f),
                     style = MaterialTheme.typography.labelSmall,
-                    maxLines = 1,
+                    maxLines = if (expanded) Int.MAX_VALUE else 1,
+                    overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f),
                 )
                 Text(if (row.seconds.isInfinite()) "周回で1位" else ToBeat.clock(row.seconds), color = ToBeatAccent, style = BigTime)
