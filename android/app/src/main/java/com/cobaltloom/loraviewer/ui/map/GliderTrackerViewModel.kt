@@ -24,6 +24,7 @@ import com.cobaltloom.loraviewer.data.alert.TaskLapCalculator
 import com.cobaltloom.loraviewer.data.alert.TaskLapStatus
 import com.cobaltloom.loraviewer.data.alert.TimedPoint
 import com.cobaltloom.loraviewer.data.alert.TurnpointPassageLogRepository
+import com.cobaltloom.loraviewer.data.alert.TurnpointSector
 import com.cobaltloom.loraviewer.data.alert.TurnpointPassageRecord
 import com.cobaltloom.loraviewer.data.alert.UpperAltitudeGuidelineRepository
 import com.cobaltloom.loraviewer.data.alert.UpperAltitudeSettings
@@ -238,6 +239,9 @@ class GliderTrackerViewModel(
      * notifications fire once on entry rather than repeatedly while a glider lingers inside.
      */
     private var previouslyInsideTurnpoints: Set<String> = emptySet()
+    /** Each glider's fix as of the previous refresh, so a sector entry can be found along the line
+     * from it to the new fix (see [TurnpointSector.firstEntry]). */
+    private var previousTurnpointFixes: Map<String, TimedPoint> = emptyMap()
 
     /** Each glider pair's horizontal distance (meters) as of the previous refresh, keyed by a
      * sorted "imei1|imei2", so a new refresh can tell whether a pair is closing rather than just
@@ -378,6 +382,7 @@ class GliderTrackerViewModel(
         _uiState.update { it.copy(positions = emptyList(), proximityReasonsByImei = emptyMap()) }
         previouslyAlertingImeis = emptySet()
         previouslyInsideTurnpoints = emptySet()
+        previousTurnpointFixes = emptyMap()
         previousProximityDistancesM = emptyMap()
         proximityWarningPairs = emptySet()
         if (pollingJob?.isActive == true) {
@@ -633,19 +638,34 @@ class GliderTrackerViewModel(
         val selectedCourseIndex = state.competitionGuidelineSettings.selectedCourseIndex ?: return
         val course = CompetitionTaskCourseData.courses.getOrNull(selectedCourseIndex) ?: return
 
+        val now = System.currentTimeMillis()
         val currentlyInside = mutableSetOf<String>()
+        val fixes = mutableMapOf<String, TimedPoint>()
         for (glider in state.positions) {
-            for (name in turnpointSectorsContaining(glider.lat, glider.lon, course)) {
+            // Timed by the fix itself, not by when it reached the app: LoRa fixes can arrive tens of
+            // seconds late.
+            val fix = TimedPoint(glider.positionDateTimeUtc?.toEpochMilli() ?: now, glider.lat, glider.lon, glider.alt ?: 0.0)
+            fixes[glider.imei] = fix
+            val previous = previousTurnpointFixes[glider.imei]?.takeIf { it.timeMillis < fix.timeMillis }
+            for (name in CompetitionTaskCourseData.notifiableTurnpointNames) {
                 val key = "${glider.imei}|$name"
-                currentlyInside += key
-                if (key !in previouslyInsideTurnpoints) {
-                    val gliderName = state.nameFor(glider)
-                    alertNotifier.notifyTurnpointPassage(gliderName, name, glider.alt)
-                    turnpointPassageLogRepository.record(state.dataSource, gliderName, name, glider.alt)
+                if (TurnpointSector.isInSector(fix.lat, fix.lon, course, name)) currentlyInside += key
+                if (key in previouslyInsideTurnpoints) continue
+                // A repeat of the same fix (polled again before a new one arrived) has no new line.
+                if (previous == null && previousTurnpointFixes[glider.imei] != null) continue
+                val t = TurnpointSector.firstEntry(previous, fix, course, name) ?: continue
+                val entry = previous?.let { TurnpointSector.interpolate(it, fix, t) } ?: fix
+                val gliderName = state.nameFor(glider)
+                val altitudeM = glider.alt?.let { entry.altitudeM }
+                // Deduped like a backfilled passage, so a glider skimming a sector's edge isn't
+                // announced over and over.
+                if (turnpointPassageLogRepository.recordPastPassage(state.dataSource, gliderName, name, altitudeM, entry.timeMillis)) {
+                    alertNotifier.notifyTurnpointPassage(gliderName, name, altitudeM)
                 }
             }
         }
         previouslyInsideTurnpoints = currentlyInside
+        previousTurnpointFixes = fixes
     }
 
     private fun recordTimedPoints(positions: List<GliderPosition>, groundAltitudeM: Double) {
@@ -702,14 +722,6 @@ class GliderTrackerViewModel(
     }
 
     /** Names of [course]'s turnpoints whose 90° sector (within the turnpoint radius) contains the point. */
-    private fun turnpointSectorsContaining(lat: Double, lon: Double, course: CompetitionTaskCourse): List<String> =
-        CompetitionTaskCourseData.notifiableTurnpointNames.filter { name ->
-            val point = CompetitionTaskCourseData.turnpoints[name] ?: return@filter false
-            val bisector = CompetitionTaskCourseData.sectorBearing(course, name) ?: return@filter false
-            distanceMeters(point.latitude, point.longitude, lat, lon) / 1000.0 <= CompetitionTaskCourseData.TURNPOINT_RADIUS_KM &&
-                CompetitionTaskCourseData.isBearing(bearingDegrees(point.latitude, point.longitude, lat, lon), bisector)
-        }
-
     /**
      * Adds turnpoint passages flown before the app was opened, found by walking each flying
      * glider's track from the track server. Logged at the time they happened; no notification,
@@ -723,13 +735,19 @@ class GliderTrackerViewModel(
         for ((id, points) in flights) {
             val glider = state.positions.firstOrNull { it.imei == id } ?: continue
             val gliderName = state.nameFor(glider)
-            var inside = emptySet<String>()
+            var previous: TimedPoint? = null
             for (point in points) {
-                val now = turnpointSectorsContaining(point.coordinate.latitude, point.coordinate.longitude, course).toSet()
-                for (name in now - inside) {
-                    turnpointPassageLogRepository.recordPastPassage(state.dataSource, gliderName, name, point.altitudeM, point.timeMillis)
+                val fix = TimedPoint(point.timeMillis, point.coordinate.latitude, point.coordinate.longitude, point.altitudeM)
+                for (name in CompetitionTaskCourseData.notifiableTurnpointNames) {
+                    val wasInside = previous?.let { TurnpointSector.isInSector(it.lat, it.lon, course, name) } ?: false
+                    if (wasInside) continue
+                    val t = TurnpointSector.firstEntry(previous, fix, course, name) ?: continue
+                    val entry = previous?.let { TurnpointSector.interpolate(it, fix, t) } ?: fix
+                    turnpointPassageLogRepository.recordPastPassage(
+                        state.dataSource, gliderName, name, entry.altitudeM, entry.timeMillis,
+                    )
                 }
-                inside = now
+                previous = fix
             }
         }
     }

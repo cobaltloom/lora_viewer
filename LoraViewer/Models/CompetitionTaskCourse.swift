@@ -104,3 +104,63 @@ private func shortestAngleDifference(from a: Double, to b: Double) -> Double {
     let diff = normalizedDegrees(b - a)
     return diff > 180 ? diff - 360 : diff
 }
+
+/// Turnpoint sector entry between two fixes. LoRa fixes arrive ~15-30 s apart, so a glider that
+/// only clips a sector's edge often has no fix inside it at all; checking the straight line between
+/// consecutive fixes catches that, and times the entry where the line enters rather than at the next
+/// fix. Kept in step with the Android app's TurnpointSector.kt, which has the unit tests.
+enum TurnpointSector {
+    /// Fixes further apart than this aren't joined: LoRa drops a fix now and then (gaps of 1-2 min
+    /// happen), but much longer means lost reception, and a straight line across it could invent a
+    /// passage. Such a fix is checked on its own.
+    static let maxJoinGap: TimeInterval = 120
+    private static let sampleSpacingM = 25.0
+    private static let maxSamples = 400
+
+    static func isInSector(_ coordinate: CLLocationCoordinate2D, course: CompetitionTaskCourse, name: String) -> Bool {
+        guard let tp = CompetitionTaskCourseData.turnpoints[name],
+              let bisector = CompetitionTaskCourseData.sectorBearing(in: course, turnpointName: name) else { return false }
+        let distanceM = CLLocation(latitude: tp.latitude, longitude: tp.longitude)
+            .distance(from: CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude))
+        return distanceM <= CompetitionTaskCourseData.turnpointRadiusKm * 1000
+            && CompetitionTaskCourseData.isBearing(tp.bearingDegrees(to: coordinate), withinSectorCenteredOn: bisector)
+    }
+
+    /// The first point along fix `a` → fix `b`, as a fraction 0...1, that is inside `name`'s sector
+    /// of `course` and for which `accept` also holds, or nil. Without `a`, or with the two more than
+    /// `maxJoinGap` apart, only `b` itself is checked (fraction 1).
+    static func firstEntry(from a: TimedPoint?, to b: TimedPoint, course: CompetitionTaskCourse, name: String,
+                           accept: (Double) -> Bool = { _ in true }) -> Double? {
+        guard let a, b.time >= a.time, b.time.timeIntervalSince(a.time) <= maxJoinGap else {
+            return isInSector(b.coordinate, course: course, name: name) && accept(1) ? 1 : nil
+        }
+        guard let tp = CompetitionTaskCourseData.turnpoints[name] else { return nil }
+        // Flat projection around the turnpoint: skip the segment unless it comes within the radius.
+        let mPerDegLon = 111_320.0 * cos(tp.latitude * .pi / 180)
+        let ax = (a.coordinate.longitude - tp.longitude) * mPerDegLon, ay = (a.coordinate.latitude - tp.latitude) * 110_574.0
+        let bx = (b.coordinate.longitude - tp.longitude) * mPerDegLon, by = (b.coordinate.latitude - tp.latitude) * 110_574.0
+        let length = hypot(bx - ax, by - ay)
+        let closest = length == 0 ? 0 : min(max(-(ax * (bx - ax) + ay * (by - ay)) / (length * length), 0), 1)
+        guard hypot(ax + (bx - ax) * closest, ay + (by - ay) * closest) <= CompetitionTaskCourseData.turnpointRadiusKm * 1000 * 1.05 else {
+            return nil
+        }
+        let samples = min(max(Int((length / sampleSpacingM).rounded(.up)), 1), maxSamples)
+        for i in 0...samples {
+            let t = Double(i) / Double(samples)
+            if isInSector(interpolate(a, b, t).coordinate, course: course, name: name), accept(t) { return t }
+        }
+        return nil
+    }
+
+    /// The point a fraction `t` of the way from `a` to `b`, time and altitude included.
+    static func interpolate(_ a: TimedPoint, _ b: TimedPoint, _ t: Double) -> TimedPoint {
+        TimedPoint(
+            time: a.time.addingTimeInterval(b.time.timeIntervalSince(a.time) * t),
+            coordinate: CLLocationCoordinate2D(
+                latitude: a.coordinate.latitude + (b.coordinate.latitude - a.coordinate.latitude) * t,
+                longitude: a.coordinate.longitude + (b.coordinate.longitude - a.coordinate.longitude) * t
+            ),
+            altitudeM: a.altitudeM + (b.altitudeM - a.altitudeM) * t
+        )
+    }
+}

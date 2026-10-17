@@ -68,10 +68,12 @@ class TurnpointPassageLogRepository(private val context: Context) {
     /**
      * Records a passage found afterwards in the track server's history (flown while the app was
      * closed), at the time it actually happened - unless the same glider already has a record for
-     * this turnpoint within 10 minutes (e.g. the live check caught it when the app opened).
+     * this turnpoint within 10 minutes (e.g. the live check caught it when the app opened). Also
+     * used for live passages, timed by the fix. Returns whether it was recorded.
      */
-    suspend fun recordPastPassage(source: DataSource, gliderName: String, turnpointName: String, altitudeM: Double?, timestampMillis: Long) {
+    suspend fun recordPastPassage(source: DataSource, gliderName: String, turnpointName: String, altitudeM: Double?, timestampMillis: Long): Boolean {
         val duplicateWindowMillis = 10 * 60 * 1000L
+        var recorded = false
         context.turnpointPassageLogDataStore.edit { prefs ->
             val existing = decode(prefs[key(source)])
             if (existing.any {
@@ -86,14 +88,9 @@ class TurnpointPassageLogRepository(private val context: Context) {
                 timestampMillis = timestampMillis,
             )
             prefs[key(source)] = json.encodeToString(prune(existing + record))
+            recorded = true
         }
-    }
-
-    suspend fun record(source: DataSource, gliderName: String, turnpointName: String, altitudeM: Double?) {
-        context.turnpointPassageLogDataStore.edit { prefs ->
-            val updated = prune(decode(prefs[key(source)]) + TurnpointPassageRecord(gliderName = gliderName, turnpointName = turnpointName, altitudeM = altitudeM))
-            prefs[key(source)] = json.encodeToString(updated)
-        }
+        return recorded
     }
 
     suspend fun clearToday(source: DataSource) {

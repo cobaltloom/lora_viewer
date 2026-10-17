@@ -39,24 +39,21 @@ final class TurnpointPassageLog: ObservableObject {
             .sorted { $0.timestamp > $1.timestamp }
     }
 
-    func record(gliderName: String, turnpointName: String, altitudeM: Double?) {
-        records.append(TurnpointPassageRecord(gliderName: gliderName, turnpointName: turnpointName, altitudeM: altitudeM))
-        prune()
-        save()
-    }
-
     /// Records a passage found afterwards in the track server's history (flown while the app was
     /// closed), at the time it actually happened - unless the same glider already has a record for
     /// this turnpoint within `duplicateWindow` (e.g. the live check caught it when the app opened).
-    func recordPastPassage(gliderName: String, turnpointName: String, altitudeM: Double?, timestamp: Date) {
+    /// Also used for live passages, timed by the fix. Returns whether it was recorded.
+    @discardableResult
+    func recordPastPassage(gliderName: String, turnpointName: String, altitudeM: Double?, timestamp: Date) -> Bool {
         let duplicateWindow: TimeInterval = 10 * 60
         guard !records.contains(where: {
             $0.gliderName == gliderName && $0.turnpointName == turnpointName
                 && abs($0.timestamp.timeIntervalSince(timestamp)) < duplicateWindow
-        }) else { return }
+        }) else { return false }
         records.append(TurnpointPassageRecord(gliderName: gliderName, turnpointName: turnpointName, altitudeM: altitudeM, timestamp: timestamp))
         prune()
         save()
+        return true
     }
 
     func clearToday() {
