@@ -18,6 +18,7 @@ import com.cobaltloom.loraviewer.data.alert.CompetitionTaskCourseData
 import com.cobaltloom.loraviewer.data.alert.Coordinate
 import com.cobaltloom.loraviewer.data.alert.GliderAlertReason
 import com.cobaltloom.loraviewer.data.alert.LapScore
+import com.cobaltloom.loraviewer.data.alert.PartialLapDistance
 import com.cobaltloom.loraviewer.data.alert.ProximityAlertSettings
 import com.cobaltloom.loraviewer.data.alert.ProximityAlertSettingsRepository
 import com.cobaltloom.loraviewer.data.alert.TaskLapCache
@@ -232,6 +233,7 @@ class GliderTrackerViewModel(
      * reported once. */
     private val reportedStarts = mutableSetOf<String>()
     private val reportedFinishes = mutableSetOf<String>()
+    private val reportedPartials = mutableSetOf<String>()
 
     /** Set when the next refresh should backfill trails from the track server: at start, after a
      * source switch, and when a glider is first seen already flying. */
@@ -743,7 +745,45 @@ class GliderTrackerViewModel(
             val glider = state.positions.firstOrNull { it.imei == id } ?: continue
             logLapEvents(state, id, status, state.nameFor(glider), course, now, notify = true)
         }
+        // A glider whose timed track just ended because it's back on the ground: if it rounded some
+        // turnpoints without finishing, that flight scores distance only. Only a glider still listed
+        // and on the ground counts as landed - one that dropped off the map (e.g. FLARM out of
+        // range) may still be flying, and is filled in later from today's flights.
+        for ((id, previous) in _uiState.value.lapStatuses) {
+            if (id in statuses) continue
+            val glider = state.positions.firstOrNull { it.imei == id } ?: continue
+            if ((glider.alt ?: 0.0) > state.alertSettings.minimumFlyingAltitudeM) continue
+            logPartialLap(state, id, previous, state.nameFor(glider), course)
+        }
         _uiState.update { it.copy(lapStatuses = statuses) }
+    }
+
+    /** Logs an unfinished flight that rounded at least one scoring turnpoint (競技規則56(1)), once,
+     * at the time of its last turnpoint, with the 細則2 distance it scores. */
+    private suspend fun logPartialLap(
+        state: GliderTrackerUiState,
+        id: String,
+        status: TaskLapStatus,
+        gliderName: String,
+        course: CompetitionTaskCourse,
+    ) {
+        val start = status.startMillis ?: return
+        if (status.finishMillis != null) return
+        val scored = status.passedTurnpoints.filter { it.first != PartialLapDistance.CHECKPOINT_NAME }
+        val last = scored.lastOrNull() ?: return
+        val distanceKm = PartialLapDistance.distanceKm(scored.map { it.first }) ?: return
+        if (!reportedPartials.add("$id|$start")) return
+        val total = PartialLapDistance.scoredTurnpoints(course).size
+        val names = scored.joinToString("・") { it.first }
+        turnpointPassageLogRepository.recordPastPassage(
+            state.dataSource,
+            gliderName,
+            TurnpointPassageRecord.PARTIAL_LAP_PREFIX + "旋回点 ${scored.size}/$total($names)・距離 %.1fkm".format(distanceKm),
+            null,
+            last.second,
+            gliderId = id,
+            courseDistanceKm = distanceKm,
+        )
     }
 
     private val guidelineAltitude: (TimedPoint) -> Double? = { p ->
@@ -796,7 +836,7 @@ class GliderTrackerViewModel(
         for ((id, flights) in todays.flights) {
             val baseName = todays.baseNames[id] ?: continue
             val gliderName = (if (state.isSubscribed) state.nicknames[id] else null) ?: baseName
-            for (flight in flights) {
+            flights.forEachIndexed { index, flight ->
                 val points = flight.map { TimedPoint(it.timeMillis, it.coordinate.latitude, it.coordinate.longitude, it.altitudeM) }
                 var previous: TimedPoint? = null
                 for (fix in points) {
@@ -808,7 +848,11 @@ class GliderTrackerViewModel(
                     }
                     previous = fix
                 }
-                logLapEvents(state, id, TaskLapCalculator.evaluate(points, course, guidelineAltitude), gliderName, course, now, notify = false)
+                val status = TaskLapCalculator.evaluate(points, course, guidelineAltitude)
+                logLapEvents(state, id, status, gliderName, course, now, notify = false)
+                // The glider's latest flight, with a recent last point, may still be under way.
+                val mayBeFlying = index == flights.lastIndex && now - (points.lastOrNull()?.timeMillis ?: 0L) < 3 * 60 * 1000L
+                if (!mayBeFlying) logPartialLap(state, id, status, gliderName, course)
             }
         }
     }

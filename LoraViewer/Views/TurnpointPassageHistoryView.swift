@@ -19,33 +19,36 @@ struct TurnpointPassageHistoryView: View {
         }
     }
 
-    /// Today's goal rows (lap completed, with time and speed), pinned above the full history so they
-    /// don't get buried among the turnpoint passages - in the chosen order. Rows without a score or
-    /// lap time (saved before scoring) go last in those orders.
-    private func todaysFinishes(scores: [UUID: Double]) -> [TurnpointPassageRecord] {
-        let finishes = log.todaysRecords.filter(\.isFinish) // newest first
+    /// Today's goal and partial-lap rows, pinned above the full history so they don't get buried
+    /// among the turnpoint passages - in the chosen order. Partial laps (no lap time) follow the
+    /// laps by lap time, and rows saved before scoring go last in those orders.
+    private func todaysScoredFlights(scores: [UUID: Double]) -> [TurnpointPassageRecord] {
+        let flights = log.todaysRecords.filter(\.isScoredFlight) // newest first
         switch sortOrder {
         case .score:
-            return finishes.sorted { (scores[$0.id] ?? -1) > (scores[$1.id] ?? -1) }
+            return flights.sorted { (scores[$0.id] ?? -1) > (scores[$1.id] ?? -1) }
         case .lapTime:
-            return finishes.sorted { ($0.lapSeconds ?? .infinity) < ($1.lapSeconds ?? .infinity) }
+            return flights.sorted {
+                ($0.lapSeconds ?? .infinity, -(scores[$0.id] ?? -1)) < ($1.lapSeconds ?? .infinity, -(scores[$1.id] ?? -1))
+            }
         case .time:
-            return finishes
+            return flights
         }
     }
 
-    /// Reference scores for today's goal rows that carry a lap time (see `LapScore`).
+    /// Reference scores for today's goal and partial-lap rows that carry scoring data (see `LapScore`).
     private var todaysScores: [UUID: Double] {
         LapScore.scores(log.todaysRecords.compactMap { record in
-            guard record.isFinish, let lapSeconds = record.lapSeconds, let distanceKm = record.courseDistanceKm else { return nil }
+            guard record.isScoredFlight, let distanceKm = record.courseDistanceKm,
+                  record.isPartialLap || record.lapSeconds != nil else { return nil }
             let handicap = record.gliderID.map(handicapStore.handicap(for:)) ?? GliderHandicapStore.defaultHandicap
-            return LapScore.Lap(id: record.id, distanceKm: distanceKm, lapSeconds: lapSeconds, handicap: handicap)
+            return LapScore.Lap(id: record.id, distanceKm: distanceKm, lapSeconds: record.lapSeconds, handicap: handicap)
         })
     }
 
     var body: some View {
         let scores = todaysScores
-        let finishes = todaysFinishes(scores: scores)
+        let finishes = todaysScoredFlights(scores: scores)
         List {
             if log.todaysRecords.isEmpty {
                 ContentUnavailableView("本日の旋回点通過はまだありません", systemImage: "airplane")
@@ -62,10 +65,10 @@ struct TurnpointPassageHistoryView: View {
                             row(for: record, score: scores[record.id])
                         }
                     } header: {
-                        Text("周回達成")
+                        Text("周回・得点")
                     } footer: {
                         if !scores.isEmpty {
-                            Text("参考得点は競技規則53の式(距離・速度・ハンディキャップ)で、この端末が計時した周回ごとに計算した目安です。公式成績は各選手のその日最後の飛行をIGCロガーで判定します。ハンディキャップは関東大会の出場機には機種に合わせた値が入っており、それ以外は1.00です。得点の行をタップするか、メンバー一覧で機体ごとに変更できます。")
+                            Text("参考得点は競技規則53の式(距離・速度・ハンディキャップ)で、この端末が計時した飛行ごとに計算した目安です。周回できなかった飛行は、規則56(1)により細則2の距離表の距離点のみです。公式成績は各選手のその日最後の飛行をIGCロガーで判定します。ハンディキャップは関東大会の出場機には機種に合わせた値が入っており、それ以外は1.00です。得点の行をタップするか、メンバー一覧で機体ごとに変更できます。")
                         }
                     }
                 }
@@ -99,6 +102,9 @@ struct TurnpointPassageHistoryView: View {
                 if record.isFinish {
                     Image(systemName: "flag.checkered")
                         .foregroundStyle(.green)
+                } else if record.isPartialLap {
+                    Image(systemName: "flag")
+                        .foregroundStyle(.orange)
                 }
                 Text(record.gliderName)
                     .bold()
@@ -106,10 +112,10 @@ struct TurnpointPassageHistoryView: View {
                 Text(record.timestamp, style: .time)
                     .foregroundStyle(.secondary)
             }
-            Text("\(record.turnpointName)・\(record.altitudeM.map { "\(Int($0))m" } ?? "高度不明")")
+            Text(record.isPartialLap ? record.turnpointName : "\(record.turnpointName)・\(record.altitudeM.map { "\(Int($0))m" } ?? "高度不明")")
                 .font(.subheadline)
-                .foregroundStyle(record.isFinish ? .primary : .secondary)
-                .fontWeight(record.isFinish ? .semibold : .regular)
+                .foregroundStyle(record.isScoredFlight ? .primary : .secondary)
+                .fontWeight(record.isScoredFlight ? .semibold : .regular)
             if let score, let gliderID = record.gliderID {
                 // Tappable, so a glider that has left the member list can still get its handicap.
                 Menu {

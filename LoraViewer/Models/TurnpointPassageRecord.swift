@@ -9,9 +9,10 @@ struct TurnpointPassageRecord: Identifiable, Codable {
     let turnpointName: String
     let altitudeM: Double?
     let timestamp: Date
-    /// For goal rows: the glider's id (LoRa IMEI / OGN callsign), lap time and course distance, so
-    /// the history can give each completed lap a reference score (see `LapScore`). Absent in
-    /// records saved before scoring existed, and in other rows.
+    /// For goal and partial-lap rows: the glider's id (LoRa IMEI / OGN callsign), lap time (goal
+    /// rows only) and the distance that scores - the course's for a lap, the 細則2 table's for a
+    /// partly flown course - so the history can give each a reference score (see `LapScore`).
+    /// Absent in records saved before scoring existed, and in other rows.
     var gliderID: String?
     var lapSeconds: Double?
     var courseDistanceKm: Double?
@@ -19,6 +20,14 @@ struct TurnpointPassageRecord: Identifiable, Codable {
     /// A completed lap, logged as "ゴール 所要…・平均…" (see `CurrentMapView.updateLapStatuses`).
     var isFinish: Bool { turnpointName.hasPrefix(Self.finishPrefix) }
     static let finishPrefix = "ゴール "
+
+    /// A flight that landed after rounding some of the course's turnpoints but not finishing,
+    /// logged as "周回未達成 旋回点 2/3(…)" (競技規則56(1): distance points only).
+    var isPartialLap: Bool { turnpointName.hasPrefix(Self.partialLapPrefix) }
+    static let partialLapPrefix = "周回未達成 "
+
+    /// A goal or partial-lap row: one that can score.
+    var isScoredFlight: Bool { isFinish || isPartialLap }
 
     init(gliderName: String, turnpointName: String, altitudeM: Double?, timestamp: Date = Date(),
          gliderID: String? = nil, lapSeconds: Double? = nil, courseDistanceKm: Double? = nil) {

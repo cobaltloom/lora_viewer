@@ -30,8 +30,9 @@ data class TurnpointPassageRecord(
     val turnpointName: String,
     val altitudeM: Double?,
     val timestampMillis: Long = System.currentTimeMillis(),
-    /** For goal rows: the glider's id, lap time and course distance, so the history can give each
-     * completed lap a reference score (see [LapScore]). Absent in older records and other rows. */
+    /** For goal and partial-lap rows: the glider's id, lap time (goal rows only) and the distance that
+     * scores - the course's for a lap, the 細則2 table's for a partly flown course - so the history
+     * can give each a reference score (see [LapScore]). Absent in older records and other rows. */
     val gliderId: String? = null,
     val lapSeconds: Double? = null,
     val courseDistanceKm: Double? = null,
@@ -42,8 +43,16 @@ data class TurnpointPassageRecord(
     /** A completed lap, logged as "ゴール 所要…・平均…" (see GliderTrackerViewModel.updateLapStatuses). */
     val isFinish: Boolean get() = turnpointName.startsWith(FINISH_PREFIX)
 
+    /** A flight that landed after rounding some of the course's turnpoints but not finishing, logged
+     * as "周回未達成 旋回点 2/3(…)" (競技規則56(1): distance points only). */
+    val isPartialLap: Boolean get() = turnpointName.startsWith(PARTIAL_LAP_PREFIX)
+
+    /** A goal or partial-lap row: one that can score. */
+    val isScoredFlight: Boolean get() = isFinish || isPartialLap
+
     companion object {
         const val FINISH_PREFIX = "ゴール "
+        const val PARTIAL_LAP_PREFIX = "周回未達成 "
     }
 }
 
@@ -91,10 +100,12 @@ class TurnpointPassageLogRepository(private val context: Context) {
         context.turnpointPassageLogDataStore.edit { prefs ->
             val existing = decode(prefs[key(source)])
             // Goal rows carry the lap time, which can differ by a few seconds between the live track
-            // and the server's, so any two goal rows count as the same event.
+            // and the server's, so any two goal rows count as the same event; likewise partial-lap rows.
             val isFinish = turnpointName.startsWith(TurnpointPassageRecord.FINISH_PREFIX)
+            val isPartialLap = turnpointName.startsWith(TurnpointPassageRecord.PARTIAL_LAP_PREFIX)
             val duplicate = existing.indexOfFirst {
-                it.gliderName == gliderName && (it.turnpointName == turnpointName || (isFinish && it.isFinish)) &&
+                it.gliderName == gliderName &&
+                    (it.turnpointName == turnpointName || (isFinish && it.isFinish) || (isPartialLap && it.isPartialLap)) &&
                     kotlin.math.abs(it.timestampMillis - timestampMillis) < duplicateWindowMillis
             }
             if (duplicate >= 0) {

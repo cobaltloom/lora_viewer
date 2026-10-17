@@ -48,10 +48,12 @@ final class TurnpointPassageLog: ObservableObject {
                            gliderID: String? = nil, lapSeconds: Double? = nil, courseDistanceKm: Double? = nil) -> Bool {
         let duplicateWindow: TimeInterval = 10 * 60
         // Goal rows carry the lap time, which can differ by a few seconds between the live track
-        // and the server's, so any two goal rows count as the same event.
+        // and the server's, so any two goal rows count as the same event; likewise partial-lap rows.
         let isFinish = turnpointName.hasPrefix(TurnpointPassageRecord.finishPrefix)
+        let isPartialLap = turnpointName.hasPrefix(TurnpointPassageRecord.partialLapPrefix)
         if let index = records.firstIndex(where: {
-            $0.gliderName == gliderName && ($0.turnpointName == turnpointName || (isFinish && $0.isFinish))
+            $0.gliderName == gliderName
+                && ($0.turnpointName == turnpointName || (isFinish && $0.isFinish) || (isPartialLap && $0.isPartialLap))
                 && abs($0.timestamp.timeIntervalSince(timestamp)) < duplicateWindow
         }) {
             // A goal row saved before lap scoring gets its lap time now, so it can be scored.

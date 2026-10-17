@@ -4,12 +4,40 @@ package com.cobaltloom.loraviewer.data.alert
 data class HandicapOption(val value: Double, val types: String)
 
 /**
- * Reference scores for the day's completed laps, per 競技規則53: Ph = Rd × (500 + 500 × Rv) × Rh,
- * where Rd = distance / the day's longest, Rv = speed / the day's fastest, and Rh = the glider's
- * handicap / the handicap of the fastest glider (the larger one on a tie). If the top score exceeds
- * 1000 it becomes 1000 and the rest scale with it. Only completed laps are scored, so with one
- * course a day every Rd is 1. Unofficial: the rules score each pilot's last flight of the day from
- * 1-second IGC logs, while this scores every lap the app timed. Kept in step with the iOS LapScore.
+ * 競技規則56(1): a flight that rounds some turnpoints but not the whole course scores distance only -
+ * "the last valid turnpoint plus 妻沼", by the 細則2 table below (管理ポイント doesn't count).
+ */
+object PartialLapDistance {
+    const val CHECKPOINT_NAME = "管理ポイント"
+
+    /** 細則2「ポイント毎の距離」, keyed by the turnpoints rounded in order (after 妻沼). */
+    val table: Map<List<String>, Double> = mapOf(
+        listOf("高林給水塔") to 11.4,
+        listOf("千代田") to 12.8,
+        listOf("高林給水塔", "千代田") to 17.7,
+        listOf("千代田", "高林給水塔") to 17.8,
+        listOf("高林給水塔", "邑楽タワー") to 14.6,
+        listOf("千代田", "邑楽タワー") to 11.7,
+        listOf("高林給水塔", "邑楽タワー", "千代田") to 20.1,
+        listOf("千代田", "邑楽タワー", "高林給水塔") to 20.2,
+    )
+
+    /** The course's turnpoints that score, in order. */
+    fun scoredTurnpoints(course: CompetitionTaskCourse): List<String> =
+        course.turnpointNames.drop(1).dropLast(1).filter { it != CHECKPOINT_NAME }
+
+    /** The distance points for an unfinished flight that rounded [passed] (in order), or null if none. */
+    fun distanceKm(passed: List<String>): Double? = table[passed.filter { it != CHECKPOINT_NAME }]
+}
+
+/**
+ * Reference scores for the day's completed laps and partly flown courses, per 競技規則53:
+ * Ph = Rd × (500 + 500 × Rv) × Rh, where Rd = distance / the day's longest, Rv = speed / the day's
+ * fastest lap (0 for a partly flown course, 規則56), and Rh = the glider's handicap / the handicap of
+ * the fastest glider - or, with no completed lap, of the longest distance - taking the larger one on
+ * a tie. If the top score exceeds 1000 it becomes 1000 and the rest scale with it. Unofficial: the
+ * rules score each pilot's last flight of the day from 1-second IGC logs, while this scores every
+ * flight the app timed. Kept in step with the iOS LapScore.
  */
 object LapScore {
     const val DEFAULT_HANDICAP = 1.0
@@ -35,17 +63,20 @@ object LapScore {
         HandicapOption(1.10, "K-8, ASK13"),
     )
 
-    data class Lap(val id: String, val distanceKm: Double, val lapSeconds: Double, val handicap: Double) {
-        val speedKmh: Double get() = distanceKm / (lapSeconds / 3600)
+    /** [lapSeconds] is null for a partly flown course: no speed points. */
+    data class Lap(val id: String, val distanceKm: Double, val lapSeconds: Double?, val handicap: Double) {
+        val speedKmh: Double get() = lapSeconds?.let { distanceKm / (it / 3600) } ?: 0.0
     }
 
     fun scores(laps: List<Lap>): Map<String, Double> {
-        val valid = laps.filter { it.lapSeconds > 0 && it.distanceKm > 0 }
-        val maxSpeed = valid.maxOfOrNull { it.speedKmh } ?: return emptyMap()
-        val maxDistance = valid.maxOf { it.distanceKm }
-        val referenceHandicap = valid.filter { it.speedKmh == maxSpeed }.maxOf { it.handicap }
+        val valid = laps.filter { it.distanceKm > 0 && (it.lapSeconds ?: 1.0) > 0 }
+        val maxDistance = valid.maxOfOrNull { it.distanceKm } ?: return emptyMap()
+        val maxSpeed = valid.maxOf { it.speedKmh }
+        val reference = if (maxSpeed > 0) valid.filter { it.speedKmh == maxSpeed } else valid.filter { it.distanceKm == maxDistance }
+        val referenceHandicap = reference.maxOf { it.handicap }
         val scores = valid.associate { lap ->
-            lap.id to lap.distanceKm / maxDistance * (500 + 500 * lap.speedKmh / maxSpeed) * lap.handicap / referenceHandicap
+            val rv = if (maxSpeed > 0) lap.speedKmh / maxSpeed else 0.0
+            lap.id to lap.distanceKm / maxDistance * (500 + 500 * rv) * lap.handicap / referenceHandicap
         }
         val top = scores.values.max()
         return if (top > 1000) scores.mapValues { it.value * 1000 / top } else scores
