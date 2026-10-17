@@ -23,6 +23,7 @@ import com.cobaltloom.loraviewer.data.alert.TurnpointPassageLogRepository
 import com.cobaltloom.loraviewer.data.alert.UpperAltitudeGuidelineRepository
 import com.cobaltloom.loraviewer.data.billing.BillingRepository
 import com.cobaltloom.loraviewer.data.favorites.FavoritesRepository
+import com.cobaltloom.loraviewer.data.favorites.GliderHandicapRepository
 import com.cobaltloom.loraviewer.data.nickname.NicknameRepository
 import com.cobaltloom.loraviewer.data.notification.AlertNotifier
 import com.cobaltloom.loraviewer.data.remote.OgnApiClient
@@ -94,6 +95,7 @@ private fun LoraViewerNavHost(billingRepository: BillingRepository) {
     val trackerFactory = remember {
         val nicknameRepository = NicknameRepository(context)
         val favoritesRepository = FavoritesRepository(context)
+        val handicapRepository = GliderHandicapRepository(context)
         val alertSettingsRepository = AlertSettingsRepository(context)
         val competitionGuidelineRepository = CompetitionGuidelineRepository(context)
         val upperAltitudeGuidelineRepository = UpperAltitudeGuidelineRepository(context)
@@ -108,6 +110,7 @@ private fun LoraViewerNavHost(billingRepository: BillingRepository) {
                     repository = gliderRepository,
                     nicknameRepository = nicknameRepository,
                     favoritesRepository = favoritesRepository,
+                    handicapRepository = handicapRepository,
                     alertSettingsRepository = alertSettingsRepository,
                     competitionGuidelineRepository = competitionGuidelineRepository,
                     upperAltitudeGuidelineRepository = upperAltitudeGuidelineRepository,

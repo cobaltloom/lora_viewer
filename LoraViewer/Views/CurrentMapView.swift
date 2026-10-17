@@ -12,6 +12,7 @@ struct CurrentMapView: View {
     @EnvironmentObject private var upperAltitudeGuideline: UpperAltitudeGuideline
     @EnvironmentObject private var proximityAlertSettings: ProximityAlertSettings
     @EnvironmentObject private var subscriptionManager: SubscriptionManager
+    @EnvironmentObject private var handicapStore: GliderHandicapStore
     @StateObject private var viewModel: GliderTrackerViewModel
     @StateObject private var locationManager = LocationManager()
     @StateObject private var alertNotifier = AlertNotifier()
@@ -443,6 +444,7 @@ struct CurrentMapView: View {
             .sheet(isPresented: $showTurnpointHistory) {
                 NavigationStack {
                     TurnpointPassageHistoryView(log: turnpointPassageLog)
+                        .environmentObject(handicapStore)
                         .toolbar {
                             ToolbarItem(placement: .topBarLeading) {
                                 Button("閉じる") { showTurnpointHistory = false }
@@ -612,7 +614,32 @@ struct CurrentMapView: View {
             guard let glider = viewModel.positions.first(where: { $0.imei == id }) else { continue }
             logLapEvents(id: id, status: status, gliderName: displayName(for: glider), course: course, now: now, notify: true)
         }
+        // A glider whose timed track just ended because it's back on the ground: if it rounded some
+        // turnpoints without finishing, that flight scores distance only. Only a glider still listed
+        // and on the ground counts as landed - one that dropped off the map (e.g. FLARM out of
+        // range) may still be flying, and is filled in later from today's flights.
+        for (id, previous) in lapStatuses where statuses[id] == nil {
+            guard let glider = viewModel.positions.first(where: { $0.imei == id }),
+                  (glider.alt ?? 0) <= alertSettings.minimumFlyingAltitudeM else { continue }
+            logPartialLap(id: id, status: previous, gliderName: displayName(for: glider), course: course)
+        }
         lapStatuses = statuses
+    }
+
+    /// Logs an unfinished flight that rounded at least one scoring turnpoint (競技規則56(1)), once,
+    /// at the time of its last turnpoint, with the 細則2 distance it scores.
+    private func logPartialLap(id: String, status: TaskLapStatus, gliderName: String, course: CompetitionTaskCourse) {
+        let scored = status.passedTurnpoints.filter { $0.name != PartialLapDistance.checkpointName }
+        guard let start = status.start, status.finish == nil, let last = scored.last,
+              let distanceKm = PartialLapDistance.distanceKm(passed: scored.map { $0.name }),
+              reportedLapEvents.insert("\(id)|partial|\(start.timeIntervalSince1970)").inserted else { return }
+        let total = PartialLapDistance.scoredTurnpoints(of: course).count
+        let names = scored.map { $0.name }.joined(separator: "・")
+        turnpointPassageLog.recordPastPassage(
+            gliderName: gliderName,
+            turnpointName: TurnpointPassageRecord.partialLapPrefix + "旋回点 \(scored.count)/\(total)(\(names))・距離 \(String(format: "%.1f", distanceKm))km",
+            altitudeM: nil, timestamp: last.time, gliderID: id, courseDistanceKm: distanceKm
+        )
     }
 
     /// Logs a lap's start (once the first turnpoint is reached) and finish to the passage history,
@@ -626,7 +653,9 @@ struct CurrentMapView: View {
         guard let finish = status.finish,
               reportedLapEvents.insert("\(id)|finish|\(finish.timeIntervalSince1970)").inserted else { return }
         let summary = String(status.summary(courseDistanceKm: course.distanceKm, now: now).dropFirst("周回: ".count))
-        let recorded = turnpointPassageLog.recordPastPassage(gliderName: gliderName, turnpointName: TurnpointPassageRecord.finishPrefix + summary, altitudeM: status.finishAltitudeM, timestamp: finish)
+        let recorded = turnpointPassageLog.recordPastPassage(gliderName: gliderName, turnpointName: TurnpointPassageRecord.finishPrefix + summary,
+                                                             altitudeM: status.finishAltitudeM, timestamp: finish,
+                                                             gliderID: id, lapSeconds: status.lapDuration, courseDistanceKm: course.distanceKm)
         // Only announce a finish that just happened - not one found in history on reopening.
         if notify, recorded, now.timeIntervalSince(finish) < 5 * 60 {
             alertNotifier.notifyTaskFinish(gliderName: gliderName, summary: summary)
@@ -644,7 +673,7 @@ struct CurrentMapView: View {
             guard let baseName = todays.baseNames[id] else { continue }
             let gliderName = subscriptionManager.hasFullAccess
                 ? nicknameStore.compactDisplayName(baseName: baseName, imei: id) : baseName
-            for flight in flights {
+            for (index, flight) in flights.enumerated() {
                 let points = flight.map { TimedPoint(time: $0.time, coordinate: $0.coordinate, altitudeM: $0.altitudeM) }
                 var previous: TimedPoint?
                 for fix in points {
@@ -656,8 +685,13 @@ struct CurrentMapView: View {
                     }
                     previous = fix
                 }
-                logLapEvents(id: id, status: TaskLapCalculator.evaluate(points, course: course), gliderName: gliderName,
-                             course: course, now: now, notify: false)
+                let status = TaskLapCalculator.evaluate(points, course: course)
+                logLapEvents(id: id, status: status, gliderName: gliderName, course: course, now: now, notify: false)
+                // The glider's latest flight, with a recent last point, may still be under way.
+                let mayBeFlying = index == flights.count - 1 && now.timeIntervalSince(points.last?.time ?? .distantPast) < 3 * 60
+                if !mayBeFlying {
+                    logPartialLap(id: id, status: status, gliderName: gliderName, course: course)
+                }
             }
         }
     }

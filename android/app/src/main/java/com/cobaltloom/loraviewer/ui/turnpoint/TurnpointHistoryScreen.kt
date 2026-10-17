@@ -1,12 +1,14 @@
 package com.cobaltloom.loraviewer.ui.turnpoint
 
+import android.content.Context
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -15,7 +17,11 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Flag
+import androidx.compose.material.icons.outlined.Flag
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -27,13 +33,18 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.cobaltloom.loraviewer.data.alert.LapScore
 import com.cobaltloom.loraviewer.data.alert.TurnpointPassageRecord
+import com.cobaltloom.loraviewer.ui.map.FinishSortOrder
 import com.cobaltloom.loraviewer.ui.map.GliderTrackerViewModel
 import java.time.Instant
 import java.time.LocalDate
@@ -51,9 +62,33 @@ fun TurnpointHistoryScreen(viewModel: GliderTrackerViewModel, onBack: () -> Unit
         val today = LocalDate.now()
         uiState.turnpointPassageRecords.filter { it.localDate == today }.sortedByDescending { it.timestampMillis }
     }
-    // Goal rows (lap completed, with time and speed), pinned above the full history so they don't
-    // get buried among the turnpoint passages.
-    val todaysFinishes = remember(todaysRecords) { todaysRecords.filter { it.isFinish } }
+    // Reference scores for today's goal rows that carry a lap time (see LapScore).
+    val scores = remember(todaysRecords, uiState.handicaps) {
+        LapScore.scores(
+            todaysRecords.mapNotNull { record ->
+                val distanceKm = record.courseDistanceKm ?: return@mapNotNull null
+                if (!record.isScoredFlight || (record.isFinish && record.lapSeconds == null)) return@mapNotNull null
+                LapScore.Lap(record.id, distanceKm, record.lapSeconds, uiState.handicapFor(record.gliderId))
+            },
+        )
+    }
+    // Goal and partial-lap rows, pinned above the full history so they don't get buried among the
+    // turnpoint passages - in the chosen order. Partial laps (no lap time) follow the laps by lap
+    // time, and rows saved before scoring go last in those orders.
+    val prefs = LocalContext.current.getSharedPreferences("turnpoint_history", Context.MODE_PRIVATE)
+    var sortOrder by remember {
+        mutableStateOf(runCatching { FinishSortOrder.valueOf(prefs.getString("finishSortOrder", null)!!) }.getOrDefault(FinishSortOrder.SCORE))
+    }
+    val todaysFinishes = remember(todaysRecords, scores, sortOrder) {
+        val flights = todaysRecords.filter { it.isScoredFlight } // newest first
+        when (sortOrder) {
+            FinishSortOrder.SCORE -> flights.sortedByDescending { scores[it.id] ?: -1.0 }
+            FinishSortOrder.LAP_TIME -> flights.sortedWith(
+                compareBy<TurnpointPassageRecord> { it.lapSeconds ?: Double.MAX_VALUE }.thenByDescending { scores[it.id] ?: -1.0 },
+            )
+            FinishSortOrder.TIME -> flights
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -77,15 +112,42 @@ fun TurnpointHistoryScreen(viewModel: GliderTrackerViewModel, onBack: () -> Unit
         } else {
             LazyColumn(modifier = Modifier.padding(padding).fillMaxSize()) {
                 if (todaysFinishes.isNotEmpty()) {
-                    item(key = "finishesHeader") { SectionHeader("周回達成") }
+                    item(key = "finishesHeader") { SectionHeader("周回・得点") }
+                    item(key = "sortOrder") {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            FinishSortOrder.entries.forEach { order ->
+                                FilterChip(
+                                    selected = sortOrder == order,
+                                    onClick = {
+                                        sortOrder = order
+                                        prefs.edit().putString("finishSortOrder", order.name).apply()
+                                    },
+                                    label = { Text(order.label) },
+                                )
+                            }
+                        }
+                    }
                     items(todaysFinishes, key = { "finish-${it.id}" }) { record ->
-                        TurnpointPassageRow(record)
+                        TurnpointPassageRow(record, scores[record.id], uiState.handicapFor(record.gliderId)) { id, value -> viewModel.setHandicap(id, value) }
                         HorizontalDivider()
+                    }
+                    if (scores.isNotEmpty()) {
+                        item(key = "scoreNote") {
+                            Text(
+                                "参考得点は競技規則53の式(距離・速度・ハンディキャップ)で、この端末が計時した飛行ごとに計算した目安です。周回できなかった飛行は、規則56(1)により細則2の距離表の距離点のみです。公式成績は各選手のその日最後の飛行をIGCロガーで判定します。ハンディキャップは関東大会の出場機には機種に合わせた値が入っており、それ以外は1.00です。得点の行をタップするか、メンバー一覧で機体ごとに変更できます。",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                            )
+                        }
                     }
                     item(key = "allHeader") { SectionHeader("すべての履歴") }
                 }
                 items(todaysRecords, key = { it.id }) { record ->
-                    TurnpointPassageRow(record)
+                    TurnpointPassageRow(record, scores[record.id], uiState.handicapFor(record.gliderId)) { id, value -> viewModel.setHandicap(id, value) }
                     HorizontalDivider()
                 }
             }
@@ -104,12 +166,22 @@ private fun SectionHeader(title: String) {
 }
 
 @Composable
-private fun TurnpointPassageRow(record: TurnpointPassageRecord) {
+private fun TurnpointPassageRow(
+    record: TurnpointPassageRecord,
+    score: Double?,
+    handicap: Double,
+    onSetHandicap: (String, Double) -> Unit,
+) {
     Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp)) {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                if (record.isFinish) {
-                    Icon(Icons.Filled.Flag, contentDescription = "ゴール", tint = FinishGreen, modifier = Modifier.size(18.dp))
+                if (record.isScoredFlight) {
+                    Icon(
+                        if (record.isFinish) Icons.Filled.Flag else Icons.Outlined.Flag,
+                        contentDescription = if (record.isFinish) "ゴール" else "周回未達成",
+                        tint = if (record.isFinish) FinishGreen else PartialOrange,
+                        modifier = Modifier.size(18.dp),
+                    )
                     Spacer(Modifier.width(4.dp))
                 }
                 Text(record.gliderName, style = MaterialTheme.typography.titleMedium)
@@ -121,12 +193,42 @@ private fun TurnpointPassageRow(record: TurnpointPassageRecord) {
             )
         }
         Text(
-            "${record.turnpointName}・${record.altitudeM?.let { "${it.toInt()}m" } ?: "高度不明"}",
+            if (record.isPartialLap) {
+                record.turnpointName
+            } else {
+                "${record.turnpointName}・${record.altitudeM?.let { "${it.toInt()}m" } ?: "高度不明"}"
+            },
             style = MaterialTheme.typography.bodySmall,
-            color = if (record.isFinish) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
-            fontWeight = if (record.isFinish) FontWeight.SemiBold else null,
+            color = if (record.isScoredFlight) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+            fontWeight = if (record.isScoredFlight) FontWeight.SemiBold else null,
         )
+        val gliderId = record.gliderId
+        if (score != null && gliderId != null) {
+            // Tappable, so a glider that has left the member list can still get its handicap.
+            var expanded by remember { mutableStateOf(false) }
+            Box {
+                Text(
+                    "参考得点 %.1f点(ハンデ %.2f)".format(score, handicap),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = FinishGreen,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.clickable { expanded = true },
+                )
+                DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                    LapScore.handicapOptions.forEach { option ->
+                        DropdownMenuItem(
+                            text = { Text("%.2f  %s".format(option.value, option.types)) },
+                            onClick = {
+                                onSetHandicap(gliderId, option.value)
+                                expanded = false
+                            },
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 
 private val FinishGreen = Color(0xFF2E7D32)
+private val PartialOrange = Color(0xFFEF6C00)

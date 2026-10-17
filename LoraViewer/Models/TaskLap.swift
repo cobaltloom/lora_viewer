@@ -215,3 +215,65 @@ enum TaskLapCalculator {
         return (0...1).contains(t) && (0...1).contains(u) ? t : nil
     }
 }
+
+/// 競技規則56(1): a flight that rounds some turnpoints but not the whole course scores distance only
+/// - "the last valid turnpoint plus 妻沼", by the 細則2 table below (管理ポイント doesn't count).
+enum PartialLapDistance {
+    static let checkpointName = "管理ポイント"
+
+    /// 細則2「ポイント毎の距離」, keyed by the turnpoints rounded in order (after 妻沼).
+    static let table: [[String]: Double] = [
+        ["高林給水塔"]: 11.4,
+        ["千代田"]: 12.8,
+        ["高林給水塔", "千代田"]: 17.7,
+        ["千代田", "高林給水塔"]: 17.8,
+        ["高林給水塔", "邑楽タワー"]: 14.6,
+        ["千代田", "邑楽タワー"]: 11.7,
+        ["高林給水塔", "邑楽タワー", "千代田"]: 20.1,
+        ["千代田", "邑楽タワー", "高林給水塔"]: 20.2,
+    ]
+
+    /// The course's turnpoints that score, in order.
+    static func scoredTurnpoints(of course: CompetitionTaskCourse) -> [String] {
+        Array(course.turnpointNames.dropFirst().dropLast()).filter { $0 != checkpointName }
+    }
+
+    /// The distance points for an unfinished flight that rounded `passed` (in order), or nil if none.
+    static func distanceKm(passed: [String]) -> Double? {
+        table[passed.filter { $0 != checkpointName }]
+    }
+}
+
+/// Reference scores for the day's completed laps and partly flown courses, per 競技規則53:
+/// Ph = Rd × (500 + 500 × Rv) × Rh, where Rd = distance / the day's longest, Rv = speed / the
+/// day's fastest lap (0 for a partly flown course, 規則56), and Rh = the glider's handicap / the
+/// handicap of the fastest glider - or, with no completed lap, of the longest distance - taking
+/// the larger one on a tie. If the top score exceeds 1000 it becomes 1000 and the rest scale with
+/// it. Unofficial: the rules score each pilot's last flight of the day from 1-second IGC logs,
+/// while this scores every flight the app timed.
+enum LapScore {
+    struct Lap {
+        let id: UUID
+        let distanceKm: Double
+        /// nil for a partly flown course: no speed points.
+        let lapSeconds: Double?
+        let handicap: Double
+        var speedKmh: Double { lapSeconds.map { distanceKm / ($0 / 3600) } ?? 0 }
+    }
+
+    static func scores(_ laps: [Lap]) -> [UUID: Double] {
+        let laps = laps.filter { $0.distanceKm > 0 && ($0.lapSeconds ?? 1) > 0 }
+        guard let maxDistance = laps.map(\.distanceKm).max() else { return [:] }
+        let maxSpeed = laps.map(\.speedKmh).max() ?? 0
+        let reference = maxSpeed > 0 ? laps.filter { $0.speedKmh == maxSpeed } : laps.filter { $0.distanceKm == maxDistance }
+        let referenceHandicap = reference.map(\.handicap).max() ?? 1
+        var scores = Dictionary(uniqueKeysWithValues: laps.map { lap in
+            let rv = maxSpeed > 0 ? lap.speedKmh / maxSpeed : 0
+            return (lap.id, lap.distanceKm / maxDistance * (500 + 500 * rv) * lap.handicap / referenceHandicap)
+        })
+        if let top = scores.values.max(), top > 1000 {
+            scores = scores.mapValues { $0 * 1000 / top }
+        }
+        return scores
+    }
+}

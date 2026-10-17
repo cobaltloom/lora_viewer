@@ -4,6 +4,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -15,6 +17,9 @@ import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
@@ -36,6 +41,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import com.cobaltloom.loraviewer.data.alert.LapScore
 import com.cobaltloom.loraviewer.data.model.GliderPosition
 import com.cobaltloom.loraviewer.data.nickname.NicknameSyncMode
 import com.cobaltloom.loraviewer.ui.map.GliderTrackerViewModel
@@ -156,7 +162,7 @@ fun GliderListScreen(
                             if (nickname != null) "$baseName $nickname" else baseName,
                             style = MaterialTheme.typography.titleMedium,
                         )
-                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
                             glider.alt?.let { Text("高度 ${it.toInt()} m", style = MaterialTheme.typography.bodySmall) }
                             if (glider.isDisconnected) {
                                 Text("切断", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
@@ -168,6 +174,9 @@ fun GliderListScreen(
                                 )
                             }
                         }
+                    }
+                    if (!glider.isAnonymous) {
+                        HandicapMenu(uiState.handicapFor(glider.imei)) { viewModel.setHandicap(glider.imei, it) }
                     }
                 }
                 HorizontalDivider()
@@ -196,5 +205,27 @@ fun GliderListScreen(
                 )
             },
         )
+    }
+}
+
+/** The glider's competition handicap, used for the reference scores of its completed laps. */
+@Composable
+private fun HandicapMenu(handicap: Double, onSelect: (Double) -> Unit) {
+    var expanded by remember { mutableStateOf(false) }
+    Box {
+        OutlinedButton(onClick = { expanded = true }, contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)) {
+            Text("ハンデ %.2f".format(handicap), style = MaterialTheme.typography.labelSmall)
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            LapScore.handicapOptions.forEach { option ->
+                DropdownMenuItem(
+                    text = { Text("%.2f  %s".format(option.value, option.types)) },
+                    onClick = {
+                        onSelect(option.value)
+                        expanded = false
+                    },
+                )
+            }
+        }
     }
 }
