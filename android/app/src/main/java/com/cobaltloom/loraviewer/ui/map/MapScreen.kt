@@ -18,7 +18,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.ListAlt
+import androidx.compose.material.icons.filled.LocationSearching
 import androidx.compose.material.icons.filled.Map
+import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Navigation
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Satellite
@@ -146,9 +148,15 @@ fun MapScreen(
                 PackageManager.PERMISSION_GRANTED,
         )
     }
+    // The user's own location is shown only on request: keeping it on had GPS running the whole time,
+    // and remote viewers have no use for it. Permission is asked for the first time it's shown.
+    var showMyLocation by remember { mutableStateOf(false) }
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
-    ) { granted -> hasLocationPermission = granted }
+    ) { granted ->
+        hasLocationPermission = granted
+        showMyLocation = granted
+    }
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { }
@@ -163,9 +171,6 @@ fun MapScreen(
 
     LaunchedEffect(Unit) {
         viewModel.startPolling()
-        if (!hasLocationPermission) {
-            permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
-        }
         if (android.os.Build.VERSION.SDK_INT >= 33 &&
             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
             PackageManager.PERMISSION_GRANTED
@@ -282,6 +287,20 @@ fun MapScreen(
                             contentDescription = if (uiState.showSatelliteMap) "標準地図に切り替え" else "航空写真に切り替え",
                         )
                     }
+                    IconButton(
+                        onClick = {
+                            when {
+                                showMyLocation -> showMyLocation = false
+                                hasLocationPermission -> showMyLocation = true
+                                else -> permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+                            }
+                        },
+                    ) {
+                        Icon(
+                            imageVector = if (showMyLocation) Icons.Filled.MyLocation else Icons.Filled.LocationSearching,
+                            contentDescription = if (showMyLocation) "現在地を非表示" else "現在地を表示",
+                        )
+                    }
                     IconButton(onClick = onOpenSettings) {
                         Icon(Icons.Filled.Settings, contentDescription = "設定")
                     }
@@ -318,10 +337,10 @@ fun MapScreen(
                 modifier = Modifier.fillMaxSize(),
                 cameraPositionState = cameraPositionState,
                 properties = MapProperties(
-                    isMyLocationEnabled = hasLocationPermission,
+                    isMyLocationEnabled = hasLocationPermission && showMyLocation,
                     mapType = if (uiState.showSatelliteMap) MapType.HYBRID else MapType.NORMAL,
                 ),
-                uiSettings = MapUiSettings(myLocationButtonEnabled = hasLocationPermission),
+                uiSettings = MapUiSettings(myLocationButtonEnabled = hasLocationPermission && showMyLocation),
                 onMapLoaded = { mapLoaded = true },
             ) {
                 if (alertReferenceCoordinate != null) {

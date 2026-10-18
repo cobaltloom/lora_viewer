@@ -32,6 +32,9 @@ struct CurrentMapView: View {
     @State private var lapCache = TaskLapCache()
     @Environment(\.scenePhase) private var scenePhase
     @State private var showSettings = false
+    /// The user's own location is shown only on request: keeping it on had GPS at full accuracy the
+    /// whole time (about a fifth of the app's energy use), and remote viewers have no use for it.
+    @State private var showUserLocation = false
     /// Launch-time LoRa/OGN chooser, so people notice OGN is available at all. Shown once per launch
     /// until "次回から表示しない" is checked.
     @AppStorage(DataSourcePromptView.suppressedKey) private var dataSourcePromptSuppressed = false
@@ -291,7 +294,9 @@ struct CurrentMapView: View {
                                 }
                         }
                     }
-                    UserAnnotation()
+                    if showUserLocation {
+                        UserAnnotation()
+                    }
                 }
                 // Flat, not 3D terrain: the Menuma area gains nothing visible from it, and rendering terrain
                 // kept the GPU busy enough to make phones run hot.
@@ -299,7 +304,6 @@ struct CurrentMapView: View {
                 .mapControls {
                     MapCompass()
                     MapScaleView()
-                    MapUserLocationButton()
                 }
                 // Only once a pan/zoom ends: updating on every frame rebuilt the whole map content each frame.
                 .onMapCameraChange(frequency: .onEnd) { context in
@@ -369,6 +373,13 @@ struct CurrentMapView: View {
                         Image(systemName: showFavoritesOnly ? "star.circle.fill" : "star.circle")
                     }
                     .disabled(subscriptionManager.hasFullAccess && !viewModel.positions.contains { favoritesStore.isFavorite($0.imei) })
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        toggleUserLocation()
+                    } label: {
+                        Image(systemName: showUserLocation ? "location.fill" : "location")
+                    }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
@@ -467,7 +478,6 @@ struct CurrentMapView: View {
                 turnpointPassageLog.dataSource = settings.effectiveDataSource
                 viewModel.startPolling()
                 offerDataSourcePromptIfNeeded()
-                locationManager.requestAuthorizationIfNeeded()
                 alertNotifier.requestAuthorizationIfNeeded()
             }
             .onDisappear {
@@ -845,6 +855,17 @@ struct CurrentMapView: View {
             .padding(.vertical, 2)
             .background(.white.opacity(0.9), in: Capsule())
             .overlay(Capsule().stroke(colorFor(imei: glider.imei), lineWidth: 1))
+    }
+
+    /// Shows the user's own location and moves the map to it, or hides it again (which lets GPS rest).
+    /// Location permission is asked for the first time it's shown.
+    private func toggleUserLocation() {
+        showUserLocation.toggle()
+        guard showUserLocation else { return }
+        locationManager.requestAuthorizationIfNeeded()
+        withAnimation {
+            cameraPosition = .userLocation(fallback: cameraPosition)
+        }
     }
 
     private func toggleFavoritesOnly() {
