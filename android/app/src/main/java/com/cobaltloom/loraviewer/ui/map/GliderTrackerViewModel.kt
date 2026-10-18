@@ -24,6 +24,8 @@ import com.cobaltloom.loraviewer.data.alert.ProximityAlertSettingsRepository
 import com.cobaltloom.loraviewer.data.alert.TaskLapCache
 import com.cobaltloom.loraviewer.data.alert.TaskLapCalculator
 import com.cobaltloom.loraviewer.data.alert.TaskLapStatus
+import com.cobaltloom.loraviewer.data.alert.TeamRanking
+import com.cobaltloom.loraviewer.data.alert.TeamStandings
 import com.cobaltloom.loraviewer.data.alert.TimedPoint
 import com.cobaltloom.loraviewer.data.alert.TurnpointPassageLogRepository
 import com.cobaltloom.loraviewer.data.alert.TurnpointSector
@@ -66,6 +68,9 @@ data class GliderTrackerUiState(
     val nicknames: Map<String, String> = emptyMap(),
     /** Each glider's competition handicap, by id (see [GliderHandicapRepository]). */
     val handicaps: Map<String, Double> = emptyMap(),
+    /** The shared team standings (see [TeamStandings]), once fetched. */
+    val standings: TeamStandings? = null,
+    val standingsError: String? = null,
     val nicknameSyncMode: NicknameSyncMode = NicknameSyncMode.SYNCED,
     val favorites: Set<String> = emptySet(),
     val alertSettings: AlertSettings = AlertSettings(),
@@ -143,6 +148,16 @@ data class GliderTrackerUiState(
         if (laps.none { it.lapSeconds != null }) return null
         val seconds = LapScore.lapSecondsToBeat(laps, course.distanceKm, handicapFor(glider.imei)) ?: return null
         return ToBeat(seconds, (System.currentTimeMillis() - start) / 1000.0)
+    }
+
+    /** Today's scored flights for the selected course, for the provisional team standings. */
+    fun todaysTeamFlights(): List<TeamRanking.Flight> {
+        val today = java.time.LocalDate.now()
+        val courseName = selectedCourse?.name
+        val records = turnpointPassageRecords.filter { it.localDate == today && it.belongsToCourse(courseName) }
+        val laps = LapScore.laps(records) { handicapFor(it) }
+        val gliders = records.associate { it.id to it.gliderId }
+        return laps.map { TeamRanking.Flight(it, gliders[it.id]) }
     }
 
     fun handicapFor(id: String?): Double = id?.let { handicaps[it] ?: LapScore.builtInDefault(it) } ?: LapScore.DEFAULT_HANDICAP
@@ -477,6 +492,26 @@ class GliderTrackerViewModel(
 
     fun setNicknameSyncMode(mode: NicknameSyncMode) {
         viewModelScope.launch { nicknameRepository.setSyncMode(mode) }
+    }
+
+    fun refreshStandings() {
+        viewModelScope.launch {
+            runCatching { repository.fetchStandings() }
+                .onSuccess { standings -> _uiState.update { it.copy(standings = standings, standingsError = null) } }
+                .onFailure { e -> _uiState.update { it.copy(standingsError = e.message ?: "団体成績を取得できませんでした") } }
+        }
+    }
+
+    /** Saves [standings] for everyone; [onResult] gets null on success, else the error message. */
+    fun saveStandings(editorKey: String, standings: TeamStandings, onResult: (String?) -> Unit) {
+        viewModelScope.launch {
+            runCatching { repository.saveStandings(editorKey, standings) }
+                .onSuccess { saved ->
+                    _uiState.update { it.copy(standings = saved, standingsError = null) }
+                    onResult(null)
+                }
+                .onFailure { e -> onResult(e.message ?: "保存できませんでした") }
+        }
     }
 
     fun setHandicap(id: String, value: Double) {

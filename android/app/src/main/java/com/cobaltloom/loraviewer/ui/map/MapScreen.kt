@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.ListAlt
@@ -137,6 +138,7 @@ fun MapScreen(
     onOpenList: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenTurnpointHistory: () -> Unit,
+    onOpenStandings: () -> Unit,
     onRequireSubscription: () -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -322,11 +324,19 @@ fun MapScreen(
                             Text("更新: ${formatTime(it)}", style = MaterialTheme.typography.bodySmall)
                         }
                     }
-                    TextButton(
-                        onClick = { if (uiState.isSubscribed) onOpenTurnpointHistory() else onRequireSubscription() },
-                    ) {
-                        Icon(Icons.Filled.ListAlt, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Text("通過履歴")
+                    Row {
+                        TextButton(
+                            onClick = { if (uiState.isSubscribed) onOpenStandings() else onRequireSubscription() },
+                        ) {
+                            Icon(Icons.Filled.EmojiEvents, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Text("団体順位")
+                        }
+                        TextButton(
+                            onClick = { if (uiState.isSubscribed) onOpenTurnpointHistory() else onRequireSubscription() },
+                        ) {
+                            Icon(Icons.Filled.ListAlt, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Text("通過履歴")
+                        }
                     }
                 }
             }
