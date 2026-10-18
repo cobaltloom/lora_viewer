@@ -36,7 +36,15 @@ data class TurnpointPassageRecord(
     val gliderId: String? = null,
     val lapSeconds: Double? = null,
     val courseDistanceKm: Double? = null,
+    /** The task course the row was judged against (sector orientation, lap): the history shows the
+     * selected course's rows, so picking another course later - e.g. once it's known which one was
+     * flown - shows that course's passages and laps instead. Absent in rows saved before this. */
+    val courseName: String? = null,
 ) {
+    /** Whether this row belongs to [courseName]'s history: rows from before courses were recorded
+     * count for every course. */
+    fun belongsToCourse(courseName: String?): Boolean = courseName == null || this.courseName == null || this.courseName == courseName
+
     val localDate: LocalDate
         get() = Instant.ofEpochMilli(timestampMillis).atZone(ZoneId.systemDefault()).toLocalDate()
 
@@ -94,6 +102,7 @@ class TurnpointPassageLogRepository(private val context: Context) {
         gliderId: String? = null,
         lapSeconds: Double? = null,
         courseDistanceKm: Double? = null,
+        courseName: String? = null,
     ): Boolean {
         val duplicateWindowMillis = 10 * 60 * 1000L
         var recorded = false
@@ -103,16 +112,24 @@ class TurnpointPassageLogRepository(private val context: Context) {
             // and the server's, so any two goal rows count as the same event; likewise partial-lap rows.
             val isFinish = turnpointName.startsWith(TurnpointPassageRecord.FINISH_PREFIX)
             val isPartialLap = turnpointName.startsWith(TurnpointPassageRecord.PARTIAL_LAP_PREFIX)
+            // Rows of another course are another history (see TurnpointPassageRecord.courseName); a row
+            // from before courses were recorded is taken as this course's.
             val duplicate = existing.indexOfFirst {
                 it.gliderName == gliderName &&
+                    (it.courseName == courseName || it.courseName == null) &&
                     (it.turnpointName == turnpointName || (isFinish && it.isFinish) || (isPartialLap && it.isPartialLap)) &&
                     kotlin.math.abs(it.timestampMillis - timestampMillis) < duplicateWindowMillis
             }
             if (duplicate >= 0) {
+                var row = existing[duplicate]
+                if (row.courseName == null && courseName != null) row = row.copy(courseName = courseName)
                 // A goal row saved before lap scoring gets its lap time now, so it can be scored.
-                if (existing[duplicate].lapSeconds == null && lapSeconds != null) {
+                if (row.lapSeconds == null && lapSeconds != null) {
+                    row = row.copy(gliderId = gliderId, lapSeconds = lapSeconds, courseDistanceKm = courseDistanceKm)
+                }
+                if (row != existing[duplicate]) {
                     val updated = existing.toMutableList()
-                    updated[duplicate] = existing[duplicate].copy(gliderId = gliderId, lapSeconds = lapSeconds, courseDistanceKm = courseDistanceKm)
+                    updated[duplicate] = row
                     prefs[key(source)] = json.encodeToString(updated)
                 }
                 return@edit
@@ -125,6 +142,7 @@ class TurnpointPassageLogRepository(private val context: Context) {
                 gliderId = gliderId,
                 lapSeconds = lapSeconds,
                 courseDistanceKm = courseDistanceKm,
+                courseName = courseName,
             )
             prefs[key(source)] = json.encodeToString(prune(existing + record))
             recorded = true

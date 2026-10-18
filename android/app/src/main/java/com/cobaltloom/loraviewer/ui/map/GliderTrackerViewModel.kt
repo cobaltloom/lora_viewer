@@ -137,7 +137,9 @@ data class GliderTrackerUiState(
         val start = status.startMillis ?: return null
         if (status.finishMillis != null) return null
         val today = java.time.LocalDate.now()
-        val laps = LapScore.laps(turnpointPassageRecords.filter { it.localDate == today }) { handicapFor(it) }
+        val laps = LapScore.laps(
+            turnpointPassageRecords.filter { it.localDate == today && it.belongsToCourse(course.name) },
+        ) { handicapFor(it) }
         if (laps.none { it.lapSeconds != null }) return null
         val seconds = LapScore.lapSecondsToBeat(laps, course.distanceKm, handicapFor(glider.imei)) ?: return null
         return ToBeat(seconds, (System.currentTimeMillis() - start) / 1000.0)
@@ -315,7 +317,13 @@ class GliderTrackerViewModel(
                 val previousCourse = _uiState.value.selectedCourse
                 _uiState.update { it.copy(competitionGuidelineSettings = settings) }
                 // Another course: today's flights may have rounded its turnpoints.
-                if (_uiState.value.selectedCourse != previousCourse) recordTodaysFlights()
+                if (_uiState.value.selectedCourse != previousCourse) {
+                    // Another course: its sectors differ, so start the live checks afresh, and fill its
+                    // history from today's flights (the previous course's rows stay, for switching back).
+                    previouslyInsideTurnpoints = emptySet()
+                    previousTurnpointFixes = emptyMap()
+                    recordTodaysFlights()
+                }
             }
         }
         viewModelScope.launch {
@@ -728,7 +736,10 @@ class GliderTrackerViewModel(
                 val altitudeM = glider.alt?.let { entry.altitudeM }
                 // Deduped like a backfilled passage, so a glider skimming a sector's edge isn't
                 // announced over and over.
-                if (turnpointPassageLogRepository.recordPastPassage(state.dataSource, gliderName, name, altitudeM, entry.timeMillis)) {
+                if (turnpointPassageLogRepository.recordPastPassage(
+                        state.dataSource, gliderName, name, altitudeM, entry.timeMillis, courseName = course.name,
+                    )
+                ) {
                     alertNotifier.notifyTurnpointPassage(gliderName, name, altitudeM)
                 }
             }
@@ -807,7 +818,7 @@ class GliderTrackerViewModel(
         val scored = status.passedTurnpoints.filter { it.first != PartialLapDistance.CHECKPOINT_NAME }
         val last = scored.lastOrNull() ?: return
         val distanceKm = PartialLapDistance.distanceKm(scored.map { it.first }) ?: return
-        if (!reportedPartials.add("$id|$start")) return
+        if (!reportedPartials.add("${course.name}|$id|$start")) return
         val total = PartialLapDistance.scoredTurnpoints(course).size
         val names = scored.joinToString("・") { it.first }
         turnpointPassageLogRepository.recordPastPassage(
@@ -818,6 +829,7 @@ class GliderTrackerViewModel(
             last.second,
             gliderId = id,
             courseDistanceKm = distanceKm,
+            courseName = course.name,
         )
     }
 
@@ -840,16 +852,19 @@ class GliderTrackerViewModel(
         // Logged only once the first turnpoint is reached, so a flight that lands without
         // rounding any turnpoint leaves no stray "スタート" in the history.
         status.startMillis?.takeIf { status.passedTurnpoints.isNotEmpty() }?.let { start ->
-            if (reportedStarts.add("$id|$start")) {
-                turnpointPassageLogRepository.recordPastPassage(state.dataSource, gliderName, "スタート", status.startAltitudeM, start)
+            if (reportedStarts.add("${course.name}|$id|$start")) {
+                turnpointPassageLogRepository.recordPastPassage(
+                    state.dataSource, gliderName, "スタート", status.startAltitudeM, start, courseName = course.name,
+                )
             }
         }
         val finish = status.finishMillis ?: return
-        if (!reportedFinishes.add("$id|$finish")) return
+        if (!reportedFinishes.add("${course.name}|$id|$finish")) return
         val summary = lapSummary(status, course.distanceKm, now) { "" }.removePrefix("周回: ")
         val recorded = turnpointPassageLogRepository.recordPastPassage(
             state.dataSource, gliderName, TurnpointPassageRecord.FINISH_PREFIX + summary, status.finishAltitudeM, finish,
             gliderId = id, lapSeconds = status.lapMillis?.let { it / 1000.0 }, courseDistanceKm = course.distanceKm,
+            courseName = course.name,
         )
         // Only announce a finish that just happened - not one found in history on reopening.
         if (notify && recorded && now - finish < RECENT_FINISH_MILLIS) alertNotifier.notifyTaskFinish(gliderName, summary)
@@ -879,7 +894,9 @@ class GliderTrackerViewModel(
                         if (previous != null && TurnpointSector.isInSector(previous.lat, previous.lon, course, name)) continue
                         val t = TurnpointSector.firstEntry(previous, fix, course, name) ?: continue
                         val entry = previous?.let { TurnpointSector.interpolate(it, fix, t) } ?: fix
-                        turnpointPassageLogRepository.recordPastPassage(state.dataSource, gliderName, name, entry.altitudeM, entry.timeMillis)
+                        turnpointPassageLogRepository.recordPastPassage(
+                            state.dataSource, gliderName, name, entry.altitudeM, entry.timeMillis, courseName = course.name,
+                        )
                     }
                     previous = fix
                 }

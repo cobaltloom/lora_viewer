@@ -4,6 +4,13 @@ import SwiftUI
 /// backup to the push notification, in case it was missed.
 struct TurnpointPassageHistoryView: View {
     @ObservedObject var log: TurnpointPassageLog
+    /// The selected task course: only its rows are shown and scored (all rows when none is selected).
+    var courseName: String? = nil
+
+    /// Today's rows for the selected course, newest first.
+    private var todaysRecords: [TurnpointPassageRecord] {
+        log.todaysRecords.filter { $0.belongs(toCourse: courseName) }
+    }
     @EnvironmentObject private var handicapStore: GliderHandicapStore
     @AppStorage("finishSortOrder") private var sortOrder: FinishSortOrder = .score
 
@@ -23,7 +30,7 @@ struct TurnpointPassageHistoryView: View {
     /// among the turnpoint passages - in the chosen order. Partial laps (no lap time) follow the
     /// laps by lap time, and rows saved before scoring go last in those orders.
     private func todaysScoredFlights(scores: [UUID: Double]) -> [TurnpointPassageRecord] {
-        let flights = log.todaysRecords.filter(\.isScoredFlight) // newest first
+        let flights = todaysRecords.filter(\.isScoredFlight) // newest first
         switch sortOrder {
         case .score:
             return flights.sorted { (scores[$0.id] ?? -1) > (scores[$1.id] ?? -1) }
@@ -37,7 +44,7 @@ struct TurnpointPassageHistoryView: View {
     }
 
     private var todaysLaps: [LapScore.Lap] {
-        LapScore.laps(from: log.todaysRecords) { id in
+        LapScore.laps(from: todaysRecords) { id in
             id.map(handicapStore.handicap(for:)) ?? GliderHandicapStore.defaultHandicap
         }
     }
@@ -62,7 +69,7 @@ struct TurnpointPassageHistoryView: View {
         let toBeat = toBeatRows(laps)
         let leader = finishes.first { record in scores[record.id] == scores.values.max() }
         List {
-            if log.todaysRecords.isEmpty {
+            if todaysRecords.isEmpty {
                 ContentUnavailableView("本日の旋回点通過はまだありません", systemImage: "airplane")
             } else {
                 if !finishes.isEmpty {
@@ -91,7 +98,7 @@ struct TurnpointPassageHistoryView: View {
                     }
                 }
                 Section {
-                    ForEach(log.todaysRecords) { record in
+                    ForEach(todaysRecords) { record in
                         row(for: record, score: scores[record.id])
                     }
                 } header: {
@@ -104,7 +111,7 @@ struct TurnpointPassageHistoryView: View {
         .navigationTitle("旋回点通過履歴")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            if !log.todaysRecords.isEmpty {
+            if !todaysRecords.isEmpty {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("消去", role: .destructive) {
                         log.clearToday()

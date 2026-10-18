@@ -45,28 +45,39 @@ final class TurnpointPassageLog: ObservableObject {
     /// Also used for live passages, timed by the fix. Returns whether it was recorded.
     @discardableResult
     func recordPastPassage(gliderName: String, turnpointName: String, altitudeM: Double?, timestamp: Date,
-                           gliderID: String? = nil, lapSeconds: Double? = nil, courseDistanceKm: Double? = nil) -> Bool {
+                           gliderID: String? = nil, lapSeconds: Double? = nil, courseDistanceKm: Double? = nil,
+                           courseName: String? = nil) -> Bool {
         let duplicateWindow: TimeInterval = 10 * 60
         // Goal rows carry the lap time, which can differ by a few seconds between the live track
         // and the server's, so any two goal rows count as the same event; likewise partial-lap rows.
         let isFinish = turnpointName.hasPrefix(TurnpointPassageRecord.finishPrefix)
         let isPartialLap = turnpointName.hasPrefix(TurnpointPassageRecord.partialLapPrefix)
+        // Rows of another course are another history (see `TurnpointPassageRecord.courseName`); a row
+        // from before courses were recorded is taken as this course's.
         if let index = records.firstIndex(where: {
             $0.gliderName == gliderName
+                && ($0.courseName == courseName || $0.courseName == nil)
                 && ($0.turnpointName == turnpointName || (isFinish && $0.isFinish) || (isPartialLap && $0.isPartialLap))
                 && abs($0.timestamp.timeIntervalSince(timestamp)) < duplicateWindow
         }) {
+            var changed = false
+            if records[index].courseName == nil, courseName != nil {
+                records[index].courseName = courseName
+                changed = true
+            }
             // A goal row saved before lap scoring gets its lap time now, so it can be scored.
             if records[index].lapSeconds == nil, let lapSeconds {
                 records[index].gliderID = gliderID
                 records[index].lapSeconds = lapSeconds
                 records[index].courseDistanceKm = courseDistanceKm
-                save()
+                changed = true
             }
+            if changed { save() }
             return false
         }
         records.append(TurnpointPassageRecord(gliderName: gliderName, turnpointName: turnpointName, altitudeM: altitudeM, timestamp: timestamp,
-                                              gliderID: gliderID, lapSeconds: lapSeconds, courseDistanceKm: courseDistanceKm))
+                                              gliderID: gliderID, lapSeconds: lapSeconds, courseDistanceKm: courseDistanceKm,
+                                              courseName: courseName))
         prune()
         save()
         return true

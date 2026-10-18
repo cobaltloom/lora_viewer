@@ -60,9 +60,12 @@ private val timeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss").withZone(Zon
 @Composable
 fun TurnpointHistoryScreen(viewModel: GliderTrackerViewModel, onBack: () -> Unit) {
     val uiState by viewModel.uiState.collectAsState()
-    val todaysRecords = remember(uiState.turnpointPassageRecords) {
+    // Only the selected task course's rows are shown and scored (all rows when none is selected).
+    val courseName = uiState.selectedCourse?.name
+    val todaysRecords = remember(uiState.turnpointPassageRecords, courseName) {
         val today = LocalDate.now()
-        uiState.turnpointPassageRecords.filter { it.localDate == today }.sortedByDescending { it.timestampMillis }
+        uiState.turnpointPassageRecords.filter { it.localDate == today && it.belongsToCourse(courseName) }
+            .sortedByDescending { it.timestampMillis }
     }
     // Reference scores for today's goal and partial-lap rows that carry scoring data (see LapScore).
     val laps = remember(todaysRecords, uiState.handicaps) { LapScore.laps(todaysRecords) { uiState.handicapFor(it) } }
