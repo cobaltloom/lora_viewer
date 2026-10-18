@@ -321,16 +321,23 @@ struct CurrentMapView: View {
                     }
                 }
                 .safeAreaInset(edge: .top) {
-                    VStack(spacing: 6) {
-                        if !subscriptionManager.isSubscribed, subscriptionManager.isFreePeriodActive,
-                           let freeAccessUntil = subscriptionManager.freeAccessUntil {
-                            freePeriodIndicator(until: freeAccessUntil)
-                        }
-                        if !activeAlertLabels.isEmpty {
-                            activeAlertsIndicator
-                        }
-                        if !alertingGliders.isEmpty {
-                            alertBanner
+                    // Only built when there's something to show: an empty stack still made a
+                    // full-width, zero-height layer, which Core Animation logged as
+                    // "Failed to create 1206x0 image slot".
+                    let freeAccessUntil = !subscriptionManager.isSubscribed && subscriptionManager.isFreePeriodActive
+                        ? subscriptionManager.freeAccessUntil : nil
+                    let alerting = alertingGliders
+                    if freeAccessUntil != nil || !activeAlertLabels.isEmpty || !alerting.isEmpty {
+                        VStack(spacing: 6) {
+                            if let freeAccessUntil {
+                                freePeriodIndicator(until: freeAccessUntil)
+                            }
+                            if !activeAlertLabels.isEmpty {
+                                activeAlertsIndicator
+                            }
+                            if !alerting.isEmpty {
+                                alertBanner
+                            }
                         }
                     }
                 }
