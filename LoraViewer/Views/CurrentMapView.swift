@@ -476,7 +476,7 @@ struct CurrentMapView: View {
                         server: settings.trackServer,
                         log: turnpointPassageLog,
                         course: selectedTaskCourse,
-                        knownGliders: viewModel.positions.filter { !$0.isAnonymous }.map { (id: $0.imei, name: viewModel.nameFor($0)) }
+                        knownGliders: viewModel.positions.filter { !$0.isAnonymous }.map { KnownGlider(id: $0.imei, name: viewModel.nameFor($0)) }
                     )
                     .environmentObject(handicapStore)
                     .toolbar {

@@ -28,8 +28,8 @@ final class TrackServerAPI {
         return decoded.flights.mapValues { flights in flights.map(Self.points) }
     }
 
-    /// The team standings a representative last saved, or nil if none yet.
-    func fetchStandings(server: TrackServerConfig) async throws -> TeamStandings? {
+    /// The competition a representative last saved (see `Competition`), or nil if none yet.
+    func fetchCompetition(server: TrackServerConfig) async throws -> Competition? {
         var request = URLRequest(url: server.url.appendingPathComponent("standings"))
         request.timeoutInterval = 15
         request.setValue(server.key, forHTTPHeaderField: "X-Api-Key")
@@ -40,15 +40,15 @@ final class TrackServerAPI {
         return try JSONDecoder().decode(StandingsResponse.self, from: data).standings
     }
 
-    /// Saves `standings` for every app to see; needs the representative's `editorKey`.
-    func saveStandings(server: TrackServerConfig, editorKey: String, standings: TeamStandings) async throws -> TeamStandings {
+    /// Saves `competition` for every app to see (`editorKey` only if the server sets one).
+    func saveCompetition(server: TrackServerConfig, editorKey: String, competition: Competition) async throws -> Competition {
         var request = URLRequest(url: server.url.appendingPathComponent("standings"))
         request.httpMethod = "PUT"
         request.timeoutInterval = 15
         request.setValue(server.key, forHTTPHeaderField: "X-Api-Key")
         request.setValue(editorKey, forHTTPHeaderField: "X-Editor-Key")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        var payload = standings
+        var payload = competition
         payload.updatedAt = nil
         request.httpBody = try JSONEncoder().encode(payload)
         let (data, response) = try await session.data(for: request)
@@ -62,7 +62,7 @@ final class TrackServerAPI {
     }
 
     private struct StandingsResponse: Decodable {
-        let standings: TeamStandings?
+        let standings: Competition?
     }
 
     private func get(_ path: String, server: TrackServerConfig, source: DataSource, groundAltitudeM: Double) async throws -> Data {
@@ -125,26 +125,54 @@ struct TodaysFlights {
     let baseNames: [String: String]
 }
 
-/// A competition's team standings as a representative entered them (shared through the track
-/// server): each team's gliders and its official totals up to `throughDate`.
-struct TeamStandings: Codable, Equatable {
+/// A competition as a representative set it up (shared through the track server): its period, its
+/// teams and their gliders, and any day's team scores someone corrected or confirmed. Every other
+/// day's scores are worked out by each app from its own lap records (see `CompetitionScoring`).
+struct Competition: Codable, Equatable {
     struct Team: Codable, Equatable {
         var name: String
         /// LoRa tracker ids and FLARM callsigns of the team's gliders.
         var gliderIds: [String] = []
-        /// Official team total (団体), per 規則55: each day's top three pilots, summed over the days.
+    }
+
+    /// A team's score for one day: 団体 (best three) and 全国選出点 (best one).
+    struct DayScore: Codable, Equatable {
         var total: Double?
-        /// Official 全国選出点 total, per 規則60: each day's best pilot score, summed over the days.
         var national: Double?
     }
 
-    var competition: String = ""
-    /// The last competition day included in the totals, e.g. 4 for "第4日終了時点".
-    var throughDay: Int?
-    /// That day's date, "yyyy-MM-dd": when it's today, today's flights are already in the totals.
-    var throughDate: String?
+    var name: String = ""
+    /// First and last competition days, "yyyy-MM-dd".
+    var startDate: String?
+    var endDate: String?
     var teams: [Team] = []
+    /// Date ("yyyy-MM-dd") → team name → that day's scores, overriding the app's own.
+    var days: [String: [String: DayScore]] = [:]
     var updatedAt: Double?
+
+    static let dateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter
+    }()
+
+    /// The competition days up to and including `until`'s day, as day starts in order.
+    func dates(until: Date) -> [Date] {
+        let calendar = Calendar.current
+        guard let start = startDate.flatMap(Self.dateFormatter.date(from:)) else { return [] }
+        let last = min(endDate.flatMap(Self.dateFormatter.date(from:)) ?? until, until)
+        var dates: [Date] = []
+        var day = calendar.startOfDay(for: start)
+        let lastDay = calendar.startOfDay(for: last)
+        while day <= lastDay, dates.count < 366 {
+            dates.append(day)
+            guard let next = calendar.date(byAdding: .day, value: 1, to: day) else { break }
+            day = next
+        }
+        return dates
+    }
 }
 
 struct TrackServerConfig: Equatable {
