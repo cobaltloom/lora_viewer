@@ -21,10 +21,11 @@ HTTP API (behind Caddy for HTTPS):
       weren't watching that source.
   GET /standings   (header X-Api-Key)
       -> {"standings": {...} | null}: the team standings a representative last saved.
-  PUT /standings   (headers X-Api-Key and X-Editor-Key; JSON body)
+  PUT /standings   (header X-Api-Key, plus X-Editor-Key if an editor key is set; JSON body)
       Saves the competition's team standings - name, teams with their gliders, and the official
-      totals up to a given day - for every app to show. The editor key is the instance metadata
-      attribute "standings-key" (or env STANDINGS_KEY); without one, saving is off.
+      totals up to a given day - for every app to show. If the instance metadata attribute
+      "standings-key" (or env STANDINGS_KEY) is set, X-Editor-Key must match it; otherwise any
+      app may save.
   GET /health -> counts, for monitoring.
 
 Standard library only, so it runs on a stock Debian python3.
@@ -359,8 +360,9 @@ _editor_key = {"value": None, "at": 0.0}
 
 
 def editor_key():
-    """The representative's key for saving standings: env STANDINGS_KEY, else the instance metadata
-    attribute "standings-key" (re-read every 5 min, so it can be set or changed without a restart)."""
+    """The key required for saving standings, or "" when anyone may save: env STANDINGS_KEY, else the
+    instance metadata attribute "standings-key" (re-read every 5 min, so it can be set or changed
+    without a restart)."""
     env = os.environ.get("STANDINGS_KEY")
     if env:
         return env
@@ -370,7 +372,7 @@ def editor_key():
             req = urllib.request.Request(METADATA_URL + "standings-key", headers={"Metadata-Flavor": "Google"})
             with urllib.request.urlopen(req, timeout=3) as r:
                 _editor_key["value"] = r.read().decode().strip()
-        except Exception:  # noqa: BLE001 - not on GCE, or not set: saving stays off
+        except Exception:  # noqa: BLE001 - not on GCE, or not set: anyone may save
             _editor_key["value"] = ""
         _editor_key["at"] = now
     return _editor_key["value"]
@@ -434,7 +436,7 @@ class Handler(BaseHTTPRequestHandler):
         if not API_KEY or self.headers.get("X-Api-Key") != API_KEY:
             return self._json({"error": "unauthorized"}, 401)
         key = editor_key()
-        if not key or not hmac.compare_digest(self.headers.get("X-Editor-Key", ""), key):
+        if key and not hmac.compare_digest(self.headers.get("X-Editor-Key", ""), key):
             return self._json({"error": "forbidden"}, 403)
         length = int(self.headers.get("Content-Length") or 0)
         if length <= 0 or length > STANDINGS_MAX_BYTES:

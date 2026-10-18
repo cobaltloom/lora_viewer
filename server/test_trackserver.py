@@ -85,7 +85,7 @@ class StandingsTest(unittest.TestCase):
                 ts.validate_standings(bad)
 
     def test_http_round_trip(self):
-        import json, os, tempfile, threading, urllib.request, urllib.error
+        import json, os, tempfile, threading, time, urllib.request, urllib.error
         from http.server import ThreadingHTTPServer
         tmp = tempfile.mkdtemp()
         ts.API_KEY = "api"
@@ -112,7 +112,11 @@ class StandingsTest(unittest.TestCase):
             self.assertIn("updatedAt", saved["standings"])
             status, got = call("GET", {"X-Api-Key": "api"})
             self.assertEqual(got["standings"]["teams"][0]["name"], "中央23")
+            # Without an editor key set, any app may save.
+            del os.environ["STANDINGS_KEY"]
+            ts._editor_key.update(value="", at=time.time())
+            self.assertEqual(call("PUT", {"X-Api-Key": "api"}, body)[0], 200)
         finally:
             server.shutdown()
-            del os.environ["STANDINGS_KEY"]
+            os.environ.pop("STANDINGS_KEY", None)
 

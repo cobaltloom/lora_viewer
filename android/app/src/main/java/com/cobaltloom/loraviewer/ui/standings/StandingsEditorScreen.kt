@@ -1,6 +1,5 @@
 package com.cobaltloom.loraviewer.ui.standings
 
-import android.content.Context
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -36,9 +35,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.cobaltloom.loraviewer.data.alert.TeamStandings
 import com.cobaltloom.loraviewer.ui.map.GliderTrackerViewModel
@@ -50,16 +47,14 @@ private data class TeamDraft(val name: String, val gliderIds: List<String>, val 
 private fun Double?.asField(): String = this?.let { if (it % 1.0 == 0.0) it.toLong().toString() else it.toString() }.orEmpty()
 
 /**
- * Where a representative (who knows the editor key set on the track server) enters the competition's
- * teams, their gliders and the official totals so far; saving shares them with every app.
+ * Where a representative enters the competition's teams, their gliders and the official totals so
+ * far; saving shares them with every app.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StandingsEditorScreen(viewModel: GliderTrackerViewModel, onBack: () -> Unit) {
     val uiState by viewModel.uiState.collectAsState()
-    val prefs = LocalContext.current.getSharedPreferences("standings", Context.MODE_PRIVATE)
     val initial = uiState.standings
-    var editorKey by remember { mutableStateOf(prefs.getString("editorKey", "").orEmpty()) }
     var competition by remember { mutableStateOf(initial?.competition.orEmpty()) }
     var throughDay by remember { mutableStateOf(initial?.throughDay?.toString().orEmpty()) }
     var throughDate by remember { mutableStateOf(initial?.throughDate ?: LocalDate.now().minusDays(1).toString()) }
@@ -88,9 +83,8 @@ fun StandingsEditorScreen(viewModel: GliderTrackerViewModel, onBack: () -> Unit)
                 TeamStandings.Team(it.name.trim(), it.gliderIds, it.total.trim().toDoubleOrNull(), it.national.trim().toDoubleOrNull())
             },
         )
-        prefs.edit().putString("editorKey", editorKey).apply()
         saving = true
-        viewModel.saveStandings(editorKey, standings) { error ->
+        viewModel.saveStandings("", standings) { error ->
             saving = false
             message = error ?: "保存しました。全員の団体順位に反映されます。"
         }
@@ -114,10 +108,6 @@ fun StandingsEditorScreen(viewModel: GliderTrackerViewModel, onBack: () -> Unit)
             item(key = "general") {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     message?.let { Text(it, color = MaterialTheme.colorScheme.primary) }
-                    OutlinedTextField(
-                        value = editorKey, onValueChange = { editorKey = it }, label = { Text("合言葉(代表者用)") },
-                        singleLine = true, visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth(),
-                    )
                     OutlinedTextField(
                         value = competition, onValueChange = { competition = it }, label = { Text("競技会名") },
                         singleLine = true, modifier = Modifier.fillMaxWidth(),

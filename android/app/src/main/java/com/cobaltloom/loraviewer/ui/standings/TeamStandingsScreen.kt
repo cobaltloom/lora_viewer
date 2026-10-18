@@ -96,7 +96,7 @@ fun TeamStandingsScreen(viewModel: GliderTrackerViewModel, onBack: () -> Unit, o
         if (standings == null) {
             Box(Modifier.padding(padding).fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
                 Text(
-                    uiState.standingsError ?: "代表者がまだ団体成績を入力していません。右上の「入力」から、合言葉を知っている代表者が入力できます。",
+                    uiState.standingsError ?: "まだ団体成績が入力されていません。右上の「入力」から、代表者が入力できます。",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }

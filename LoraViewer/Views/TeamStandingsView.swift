@@ -79,7 +79,7 @@ struct TeamStandingsView: View {
                 ContentUnavailableView {
                     Label("団体成績がありません", systemImage: "trophy")
                 } description: {
-                    Text(errorMessage ?? "代表者がまだ団体成績を入力していません。右上の「入力」から、合言葉を知っている代表者が入力できます。")
+                    Text(errorMessage ?? "まだ団体成績が入力されていません。右上の「入力」から、代表者が入力できます。")
                 }
             }
         }
@@ -160,9 +160,8 @@ struct TeamStandingsView: View {
     }
 }
 
-/// Where a representative (who knows the editor key set on the track server) enters the
-/// competition's teams, their gliders and the official totals so far; saving shares them with
-/// every app.
+/// Where a representative enters the competition's teams, their gliders and the official totals so
+/// far; saving shares them with every app.
 struct StandingsEditorView: View {
     let server: TrackServerConfig?
     let initial: TeamStandings?
@@ -179,7 +178,6 @@ struct StandingsEditorView: View {
     }
 
     @Environment(\.dismiss) private var dismiss
-    @AppStorage("standingsEditorKey") private var editorKey = ""
     @State private var competition = ""
     @State private var throughDay = ""
     @State private var throughDate = Calendar.current.date(byAdding: .day, value: -1, to: Date()) ?? Date()
@@ -204,7 +202,6 @@ struct StandingsEditorView: View {
                 Section { Text(message).foregroundStyle(Color.accentColor) }
             }
             Section {
-                SecureField("合言葉(代表者用)", text: $editorKey)
                 TextField("競技会名", text: $competition)
                 TextField("第◯日終了時点(数字)", text: $throughDay)
                     .keyboardType(.numberPad)
@@ -304,7 +301,7 @@ struct StandingsEditorView: View {
         saving = true
         defer { saving = false }
         do {
-            let saved = try await api.saveStandings(server: server, editorKey: editorKey, standings: standings)
+            let saved = try await api.saveStandings(server: server, editorKey: "", standings: standings)
             onSaved(saved)
             message = "保存しました。全員の団体順位に反映されます。"
         } catch {
