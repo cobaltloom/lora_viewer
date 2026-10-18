@@ -1,15 +1,40 @@
 import SwiftUI
 
-/// Shows today's turnpoint-passage events (see `TurnpointPassageLog`) as a
-/// backup to the push notification, in case it was missed.
+/// Shows a day's turnpoint-passage events (see `TurnpointPassageLog`) as a
+/// backup to the push notification, in case it was missed - today by default,
+/// or an earlier day's laps and scores (kept for 30 days).
 struct TurnpointPassageHistoryView: View {
     @ObservedObject var log: TurnpointPassageLog
     /// The selected task course: only its rows are shown and scored (all rows when none is selected).
     var courseName: String? = nil
 
-    /// Today's rows for the selected course, newest first.
-    private var todaysRecords: [TurnpointPassageRecord] {
-        log.todaysRecords.filter { $0.belongs(toCourse: courseName) }
+    @State private var selectedDay = Calendar.current.startOfDay(for: Date())
+    /// The course shown for an earlier day, when the user picks one (see `dayCourseName`).
+    @State private var pastCourseName: String?
+
+    private var isToday: Bool { Calendar.current.isDateInToday(selectedDay) }
+
+    /// The courses an earlier day's laps were judged against, most rows first.
+    private var pastCourseNames: [String] {
+        let names = log.records(on: selectedDay).filter(\.isScoredFlight).compactMap(\.courseName)
+        let counts = Dictionary(names.map { ($0, 1) }, uniquingKeysWith: +)
+        return counts.keys.sorted { (counts[$0] ?? 0, $1) > (counts[$1] ?? 0, $0) }
+    }
+
+    /// Today: the selected task course. An earlier day: the course picked for it, else the selected
+    /// course if that day has its rows, else the course with most rows that day.
+    private var dayCourseName: String? {
+        if isToday { return courseName }
+        let names = pastCourseNames
+        if let pastCourseName, names.contains(pastCourseName) { return pastCourseName }
+        if let courseName, names.contains(courseName) { return courseName }
+        return names.first
+    }
+
+    /// The selected day's rows for its course, newest first.
+    private var dayRecords: [TurnpointPassageRecord] {
+        let course = dayCourseName
+        return log.records(on: selectedDay).filter { $0.belongs(toCourse: course) }
     }
     @EnvironmentObject private var handicapStore: GliderHandicapStore
     @AppStorage("finishSortOrder") private var sortOrder: FinishSortOrder = .score
@@ -30,7 +55,7 @@ struct TurnpointPassageHistoryView: View {
     /// among the turnpoint passages - in the chosen order. Partial laps (no lap time) follow the
     /// laps by lap time, and rows saved before scoring go last in those orders.
     private func todaysScoredFlights(scores: [UUID: Double]) -> [TurnpointPassageRecord] {
-        let flights = todaysRecords.filter(\.isScoredFlight) // newest first
+        let flights = dayRecords.filter(\.isScoredFlight) // newest first
         switch sortOrder {
         case .score:
             return flights.sorted { (scores[$0.id] ?? -1) > (scores[$1.id] ?? -1) }
@@ -44,7 +69,7 @@ struct TurnpointPassageHistoryView: View {
     }
 
     private var todaysLaps: [LapScore.Lap] {
-        LapScore.laps(from: todaysRecords) { id in
+        LapScore.laps(from: dayRecords) { id in
             id.map(handicapStore.handicap(for:)) ?? GliderHandicapStore.defaultHandicap
         }
     }
@@ -66,11 +91,25 @@ struct TurnpointPassageHistoryView: View {
         let laps = todaysLaps
         let scores = LapScore.scores(laps)
         let finishes = todaysScoredFlights(scores: scores)
-        let toBeat = toBeatRows(laps)
+        let toBeat = isToday ? toBeatRows(laps) : []
         let leader = finishes.first { record in scores[record.id] == scores.values.max() }
         List {
-            if todaysRecords.isEmpty {
-                ContentUnavailableView("本日の旋回点通過はまだありません", systemImage: "airplane")
+            Section {
+                Picker("日付", selection: $selectedDay) {
+                    ForEach(log.days, id: \.self) { day in
+                        Text(Self.dayLabel(day)).tag(day)
+                    }
+                }
+                if !isToday, pastCourseNames.count > 1 {
+                    Picker("コース", selection: Binding(get: { dayCourseName ?? "" }, set: { pastCourseName = $0 })) {
+                        ForEach(pastCourseNames, id: \.self) { Text($0).tag($0) }
+                    }
+                }
+            } footer: {
+                Text("周回・周回未達成の記録と参考得点は30日間、旋回点の通過記録は2日間残ります。")
+            }
+            if dayRecords.isEmpty {
+                ContentUnavailableView(isToday ? "本日の旋回点通過はまだありません" : "この日の記録はありません", systemImage: "airplane")
             } else {
                 if !finishes.isEmpty {
                     Section {
@@ -98,7 +137,7 @@ struct TurnpointPassageHistoryView: View {
                     }
                 }
                 Section {
-                    ForEach(todaysRecords) { record in
+                    ForEach(dayRecords) { record in
                         row(for: record, score: scores[record.id])
                     }
                 } header: {
@@ -108,17 +147,24 @@ struct TurnpointPassageHistoryView: View {
                 }
             }
         }
+        .onChange(of: selectedDay) { pastCourseName = nil }
         .navigationTitle("旋回点通過履歴")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            if !todaysRecords.isEmpty {
+            if !dayRecords.isEmpty {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("消去", role: .destructive) {
-                        log.clearToday()
+                        log.clear(day: selectedDay)
                     }
                 }
             }
         }
+    }
+
+    /// "10月18日(日)", or "今日 10月18日(日)".
+    private static func dayLabel(_ day: Date) -> String {
+        let label = day.formatted(.dateTime.month().day().weekday(.abbreviated).locale(Locale(identifier: "ja_JP")))
+        return Calendar.current.isDateInToday(day) ? "今日 \(label)" : label
     }
 
     /// "・ゴール高度不足 -50点" / "・ゴール280m未満のため速度点なし" for a low goal (細則7 別表(4)).

@@ -507,8 +507,8 @@ class GliderTrackerViewModel(
         viewModelScope.launch { proximityAlertSettingsRepository.save(settings) }
     }
 
-    fun clearTodaysTurnpointPassages() {
-        viewModelScope.launch { turnpointPassageLogRepository.clearToday(_uiState.value.dataSource) }
+    fun clearTurnpointPassages(day: java.time.LocalDate) {
+        viewModelScope.launch { turnpointPassageLogRepository.clearDay(_uiState.value.dataSource, day) }
     }
 
     fun setShowGliderTrails(show: Boolean) {

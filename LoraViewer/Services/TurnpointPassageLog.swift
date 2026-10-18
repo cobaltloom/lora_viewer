@@ -2,9 +2,10 @@ import Foundation
 
 /// Persists turnpoint-passage events (see `AlertNotifier.notifyTurnpointPassage`)
 /// to UserDefaults so they survive app relaunch and can be reviewed later in
-/// the day even if a push notification was missed. This is a rolling log for
-/// same-day review, not a full flight-log archive, so entries older than
-/// `retentionDays` are dropped on load. LoRa and OGN (FLARM) keep separate
+/// the day even if a push notification was missed. This is a rolling log, not
+/// a full flight-log archive: turnpoint and start rows are dropped after
+/// `retentionDays`, while goal and partial-lap rows - the day's laps and
+/// scores - are kept for `scoredRetentionDays`. LoRa and OGN (FLARM) keep separate
 /// logs, like favorites: the same glider has different names in each, so a
 /// shared log would mix them and could list one passage twice.
 @MainActor
@@ -28,15 +29,28 @@ final class TurnpointPassageLog: ObservableObject {
         }
     }
     private let retentionDays = 2
+    private let scoredRetentionDays = 30
 
     init() {
         load()
     }
 
     var todaysRecords: [TurnpointPassageRecord] {
+        records(on: Date())
+    }
+
+    /// The rows of the day containing `day`, newest first.
+    func records(on day: Date) -> [TurnpointPassageRecord] {
         records
-            .filter { Calendar.current.isDateInToday($0.timestamp) }
+            .filter { Calendar.current.isDate($0.timestamp, inSameDayAs: day) }
             .sorted { $0.timestamp > $1.timestamp }
+    }
+
+    /// The start of each day with rows, newest first - today always included.
+    var days: [Date] {
+        let calendar = Calendar.current
+        return Set(records.map { calendar.startOfDay(for: $0.timestamp) } + [calendar.startOfDay(for: Date())])
+            .sorted(by: >)
     }
 
     /// Records a passage found afterwards in the track server's history (flown while the app was
@@ -84,13 +98,19 @@ final class TurnpointPassageLog: ObservableObject {
     }
 
     func clearToday() {
-        records.removeAll { Calendar.current.isDateInToday($0.timestamp) }
+        clear(day: Date())
+    }
+
+    func clear(day: Date) {
+        records.removeAll { Calendar.current.isDate($0.timestamp, inSameDayAs: day) }
         save()
     }
 
     private func prune() {
-        guard let cutoff = Calendar.current.date(byAdding: .day, value: -retentionDays, to: Date()) else { return }
-        records.removeAll { $0.timestamp < cutoff }
+        let calendar = Calendar.current
+        guard let cutoff = calendar.date(byAdding: .day, value: -retentionDays, to: Date()),
+              let scoredCutoff = calendar.date(byAdding: .day, value: -scoredRetentionDays, to: Date()) else { return }
+        records.removeAll { $0.timestamp < ($0.isScoredFlight ? scoredCutoff : cutoff) }
     }
 
     private func load() {

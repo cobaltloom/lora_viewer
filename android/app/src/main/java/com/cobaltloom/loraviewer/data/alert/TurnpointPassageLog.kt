@@ -67,7 +67,8 @@ data class TurnpointPassageRecord(
 /**
  * Persists turnpoint-passage events to DataStore so they survive app relaunch and can be reviewed
  * later in the day even if a push notification was missed. This is a rolling log for same-day
- * review, not a full flight-log archive, so entries older than [retentionDays] are dropped.
+ * review, not a full flight-log archive: turnpoint and start rows are dropped after [retentionDays],
+ * while goal and partial-lap rows - the day's laps and scores - are kept for [scoredRetentionDays].
  * LoRa and OGN (FLARM) keep separate logs, like favorites: the same glider has different names in
  * each, so a shared log would mix them and could list one passage twice.
  */
@@ -81,6 +82,7 @@ class TurnpointPassageLogRepository(private val context: Context) {
     )
     private val json = Json { ignoreUnknownKeys = true }
     private val retentionDays = 2L
+    private val scoredRetentionDays = 30L
 
     val recordsBySource: Flow<Map<DataSource, List<TurnpointPassageRecord>>> =
         context.turnpointPassageLogDataStore.data.map { prefs ->
@@ -150,10 +152,9 @@ class TurnpointPassageLogRepository(private val context: Context) {
         return recorded
     }
 
-    suspend fun clearToday(source: DataSource) {
+    suspend fun clearDay(source: DataSource, day: LocalDate) {
         context.turnpointPassageLogDataStore.edit { prefs ->
-            val today = LocalDate.now()
-            prefs[key(source)] = json.encodeToString(decode(prefs[key(source)]).filterNot { it.localDate == today })
+            prefs[key(source)] = json.encodeToString(decode(prefs[key(source)]).filterNot { it.localDate == day })
         }
     }
 
@@ -161,7 +162,8 @@ class TurnpointPassageLogRepository(private val context: Context) {
         raw?.let { runCatching { json.decodeFromString<List<TurnpointPassageRecord>>(it) }.getOrNull() } ?: emptyList()
 
     private fun prune(records: List<TurnpointPassageRecord>): List<TurnpointPassageRecord> {
-        val cutoff = System.currentTimeMillis() - retentionDays * 24 * 60 * 60 * 1000
-        return records.filter { it.timestampMillis >= cutoff }
+        val now = System.currentTimeMillis()
+        val dayMillis = 24 * 60 * 60 * 1000L
+        return records.filter { it.timestampMillis >= now - (if (it.isScoredFlight) scoredRetentionDays else retentionDays) * dayMillis }
     }
 }
