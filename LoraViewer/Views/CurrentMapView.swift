@@ -506,6 +506,9 @@ struct CurrentMapView: View {
             }
             .onChange(of: viewModel.positions) { _, newPositions in
                 centerMapIfNeeded(on: newPositions)
+            }
+            // Every few seconds rather than every poll: polling FLARM each second only moves markers.
+            .onChange(of: viewModel.analysisPositions) { _, newPositions in
                 updateProximityAlerts(in: newPositions)
                 notifyNewAlerts(in: newPositions)
                 notifyTurnpointPassages(in: newPositions)

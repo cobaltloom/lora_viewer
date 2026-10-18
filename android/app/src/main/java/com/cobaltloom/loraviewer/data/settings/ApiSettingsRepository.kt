@@ -70,7 +70,7 @@ data class ApiSettings(
         // real access control, so no key is required by default.
         const val DEFAULT_BASE_URL = "https://www.trailrouteview.com/user/jsal/gmap/"
         const val DEFAULT_REFRESH_INTERVAL_SECONDS = 10.0
-        const val DEFAULT_OGN_REFRESH_INTERVAL_SECONDS = 2.0
+        const val DEFAULT_OGN_REFRESH_INTERVAL_SECONDS = 1.0
     }
 }
 

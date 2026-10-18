@@ -224,6 +224,7 @@ class GliderTrackerViewModel(
         const val MAX_TIMED_POINTS = 7200
         const val RECENT_FINISH_MILLIS = 5 * 60 * 1000L
         const val TAKEOFF_GROUND_FIX_MAX_AGE_MILLIS = 60_000L
+        const val ANALYSIS_INTERVAL_MILLIS = 3_000L
     }
 
     private val _uiState = MutableStateFlow(GliderTrackerUiState())
@@ -241,6 +242,10 @@ class GliderTrackerViewModel(
      * server), kept for lap timing. Dropped when the glider lands, like its trail. */
     private val timedTracks = mutableMapOf<String, MutableList<TimedPoint>>()
     private val lapCache = TaskLapCache()
+    /** Every fix polled since the last analysis pass, in poll order, so the timed tracks and trails get
+     * all of them (FLARM sends a fix about every second in flight) even though analysis runs less often. */
+    private val pendingFixes = mutableListOf<GliderPosition>()
+    private var lastAnalysisMillis = 0L
     /** Each glider's latest fix at/below the ground threshold (see [recordTimedPoints]). */
     private val lastGroundFixes = mutableMapOf<String, TimedPoint>()
 
@@ -415,6 +420,8 @@ class GliderTrackerViewModel(
         gliderTrailRepository.clear()
         timedTracks.clear()
         lapCache.clear()
+        pendingFixes.clear()
+        lastAnalysisMillis = 0L
         _uiState.update { it.copy(lapStatuses = emptyMap()) }
         needsTrailBackfill = true
         lastTrailBackfill = Instant.EPOCH
@@ -523,32 +530,45 @@ class GliderTrackerViewModel(
                 _uiState.update { it.copy(isLoading = false) }
                 return
             }
-            var stateWithNewPositions = _uiState.value.copy(positions = positions)
-            val proximityReasons = updateProximityAlerts(stateWithNewPositions)
-            stateWithNewPositions = stateWithNewPositions.copy(proximityReasonsByImei = proximityReasons)
-            notifyNewAlerts(stateWithNewPositions)
-            notifyTurnpointPassages(stateWithNewPositions)
-            val groundAltitudeM = stateWithNewPositions.alertSettings.minimumFlyingAltitudeM
-            recordTimedPoints(positions, groundAltitudeM)
-            updateLapStatuses(stateWithNewPositions)
-            if (gliderTrailRepository.recordPositions(positions, groundAltitudeM)) {
-                needsTrailBackfill = true // newly seen in flight: its earlier part may be on the server
-            }
-            // Launched separately: a slow track server must never hold up the live refresh loop.
-            viewModelScope.launch { backfillTrailsIfNeeded(source, groundAltitudeM) }
-            viewModelScope.launch { fetchTodaysFlightsIfNeeded(source, groundAltitudeM) }
+            // Every poll (each second for FLARM) only moves the markers; the rest runs in analyzeIfDue.
             _uiState.update {
-                it.copy(
-                    positions = positions,
-                    proximityReasonsByImei = proximityReasons,
-                    lastUpdated = Instant.now(),
-                    errorMessage = null,
-                    isLoading = false,
-                )
+                it.copy(positions = positions, lastUpdated = Instant.now(), errorMessage = null, isLoading = false)
             }
+            pendingFixes += positions
+            analyzeIfDue(source)
         } catch (e: Exception) {
             _uiState.update { it.copy(errorMessage = e.message, isLoading = false) }
         }
+    }
+
+    /**
+     * Every [ANALYSIS_INTERVAL_MILLIS] (or every poll, when polling is slower): records the fixes polled
+     * since the last pass into the timed tracks and the latest ones into the trails, then runs alerts, proximity, turnpoint
+     * passages and lap timing on the latest positions - so polling FLARM each second only moves markers.
+     */
+    private suspend fun analyzeIfDue(source: DataSource) {
+        val now = System.currentTimeMillis()
+        if (now - lastAnalysisMillis < ANALYSIS_INTERVAL_MILLIS - 500) return
+        lastAnalysisMillis = now
+        val fixes = pendingFixes.toList()
+        pendingFixes.clear()
+        var state = _uiState.value
+        val proximityReasons = updateProximityAlerts(state)
+        state = state.copy(proximityReasonsByImei = proximityReasons)
+        notifyNewAlerts(state)
+        notifyTurnpointPassages(state)
+        val groundAltitudeM = state.alertSettings.minimumFlyingAltitudeM
+        recordTimedPoints(fixes, groundAltitudeM)
+        updateLapStatuses(state)
+        // Trails are drawn, not timed: one point per pass is plenty, and keeps the 2000-point cap
+        // covering a whole flight rather than half an hour of 1-second fixes.
+        if (gliderTrailRepository.recordPositions(state.positions, groundAltitudeM)) {
+            needsTrailBackfill = true // newly seen in flight: its earlier part may be on the server
+        }
+        // Launched separately: a slow track server must never hold up the live refresh loop.
+        viewModelScope.launch { backfillTrailsIfNeeded(source, groundAltitudeM) }
+        viewModelScope.launch { fetchTodaysFlightsIfNeeded(source, groundAltitudeM) }
+        _uiState.update { it.copy(proximityReasonsByImei = proximityReasons) }
     }
 
     /** Fills in trails from the track server so they reach back to takeoff even if the app was

@@ -60,7 +60,7 @@ final class APISettings: ObservableObject {
     @Published var ognRefreshIntervalSeconds: Double {
         didSet { UserDefaults.standard.set(ognRefreshIntervalSeconds, forKey: Keys.ognRefreshInterval) }
     }
-    static let defaultOGNRefreshIntervalSeconds: Double = 2
+    static let defaultOGNRefreshIntervalSeconds: Double = 1
 
     /// Whether this device has typed its own base URL into Settings, as opposed to following the
     /// server-provided default from `listenForRemoteBaseURL`. `resetBaseURLToServerDefault` is

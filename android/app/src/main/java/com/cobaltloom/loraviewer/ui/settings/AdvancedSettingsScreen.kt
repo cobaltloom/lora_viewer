@@ -128,7 +128,7 @@ fun AdvancedSettingsScreen(
                         }
                     }
                     Text(
-                        "FLARM(OGN経由)は受信した位置が常に端末に届いているため、短くしてもサーバーに負荷はかかりません。短くするほど地図の動きは滑らかになりますが、電池の消費が増え、地図上の軌跡は短くなります(軌跡は更新ごとに1点、1機につき最大2000点)。",
+                        "FLARM(OGN経由)は受信した位置が常に端末に届いているため、短くしてもサーバーに負荷はかかりません。短くするほど地図上の機体の動きは滑らかになります。アラートや旋回点・周回の判定は、更新間隔にかかわらず数秒ごとにまとめて行うため、短くしても電池の消費はあまり増えません。",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(top = 8.dp, bottom = 24.dp),

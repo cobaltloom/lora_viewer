@@ -43,6 +43,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -56,12 +57,12 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import com.cobaltloom.loraviewer.data.alert.AlertSeverity
 import com.cobaltloom.loraviewer.data.alert.AltitudeCalculationMode
 import com.cobaltloom.loraviewer.data.alert.CivilTrainingAreaKK43
@@ -516,12 +517,16 @@ fun MapScreen(
                     val lapBadge = uiState.selectedCourse?.let { uiState.lapStatuses[glider.imei]?.markerBadge }
                     // MarkerComposable rasterizes its content once and only redraws it when these keys
                     // change, so every input the content reads must be listed - otherwise the marker keeps
-                    // showing the altitude from its first render. key(imei) keeps each marker bound to the
-                    // same glider when the list order changes between polls.
+                    // showing the altitude from its first render - but not the position, which moves the
+                    // existing marker without redrawing it (FLARM moves markers every second). key(imei)
+                    // keeps each marker bound to the same glider when the list order changes between polls.
                     key(glider.imei) {
+                        val markerState = remember { MarkerState(position = LatLng(glider.lat, glider.lon)) }
+                        SideEffect { markerState.position = LatLng(glider.lat, glider.lon) }
                         MarkerComposable(
-                            glider, name, showName, isSelected, isFavorite, alertSeverity ?: "none", lapBadge ?: "",
-                            state = MarkerState(position = LatLng(glider.lat, glider.lon)),
+                            glider.index, glider.alt?.roundToInt() ?: "none", glider.source, glider.isDisconnected,
+                            name, showName, isSelected, isFavorite, alertSeverity ?: "none", lapBadge ?: "",
+                            state = markerState,
                             title = name,
                             anchor = Offset(0.5f, 0.5f),
                             onClick = { selectedGlider = glider; true },
