@@ -1,7 +1,7 @@
 package com.cobaltloom.loraviewer.data.remote
 
 import com.cobaltloom.loraviewer.data.alert.Coordinate
-import com.cobaltloom.loraviewer.data.alert.TeamStandings
+import com.cobaltloom.loraviewer.data.alert.Competition
 import com.cobaltloom.loraviewer.data.settings.DataSource
 import com.cobaltloom.loraviewer.data.settings.TrackServerConfig
 import java.util.concurrent.TimeUnit
@@ -49,8 +49,8 @@ class TrackServerClient(
         return flights.mapValues { (_, list) -> list.jsonArray.map { points(it.jsonArray) } }
     }
 
-    /** The team standings a representative last saved, or null if none yet. */
-    suspend fun fetchStandings(server: TrackServerConfig): TeamStandings? = withContext(Dispatchers.IO) {
+    /** The competition a representative last saved (see [Competition]), or null if none yet. */
+    suspend fun fetchCompetition(server: TrackServerConfig): Competition? = withContext(Dispatchers.IO) {
         val url = server.url.toHttpUrlOrNull()?.newBuilder()?.addPathSegment("standings")?.build()
             ?: throw TrailRouteApiException.InvalidBaseUrl()
         val request = Request.Builder().url(url).header("X-Api-Key", server.key).get().build()
@@ -59,15 +59,15 @@ class TrackServerClient(
             response.body?.string() ?: throw TrailRouteApiException.InvalidResponse()
         }
         val standings = json.parseToJsonElement(body).jsonObject["standings"]
-        if (standings == null || standings is JsonNull) null else json.decodeFromJsonElement(TeamStandings.serializer(), standings)
+        if (standings == null || standings is JsonNull) null else json.decodeFromJsonElement(Competition.serializer(), standings)
     }
 
-    /** Saves [standings] for every app to see; needs the representative's [editorKey]. */
-    suspend fun saveStandings(server: TrackServerConfig, editorKey: String, standings: TeamStandings): TeamStandings =
+    /** Saves [competition] for every app to see ([editorKey] only if the server sets one). */
+    suspend fun saveCompetition(server: TrackServerConfig, editorKey: String, competition: Competition): Competition =
         withContext(Dispatchers.IO) {
             val url = server.url.toHttpUrlOrNull()?.newBuilder()?.addPathSegment("standings")?.build()
                 ?: throw TrailRouteApiException.InvalidBaseUrl()
-            val payload = json.encodeToString(TeamStandings.serializer(), standings.copy(updatedAt = null))
+            val payload = json.encodeToString(Competition.serializer(), competition.copy(updatedAt = null))
             val request = Request.Builder().url(url)
                 .header("X-Api-Key", server.key)
                 .header("X-Editor-Key", editorKey)
@@ -80,7 +80,7 @@ class TrackServerClient(
                 }
                 response.body?.string() ?: throw TrailRouteApiException.InvalidResponse()
             }
-            json.decodeFromJsonElement(TeamStandings.serializer(), json.parseToJsonElement(body).jsonObject.getValue("standings"))
+            json.decodeFromJsonElement(Competition.serializer(), json.parseToJsonElement(body).jsonObject.getValue("standings"))
         }
 
     private suspend fun get(path: String, server: TrackServerConfig, source: DataSource, groundAltitudeM: Double) =

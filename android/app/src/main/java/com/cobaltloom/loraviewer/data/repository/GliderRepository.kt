@@ -1,6 +1,6 @@
 package com.cobaltloom.loraviewer.data.repository
 
-import com.cobaltloom.loraviewer.data.alert.TeamStandings
+import com.cobaltloom.loraviewer.data.alert.Competition
 import com.cobaltloom.loraviewer.data.model.AppConfig
 import com.cobaltloom.loraviewer.data.model.GliderPosition
 import com.cobaltloom.loraviewer.data.remote.OgnApiClient
@@ -54,15 +54,15 @@ class GliderRepository(
         return trackServerClient.fetchTodaysFlights(server, source, groundAltitudeM)
     }
 
-    /** The shared team standings, or null when there are none or no track server is configured. */
-    suspend fun fetchStandings(): TeamStandings? {
+    /** The shared competition, or null when there is none or no track server is configured. */
+    suspend fun fetchCompetition(): Competition? {
         val server = settingsRepository.settings.first().trackServer ?: return null
-        return trackServerClient.fetchStandings(server)
+        return trackServerClient.fetchCompetition(server)
     }
 
-    suspend fun saveStandings(editorKey: String, standings: TeamStandings): TeamStandings {
+    suspend fun saveCompetition(competition: Competition): Competition {
         val server = settingsRepository.settings.first().trackServer ?: throw IllegalStateException("トラックサーバーが設定されていません")
-        return trackServerClient.saveStandings(server, editorKey, standings)
+        return trackServerClient.saveCompetition(server, "", competition)
     }
 
     /** The name an OGN aircraft is shown under, for one that may no longer be on the map. */

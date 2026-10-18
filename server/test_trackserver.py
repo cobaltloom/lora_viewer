@@ -76,11 +76,13 @@ if __name__ == "__main__":
 
 class StandingsTest(unittest.TestCase):
     def test_validation(self):
-        ok = {"competition": "第42回関東", "throughDate": "2026-10-17",
-              "teams": [{"name": "中央23", "gliderIds": ["000A", "FLRDB0786"], "total": 1895, "national": 1895}]}
+        ok = {"name": "第42回関東", "startDate": "2026-10-11", "endDate": "2026-10-18",
+              "teams": [{"name": "中央23", "gliderIds": ["000A", "FLRDB0786"]}],
+              "days": {"2026-10-17": {"中央23": {"total": 900, "national": None}}}}
         self.assertIs(ts.validate_standings(ok), ok)
-        for bad in ({"teams": "x"}, {"teams": [{"name": ""}]}, {"teams": [{"name": "a", "total": "1"}]},
-                    {"teams": [{"name": "a", "gliderIds": [1]}]}, {"teams": [], "throughDate": "17/10"}):
+        for bad in ({"teams": "x"}, {"teams": [{"name": ""}]}, {"teams": [{"name": "a", "gliderIds": [1]}]},
+                    {"teams": [], "startDate": "17/10"}, {"teams": [], "days": {"x": {}}},
+                    {"teams": [], "days": {"2026-10-17": {"a": {"total": "1"}}}}):
             with self.assertRaises(ValueError):
                 ts.validate_standings(bad)
 
@@ -104,7 +106,7 @@ class StandingsTest(unittest.TestCase):
                 except urllib.error.HTTPError as e:
                     return e.code, None
             self.assertEqual(call("GET", {"X-Api-Key": "api"}), (200, {"standings": None}))
-            body = json.dumps({"competition": "test", "teams": [{"name": "中央23", "total": 1895}]}).encode()
+            body = json.dumps({"name": "test", "teams": [{"name": "中央23", "gliderIds": ["000A"]}]}).encode()
             self.assertEqual(call("PUT", {"X-Api-Key": "api", "X-Editor-Key": "wrong"}, body)[0], 403)
             self.assertEqual(call("PUT", {"X-Api-Key": "x", "X-Editor-Key": "editor"}, body)[0], 401)
             status, saved = call("PUT", {"X-Api-Key": "api", "X-Editor-Key": "editor"}, body)

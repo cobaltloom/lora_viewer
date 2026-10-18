@@ -22,8 +22,8 @@ HTTP API (behind Caddy for HTTPS):
   GET /standings   (header X-Api-Key)
       -> {"standings": {...} | null}: the team standings a representative last saved.
   PUT /standings   (header X-Api-Key, plus X-Editor-Key if an editor key is set; JSON body)
-      Saves the competition's team standings - name, teams with their gliders, and the official
-      totals up to a given day - for every app to show. If the instance metadata attribute
+      Saves the competition - name, period, teams with their gliders, and any day's corrected team
+      scores - for every app to show team standings from. If the instance metadata attribute
       "standings-key" (or env STANDINGS_KEY) is set, X-Editor-Key must match it; otherwise any
       app may save.
   GET /health -> counts, for monitoring.
@@ -378,10 +378,25 @@ def editor_key():
     return _editor_key["value"]
 
 
+def _is_date(value):
+    return isinstance(value, str) and re.fullmatch(r"\d{4}-\d{2}-\d{2}", value) is not None
+
+
+def _is_points(value):
+    return value is None or (isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value))
+
+
 def validate_standings(data):
-    """The saved standings, checked for shape and size; raises ValueError if unusable."""
+    """The saved competition (name, period, teams with their gliders, and any day's corrected team
+    scores), checked for shape; raises ValueError if unusable."""
     if not isinstance(data, dict):
         raise ValueError("not an object")
+    name = data.get("name", "")
+    if not isinstance(name, str) or len(name) > 120:
+        raise ValueError("name")
+    for key in ("startDate", "endDate"):
+        if data.get(key) is not None and not _is_date(data[key]):
+            raise ValueError(key)
     teams = data.get("teams")
     if not isinstance(teams, list) or len(teams) > 60:
         raise ValueError("teams")
@@ -393,16 +408,15 @@ def validate_standings(data):
         gliders = team.get("gliderIds", [])
         if not isinstance(gliders, list) or len(gliders) > 20 or not all(isinstance(g, str) and len(g) <= 40 for g in gliders):
             raise ValueError("gliderIds")
-        for key in ("total", "national"):
-            value = team.get(key)
-            if value is not None and (not isinstance(value, (int, float)) or isinstance(value, bool) or not math.isfinite(value)):
-                raise ValueError(key)
-    competition = data.get("competition", "")
-    if not isinstance(competition, str) or len(competition) > 120:
-        raise ValueError("competition")
-    through = data.get("throughDate")
-    if through is not None and not (isinstance(through, str) and re.fullmatch(r"\d{4}-\d{2}-\d{2}", through)):
-        raise ValueError("throughDate")
+    days = data.get("days", {})
+    if not isinstance(days, dict) or len(days) > 60:
+        raise ValueError("days")
+    for date, scores in days.items():
+        if not _is_date(date) or not isinstance(scores, dict) or len(scores) > 60:
+            raise ValueError("day " + str(date)[:20])
+        for team_name, score in scores.items():
+            if not isinstance(score, dict) or not _is_points(score.get("total")) or not _is_points(score.get("national")):
+                raise ValueError("score " + str(team_name)[:20])
     return data
 
 
@@ -448,7 +462,7 @@ class Handler(BaseHTTPRequestHandler):
         data["updatedAt"] = int(time.time())
         with self.standings_lock:
             save_standings(self.standings_path, data)
-        log.info("standings saved: %s, %d teams", data.get("competition", ""), len(data["teams"]))
+        log.info("competition saved: %s, %d teams", data.get("name", ""), len(data["teams"]))
         self._json({"standings": data})
 
     def do_GET(self):

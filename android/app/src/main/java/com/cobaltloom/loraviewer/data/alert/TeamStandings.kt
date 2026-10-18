@@ -1,30 +1,22 @@
 package com.cobaltloom.loraviewer.data.alert
 
 import kotlin.math.floor
-import kotlinx.serialization.Serializable
 
 /**
- * A competition's team standings as a representative entered them (shared through the track
- * server): each team's gliders and its official totals up to [throughDate].
+ * Each team's totals before today, as [TeamRanking] adds today's flights to them (see
+ * [CompetitionScoring.standingsBeforeToday]).
  */
-@Serializable
 data class TeamStandings(
     val competition: String = "",
-    /** The last competition day included in the totals, e.g. 4 for "第4日終了時点". */
-    val throughDay: Int? = null,
-    /** That day's date, "yyyy-MM-dd": when it's today, today's flights are already in the totals. */
-    val throughDate: String? = null,
     val teams: List<Team> = emptyList(),
-    val updatedAt: Long? = null,
 ) {
-    @Serializable
     data class Team(
         val name: String,
-        /** LoRa tracker ids and FLARM callsigns of the team's gliders. */
+        /** LoRa tracker ids and FLARM callsigns of the team's gliders whose flights today count. */
         val gliderIds: List<String> = emptyList(),
-        /** Official team total (団体), per 規則55: each day's top three pilots, summed over the days. */
+        /** Team total (団体), per 規則55: each day's top three pilots, summed over the days. */
         val total: Double? = null,
-        /** Official 全国選出点 total, per 規則60: each day's best pilot score, summed over the days. */
+        /** 全国選出点 total, per 規則60: each day's best pilot score, summed over the days. */
         val national: Double? = null,
     )
 }

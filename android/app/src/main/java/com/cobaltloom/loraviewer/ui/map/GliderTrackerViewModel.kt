@@ -10,9 +10,11 @@ import com.cobaltloom.loraviewer.data.alert.AlertSettings
 import com.cobaltloom.loraviewer.data.alert.AlertSettingsRepository
 import com.cobaltloom.loraviewer.data.alert.AlertSeverity
 import com.cobaltloom.loraviewer.data.alert.AltitudeCalculationMode
+import com.cobaltloom.loraviewer.data.alert.Competition
 import com.cobaltloom.loraviewer.data.alert.CompetitionAltitudeGuideline
 import com.cobaltloom.loraviewer.data.alert.CompetitionGuidelineRepository
 import com.cobaltloom.loraviewer.data.alert.CompetitionGuidelineSettings
+import com.cobaltloom.loraviewer.data.alert.CompetitionScoring
 import com.cobaltloom.loraviewer.data.alert.CompetitionTaskCourse
 import com.cobaltloom.loraviewer.data.alert.CompetitionTaskCourseData
 import com.cobaltloom.loraviewer.data.alert.Coordinate
@@ -28,14 +30,13 @@ import com.cobaltloom.loraviewer.data.alert.TeamRanking
 import com.cobaltloom.loraviewer.data.alert.TeamStandings
 import com.cobaltloom.loraviewer.data.alert.TimedPoint
 import com.cobaltloom.loraviewer.data.alert.TurnpointPassageLogRepository
-import com.cobaltloom.loraviewer.data.alert.TurnpointSector
 import com.cobaltloom.loraviewer.data.alert.TurnpointPassageRecord
+import com.cobaltloom.loraviewer.data.alert.TurnpointSector
 import com.cobaltloom.loraviewer.data.alert.UpperAltitudeGuidelineRepository
 import com.cobaltloom.loraviewer.data.alert.UpperAltitudeSettings
 import com.cobaltloom.loraviewer.data.alert.bearingDegrees
 import com.cobaltloom.loraviewer.data.alert.distanceMeters
 import com.cobaltloom.loraviewer.data.alert.lapSummary
-import com.cobaltloom.loraviewer.ui.common.ToBeat
 import com.cobaltloom.loraviewer.data.favorites.FavoritesRepository
 import com.cobaltloom.loraviewer.data.favorites.GliderHandicapRepository
 import com.cobaltloom.loraviewer.data.model.AppConfig
@@ -48,6 +49,7 @@ import com.cobaltloom.loraviewer.data.repository.GliderRepository
 import com.cobaltloom.loraviewer.data.settings.DataSource
 import com.cobaltloom.loraviewer.data.trail.GliderTrailRepository
 import com.cobaltloom.loraviewer.data.trail.MapDisplaySettingsRepository
+import com.cobaltloom.loraviewer.ui.common.ToBeat
 import com.cobaltloom.loraviewer.ui.common.assignGliderColorSlots
 import com.cobaltloom.loraviewer.ui.common.gliderColor
 import java.time.Duration
@@ -68,8 +70,8 @@ data class GliderTrackerUiState(
     val nicknames: Map<String, String> = emptyMap(),
     /** Each glider's competition handicap, by id (see [GliderHandicapRepository]). */
     val handicaps: Map<String, Double> = emptyMap(),
-    /** The shared team standings (see [TeamStandings]), once fetched. */
-    val standings: TeamStandings? = null,
+    /** The shared competition (see [Competition]), once fetched. */
+    val competition: Competition? = null,
     val standingsError: String? = null,
     val nicknameSyncMode: NicknameSyncMode = NicknameSyncMode.SYNCED,
     val favorites: Set<String> = emptySet(),
@@ -148,6 +150,14 @@ data class GliderTrackerUiState(
         if (laps.none { it.lapSeconds != null }) return null
         val seconds = LapScore.lapSecondsToBeat(laps, course.distanceKm, handicapFor(glider.imei)) ?: return null
         return ToBeat(seconds, (System.currentTimeMillis() - start) / 1000.0)
+    }
+
+    /** A day's passage-history rows. */
+    fun recordsOn(date: java.time.LocalDate): List<TurnpointPassageRecord> = turnpointPassageRecords.filter { it.localDate == date }
+
+    /** The teams' totals before today for [TeamRanking], or null without a competition. */
+    fun standingsBeforeToday(): TeamStandings? = competition?.let {
+        CompetitionScoring.standingsBeforeToday(it, java.time.LocalDate.now(), ::recordsOn) { id -> handicapFor(id) }
     }
 
     /** Today's scored flights for the selected course, for the provisional team standings. */
@@ -494,20 +504,20 @@ class GliderTrackerViewModel(
         viewModelScope.launch { nicknameRepository.setSyncMode(mode) }
     }
 
-    fun refreshStandings() {
+    fun refreshCompetition() {
         viewModelScope.launch {
-            runCatching { repository.fetchStandings() }
-                .onSuccess { standings -> _uiState.update { it.copy(standings = standings, standingsError = null) } }
-                .onFailure { e -> _uiState.update { it.copy(standingsError = e.message ?: "団体成績を取得できませんでした") } }
+            runCatching { repository.fetchCompetition() }
+                .onSuccess { competition -> _uiState.update { it.copy(competition = competition, standingsError = null) } }
+                .onFailure { e -> _uiState.update { it.copy(standingsError = e.message ?: "競技会の設定を取得できませんでした") } }
         }
     }
 
-    /** Saves [standings] for everyone; [onResult] gets null on success, else the error message. */
-    fun saveStandings(editorKey: String, standings: TeamStandings, onResult: (String?) -> Unit) {
+    /** Saves [competition] for everyone; [onResult] gets null on success, else the error message. */
+    fun saveCompetition(competition: Competition, onResult: (String?) -> Unit) {
         viewModelScope.launch {
-            runCatching { repository.saveStandings(editorKey, standings) }
+            runCatching { repository.saveCompetition(competition) }
                 .onSuccess { saved ->
-                    _uiState.update { it.copy(standings = saved, standingsError = null) }
+                    _uiState.update { it.copy(competition = saved, standingsError = null) }
                     onResult(null)
                 }
                 .onFailure { e -> onResult(e.message ?: "保存できませんでした") }

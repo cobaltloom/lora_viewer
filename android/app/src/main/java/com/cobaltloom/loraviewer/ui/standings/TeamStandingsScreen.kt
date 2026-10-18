@@ -39,9 +39,10 @@ import java.time.LocalDate
 import kotlinx.coroutines.delay
 
 /**
- * Provisional team standings: the official totals a representative entered (shared through the track
- * server) plus today's reference scores of each team's gliders, and for each team the lap time that
- * would take it to P1, or one place up, today.
+ * Provisional team standings over a competition a representative set up (shared through the track
+ * server): each earlier competition day's team scores - corrected where someone entered them, else
+ * worked out from this device's lap records - plus today's reference scores, and for each team the lap
+ * time that would take it to P1, or one place up, today.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -50,14 +51,16 @@ fun TeamStandingsScreen(viewModel: GliderTrackerViewModel, onBack: () -> Unit, o
     // Fetched on opening and every minute while open: the representative may update it any time.
     LaunchedEffect(Unit) {
         while (true) {
-            viewModel.refreshStandings()
+            viewModel.refreshCompetition()
             delay(60_000)
         }
     }
-    val standings = uiState.standings
+    val competition = uiState.competition
     val course = uiState.selectedCourse
-    // Once the official totals include today, today's flights mustn't be added again.
-    val includeToday = standings?.throughDate != LocalDate.now().toString()
+    val today = LocalDate.now()
+    val standings = remember(competition, uiState.turnpointPassageRecords, uiState.handicaps) { uiState.standingsBeforeToday() }
+    // Today counts only during the competition.
+    val includeToday = competition?.dates(today)?.lastOrNull() == today
     val flights = remember(uiState.turnpointPassageRecords, uiState.handicaps, course) { uiState.todaysTeamFlights() }
     val rows = remember(standings, flights, includeToday) {
         standings?.let { TeamRanking.rows(it, flights, includeToday) }.orEmpty()
@@ -89,14 +92,14 @@ fun TeamStandingsScreen(viewModel: GliderTrackerViewModel, onBack: () -> Unit, o
                 navigationIcon = {
                     IconButton(onClick = onBack) { Icon(Icons.Filled.ArrowBack, contentDescription = "戻る") }
                 },
-                actions = { TextButton(onClick = onEdit) { Text("入力") } },
+                actions = { TextButton(onClick = onEdit) { Text("設定") } },
             )
         },
     ) { padding ->
-        if (standings == null) {
+        if (competition == null || standings == null || competition.teams.isEmpty()) {
             Box(Modifier.padding(padding).fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
                 Text(
-                    uiState.standingsError ?: "まだ団体成績が入力されていません。右上の「入力」から、代表者が入力できます。",
+                    uiState.standingsError ?: "競技会がまだ設定されていません。右上の「設定」から、大会期間とチームを設定してください。",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
@@ -105,11 +108,11 @@ fun TeamStandingsScreen(viewModel: GliderTrackerViewModel, onBack: () -> Unit, o
         LazyColumn(modifier = Modifier.padding(padding).fillMaxSize()) {
             item(key = "header") {
                 Column(Modifier.fillMaxWidth().padding(16.dp)) {
-                    Text(standings.competition.ifBlank { "競技会" }, style = MaterialTheme.typography.titleMedium)
-                    val through = listOfNotNull(standings.throughDay?.let { "第${it}日" }, standings.throughDate).joinToString(" ")
+                    Text(competition.name.ifBlank { "競技会" }, style = MaterialTheme.typography.titleMedium)
+                    val days = competition.dates(today)
                     Text(
-                        "公式: ${through.ifBlank { "-" }}終了時点" +
-                            if (includeToday) " + 本日の暫定(参考得点の上位3本)" else "(本日分を含む)",
+                        "${competition.startDate.orEmpty()}〜${competition.endDate.orEmpty()}" +
+                            (if (includeToday) "(第${days.size}日・本日の暫定を含む)" else "(期間外: 本日分は含みません)"),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -129,7 +132,7 @@ fun TeamStandingsScreen(viewModel: GliderTrackerViewModel, onBack: () -> Unit, o
             }
             item(key = "note") {
                 Text(
-                    "本日の暫定は、この端末が計時した飛行の参考得点(各機体の上位3本)を、選手が別々として合計した目安です。全国選出点は各チームの本日最高得点を加えています。公式成績とは異なることがあります。",
+                    "各日の得点は、その日の参考得点のチーム上位3本(全国選出点は最高点)を、選手が別々として合計した目安です。過去の日は、この端末の記録から計算するか、「設定」で修正・確定された値を使います。公式成績とは異なることがあります。",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(16.dp),
@@ -147,7 +150,7 @@ private fun StandingsRow(row: TeamRanking.Row, includeToday: Boolean, targets: L
             Column(Modifier.weight(1f)) {
                 Text(row.name, style = MaterialTheme.typography.titleMedium)
                 Text(
-                    if (includeToday) "公式 ${row.official.toInt()} + 本日 ${row.today.toInt()}(${row.flightsToday}本)" else "公式",
+                    if (includeToday) "前日まで ${row.official.toInt()} + 本日 ${row.today.toInt()}(${row.flightsToday}本)" else "累計",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
