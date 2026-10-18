@@ -18,6 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.outlined.Flag
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -64,6 +65,7 @@ fun TurnpointHistoryScreen(viewModel: GliderTrackerViewModel, onBack: () -> Unit
     // Today by default, or an earlier day's laps and scores (kept for 30 days).
     val today = LocalDate.now()
     var selectedDay by remember { mutableStateOf(today) }
+    var showClearConfirmation by remember { mutableStateOf(false) }
     val isToday = selectedDay == today
     val days = remember(uiState.turnpointPassageRecords) {
         (uiState.turnpointPassageRecords.map { it.localDate } + today).distinct().sortedDescending()
@@ -121,6 +123,32 @@ fun TurnpointHistoryScreen(viewModel: GliderTrackerViewModel, onBack: () -> Unit
         }
     }
 
+    if (showClearConfirmation) {
+        val dayLabel = (if (isToday) "今日 " else "") + dayFormatter.format(selectedDay)
+        AlertDialog(
+            onDismissRequest = { showClearConfirmation = false },
+            title = { Text("${dayLabel}の記録を消去しますか?") },
+            text = {
+                Text(
+                    if (isToday) {
+                        "この端末の記録だけが消え、他の人には影響しません。今日の記録は、次にアプリを開いたときなどにサーバーの飛行記録から再び記録されます。"
+                    } else {
+                        "この端末の記録だけが消え、他の人には影響しません。過去の日の記録は元に戻せません。"
+                    },
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.clearTurnpointPassages(selectedDay)
+                        showClearConfirmation = false
+                    },
+                ) { Text("消去", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = { TextButton(onClick = { showClearConfirmation = false }) { Text("キャンセル") } },
+        )
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -130,7 +158,7 @@ fun TurnpointHistoryScreen(viewModel: GliderTrackerViewModel, onBack: () -> Unit
                 },
                 actions = {
                     if (todaysRecords.isNotEmpty()) {
-                        TextButton(onClick = { viewModel.clearTurnpointPassages(selectedDay) }) { Text("消去") }
+                        TextButton(onClick = { showClearConfirmation = true }) { Text("消去") }
                     }
                 },
             )
