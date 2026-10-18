@@ -19,6 +19,12 @@ HTTP API (behind Caddy for HTTPS):
       Every flight (run of points above groundAltM) since midnight JST, landed ones
       included, so the apps can fill in turnpoint passages and laps flown while they
       weren't watching that source.
+  GET /standings   (header X-Api-Key)
+      -> {"standings": {...} | null}: the team standings a representative last saved.
+  PUT /standings   (headers X-Api-Key and X-Editor-Key; JSON body)
+      Saves the competition's team standings - name, teams with their gliders, and the official
+      totals up to a given day - for every app to show. The editor key is the instance metadata
+      attribute "standings-key" (or env STANDINGS_KEY); without one, saving is off.
   GET /health -> counts, for monitoring.
 
 Standard library only, so it runs on a stock Debian python3.
@@ -26,6 +32,7 @@ Config (environment): API_KEY (required), LORA_BASE_URL, PORT, DATA_DIR.
 """
 
 import gzip
+import hmac
 import json
 import logging
 import math
@@ -57,7 +64,7 @@ JST_OFFSET_S = 9 * 3600
 LORA_POLL_S = 5                  # LoRa fixes come every ~7-15 s; 10 s polling missed some
 TAKEOFF_GROUND_POINT_S = 60      # a flight starts with its last ground point this recent (see split_flights)
 SNAPSHOT_S = 60
-VERSION = "1.2"
+VERSION = "1.3"
 
 OGN_HOST, OGN_PORT = "aprs.glidernet.org", 14580
 # 20 km around Menuma airfield's center (JSAL guideline: N36°12'41" E139°25'08") - enough for the
@@ -66,6 +73,9 @@ OGN_FILTER = "r/36.2114/139.4189/20"
 OGN_MAX_CLOCK_SKEW_S = 300
 DDB_URL = "https://ddb.glidernet.org/download/?j=1&t=1"
 DDB_REFRESH_S = 24 * 3600
+
+STANDINGS_MAX_BYTES = 64 * 1024
+METADATA_URL = "http://metadata.google.internal/computeMetadata/v1/instance/attributes/"
 
 log = logging.getLogger("trackserver")
 
@@ -343,11 +353,101 @@ def run_lora(store):
         time.sleep(LORA_POLL_S)
 
 
+# ---------------------------------------------------------------- standings
+
+_editor_key = {"value": None, "at": 0.0}
+
+
+def editor_key():
+    """The representative's key for saving standings: env STANDINGS_KEY, else the instance metadata
+    attribute "standings-key" (re-read every 5 min, so it can be set or changed without a restart)."""
+    env = os.environ.get("STANDINGS_KEY")
+    if env:
+        return env
+    now = time.time()
+    if _editor_key["value"] is None or now - _editor_key["at"] > 300:
+        try:
+            req = urllib.request.Request(METADATA_URL + "standings-key", headers={"Metadata-Flavor": "Google"})
+            with urllib.request.urlopen(req, timeout=3) as r:
+                _editor_key["value"] = r.read().decode().strip()
+        except Exception:  # noqa: BLE001 - not on GCE, or not set: saving stays off
+            _editor_key["value"] = ""
+        _editor_key["at"] = now
+    return _editor_key["value"]
+
+
+def validate_standings(data):
+    """The saved standings, checked for shape and size; raises ValueError if unusable."""
+    if not isinstance(data, dict):
+        raise ValueError("not an object")
+    teams = data.get("teams")
+    if not isinstance(teams, list) or len(teams) > 60:
+        raise ValueError("teams")
+    for team in teams:
+        if not isinstance(team, dict) or not isinstance(team.get("name"), str) or not team["name"].strip():
+            raise ValueError("team name")
+        if len(team["name"]) > 60:
+            raise ValueError("team name too long")
+        gliders = team.get("gliderIds", [])
+        if not isinstance(gliders, list) or len(gliders) > 20 or not all(isinstance(g, str) and len(g) <= 40 for g in gliders):
+            raise ValueError("gliderIds")
+        for key in ("total", "national"):
+            value = team.get(key)
+            if value is not None and (not isinstance(value, (int, float)) or isinstance(value, bool) or not math.isfinite(value)):
+                raise ValueError(key)
+    competition = data.get("competition", "")
+    if not isinstance(competition, str) or len(competition) > 120:
+        raise ValueError("competition")
+    through = data.get("throughDate")
+    if through is not None and not (isinstance(through, str) and re.fullmatch(r"\d{4}-\d{2}-\d{2}", through)):
+        raise ValueError("throughDate")
+    return data
+
+
+def load_standings(path):
+    try:
+        with open(path) as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return None
+
+
+def save_standings(path, data):
+    tmp = path + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump(data, f, ensure_ascii=False)
+    os.replace(tmp, path)
+
+
 # ---------------------------------------------------------------- HTTP
 
 class Handler(BaseHTTPRequestHandler):
     store = None
+    standings_path = None
+    standings_lock = threading.Lock()
     server_version = "LoraViewerTrack/" + VERSION
+
+    def do_PUT(self):
+        url = urllib.parse.urlparse(self.path)
+        if url.path != "/standings":
+            return self._json({"error": "not found"}, 404)
+        if not API_KEY or self.headers.get("X-Api-Key") != API_KEY:
+            return self._json({"error": "unauthorized"}, 401)
+        key = editor_key()
+        if not key or not hmac.compare_digest(self.headers.get("X-Editor-Key", ""), key):
+            return self._json({"error": "forbidden"}, 403)
+        length = int(self.headers.get("Content-Length") or 0)
+        if length <= 0 or length > STANDINGS_MAX_BYTES:
+            return self._json({"error": "bad length"}, 400)
+        try:
+            data = validate_standings(json.loads(self.rfile.read(length)))
+        except ValueError as e:
+            return self._json({"error": "bad standings: %s" % e}, 400)
+        data["updatedAt"] = int(time.time())
+        with self.standings_lock:
+            save_standings(self.standings_path, data)
+        log.info("standings saved: %s, %d teams", data.get("competition", ""), len(data["teams"]))
+        self._json({"standings": data})
 
     def do_GET(self):
         url = urllib.parse.urlparse(self.path)
@@ -355,10 +455,13 @@ class Handler(BaseHTTPRequestHandler):
             with self.store.lock:
                 counts = {s: len(v) for s, v in self.store.tracks.items()}
             return self._json({"ok": True, "gliders": counts})
-        if url.path not in ("/tracks", "/flights"):
+        if url.path not in ("/tracks", "/flights", "/standings"):
             return self._json({"error": "not found"}, 404)
         if not API_KEY or self.headers.get("X-Api-Key") != API_KEY:
             return self._json({"error": "unauthorized"}, 401)
+        if url.path == "/standings":
+            with self.standings_lock:
+                return self._json({"standings": load_standings(self.standings_path)})
         q = urllib.parse.parse_qs(url.query)
         source = q.get("source", [""])[0]
         if source not in ("ogn", "lora"):
@@ -414,6 +517,7 @@ def main():
                          (run_housekeeping, (store, snapshot))):
         threading.Thread(target=target, args=args, daemon=True).start()
     Handler.store = store
+    Handler.standings_path = os.path.join(DATA_DIR, "standings.json")
     log.info("listening on 127.0.0.1:%d", PORT)
     ThreadingHTTPServer(("127.0.0.1", PORT), Handler).serve_forever()
 

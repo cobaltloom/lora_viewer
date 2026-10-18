@@ -73,3 +73,46 @@ class TrackServerTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+class StandingsTest(unittest.TestCase):
+    def test_validation(self):
+        ok = {"competition": "第42回関東", "throughDate": "2026-10-17",
+              "teams": [{"name": "中央23", "gliderIds": ["000A", "FLRDB0786"], "total": 1895, "national": 1895}]}
+        self.assertIs(ts.validate_standings(ok), ok)
+        for bad in ({"teams": "x"}, {"teams": [{"name": ""}]}, {"teams": [{"name": "a", "total": "1"}]},
+                    {"teams": [{"name": "a", "gliderIds": [1]}]}, {"teams": [], "throughDate": "17/10"}):
+            with self.assertRaises(ValueError):
+                ts.validate_standings(bad)
+
+    def test_http_round_trip(self):
+        import json, os, tempfile, threading, urllib.request, urllib.error
+        from http.server import ThreadingHTTPServer
+        tmp = tempfile.mkdtemp()
+        ts.API_KEY = "api"
+        os.environ["STANDINGS_KEY"] = "editor"
+        ts.Handler.store = ts.Store()
+        ts.Handler.standings_path = os.path.join(tmp, "standings.json")
+        server = ThreadingHTTPServer(("127.0.0.1", 0), ts.Handler)
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        base = "http://127.0.0.1:%d/standings" % server.server_address[1]
+        try:
+            def call(method, headers, body=None):
+                req = urllib.request.Request(base, data=body, method=method, headers=headers)
+                try:
+                    with urllib.request.urlopen(req) as r:
+                        return r.status, json.load(r)
+                except urllib.error.HTTPError as e:
+                    return e.code, None
+            self.assertEqual(call("GET", {"X-Api-Key": "api"}), (200, {"standings": None}))
+            body = json.dumps({"competition": "test", "teams": [{"name": "中央23", "total": 1895}]}).encode()
+            self.assertEqual(call("PUT", {"X-Api-Key": "api", "X-Editor-Key": "wrong"}, body)[0], 403)
+            self.assertEqual(call("PUT", {"X-Api-Key": "x", "X-Editor-Key": "editor"}, body)[0], 401)
+            status, saved = call("PUT", {"X-Api-Key": "api", "X-Editor-Key": "editor"}, body)
+            self.assertEqual(status, 200)
+            self.assertIn("updatedAt", saved["standings"])
+            status, got = call("GET", {"X-Api-Key": "api"})
+            self.assertEqual(got["standings"]["teams"][0]["name"], "中央23")
+        finally:
+            server.shutdown()
+            del os.environ["STANDINGS_KEY"]
+
