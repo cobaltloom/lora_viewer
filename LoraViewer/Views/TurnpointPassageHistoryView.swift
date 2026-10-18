@@ -86,7 +86,7 @@ struct TurnpointPassageHistoryView: View {
                         Text("周回・得点")
                     } footer: {
                         if !scores.isEmpty {
-                            Text("参考得点は競技規則53の式(距離・速度・ハンディキャップ)で、この端末が計時した飛行ごとに計算した目安です。周回できなかった飛行は、規則56(1)により細則2の距離表の距離点のみです。ゴール高度が280〜330m未満は50点減点、280m未満は速度点なしです(細則7 別表)。「TIME TO BEAT」は、その時間で周回すると全員の得点を計算し直した結果1位(P1)になる時間です(ゴール高度330m以上の場合)。公式成績は各選手のその日最後の飛行をIGCロガーで判定します。ハンディキャップは関東大会の出場機には機種に合わせた値が入っており、それ以外は1.00です。得点の行をタップするか、メンバー一覧で機体ごとに変更できます。")
+                            Text("参考得点は競技規則53の式(距離・速度・ハンディキャップ)で、この端末が計時した飛行ごとに計算した目安です(公式成績と同じく小数点以下切り捨て)。周回できなかった飛行は、規則56(1)により最後の有効な旋回点から妻沼に戻るまでの距離点のみです。ゴール高度が280〜330m未満は50点減点、280m未満は速度点なしです(細則7 別表)。「TIME TO BEAT」は、その時間で周回すると全員の得点を計算し直した結果1位(P1)になる時間です(ゴール高度330m以上の場合)。公式成績は各選手のその日最後の飛行をIGCロガーで判定します。ハンディキャップは関東大会の出場機には機種に合わせた値が入っており、それ以外は1.00です。得点の行をタップするか、メンバー一覧で機体ごとに変更できます。")
                         }
                     }
                 }
@@ -156,7 +156,7 @@ struct TurnpointPassageHistoryView: View {
                         }
                     }
                 } label: {
-                    Text("参考得点 \(score, specifier: "%.1f")点(ハンデ \(handicapStore.handicap(for: gliderID), specifier: "%.2f")\(Self.goalPenaltyNote(record)))")
+                    Text("参考得点 \(Int(score.rounded(.down)))点(ハンデ \(handicapStore.handicap(for: gliderID), specifier: "%.2f")\(Self.goalPenaltyNote(record)))")
                         .font(.subheadline.bold())
                         .foregroundStyle(.green)
                 }
@@ -199,7 +199,7 @@ struct ToBeatCard: View {
                         if let leaderLapSeconds {
                             Text(ToBeat.clock(leaderLapSeconds))
                         }
-                        Text(String(format: "%.1f点", leaderScore))
+                        Text("\(Int(leaderScore.rounded(.down)))点")
                     }
                     .font(.caption.monospacedDigit())
                     .foregroundStyle(.white.opacity(0.75))

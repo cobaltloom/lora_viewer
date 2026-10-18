@@ -217,20 +217,23 @@ enum TaskLapCalculator {
 }
 
 /// 競技規則56(1): a flight that rounds some turnpoints but not the whole course scores distance only
-/// - "the last valid turnpoint plus 妻沼", by the 細則2 table below (管理ポイント doesn't count).
+/// - "the last valid turnpoint plus 妻沼" (管理ポイント doesn't count). The official results of
+/// 2026-10-17 scored 高林給水塔→邑楽タワー as 20.2 km, i.e. including the way back to 妻沼 (ST point →
+/// turnpoints → ST point), not 細則2's 14.6 km to the last turnpoint; so the table below is that
+/// round distance, taking 細則2's figures where they cover the same route.
 enum PartialLapDistance {
     static let checkpointName = "管理ポイント"
 
-    /// 細則2「ポイント毎の距離」, keyed by the turnpoints rounded in order (after 妻沼).
+    /// Keyed by the turnpoints rounded in order (after 妻沼), in km.
     static let table: [[String]: Double] = [
-        ["高林給水塔"]: 11.4,
-        ["千代田"]: 12.8,
-        ["高林給水塔", "千代田"]: 17.7,
-        ["千代田", "高林給水塔"]: 17.8,
-        ["高林給水塔", "邑楽タワー"]: 14.6,
-        ["千代田", "邑楽タワー"]: 11.7,
-        ["高林給水塔", "邑楽タワー", "千代田"]: 20.1,
-        ["千代田", "邑楽タワー", "高林給水塔"]: 20.2,
+        ["高林給水塔"]: 11.4, // 細則2 1ポイント
+        ["千代田"]: 12.8, // 細則2 1ポイント
+        ["高林給水塔", "千代田"]: 23.6, // = 細則2 コース②
+        ["千代田", "高林給水塔"]: 23.6, // = 細則2 コース②
+        ["高林給水塔", "邑楽タワー"]: 20.2, // 2026-10-17 official results
+        ["千代田", "邑楽タワー"]: 18.0, // ST point round, 17.97 km
+        ["高林給水塔", "邑楽タワー", "千代田"]: 26.1, // ST point round, 26.11 km
+        ["千代田", "邑楽タワー", "高林給水塔"]: 26.1, // = 細則2 コース④
     ]
 
     /// The course's turnpoints that score, in order.

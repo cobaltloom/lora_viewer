@@ -11,15 +11,31 @@ class LapScoreTest {
     private fun partial(id: String, km: Double, handicap: Double) = LapScore.Lap(id, km, null, handicap)
 
     @Test
-    fun matchesTheDayCalculatedByHand() {
-        // 2026-10-17, course ③ (26.4 km): the fastest lap (ASK23B, 1.00) sets Rv and Rh's denominator.
+    fun matchesTheOfficialResults() {
+        // 2026-10-17 official results (kanto2026_day4-total.pdf), course ③ at 26.5 km: the fastest lap
+        // (中央 ASK23B 1.00) sets Rv and Rh's denominator; scores are truncated to whole points and 中央's
+        // 1000 had a separate 100-point deduction.
+        val course3 = CompetitionTaskCourseData.courses[2]
+        assertEquals(26.5, course3.distanceKm, 0.0)
+        fun official(points: Double) = kotlin.math.floor(points).toInt()
         val s = LapScore.scores(
-            listOf(lap("chuo", 26, 15, 1.00), lap("keio", 27, 52, 0.90), lap("waseda", 28, 40, 0.90), lap("tohoku", 42, 5, 1.00)),
+            listOf(
+                lap("chuo", 26, 15, 1.00, 26.5),
+                lap("keio", 27, 52, 0.90, 26.5),
+                lap("waseda", 28, 40, 0.90, 26.5),
+                lap("tohoku", 42, 6, 1.00, 26.5),
+                lap("aoyama", 61, 37, 1.00, 26.5),
+                partial("kanchi", PartialLapDistance.distanceKm(listOf("高林給水塔", "邑楽タワー"))!!, 1.00),
+                partial("meiji", PartialLapDistance.distanceKm(listOf("高林給水塔"))!!, 0.95),
+            ),
         )
-        assertEquals(1000.0, s.getValue("chuo"), 0.05)
-        assertEquals(873.8, s.getValue("keio"), 0.5)
-        assertEquals(861.9, s.getValue("waseda"), 0.5)
-        assertEquals(811.8, s.getValue("tohoku"), 0.5)
+        assertEquals(1000, official(s.getValue("chuo")))
+        assertEquals(873, official(s.getValue("keio")))
+        assertEquals(862, official(s.getValue("waseda")))
+        assertEquals(811, official(s.getValue("tohoku")))
+        assertEquals(713, official(s.getValue("aoyama")))
+        assertEquals(381, official(s.getValue("kanchi")))
+        assertEquals(204, official(s.getValue("meiji")))
     }
 
     @Test
@@ -44,24 +60,25 @@ class LapScoreTest {
 
     @Test
     fun partlyFlownCoursesScoreDistanceOnly() {
-        // 2026-10-17, course ③: 規則56(1) distance points by the 細則2 table, no speed points.
+        // 規則56(1) distance points, including the way back to 妻沼 as the official results do; no speed points.
         val course3 = CompetitionTaskCourseData.courses[2]
         assertEquals(listOf("高林給水塔", "邑楽タワー", "千代田"), PartialLapDistance.scoredTurnpoints(course3))
-        assertEquals(20.1, PartialLapDistance.distanceKm(listOf("高林給水塔", "邑楽タワー", "千代田", "管理ポイント"))!!, 0.0)
-        assertEquals(14.6, PartialLapDistance.distanceKm(listOf("高林給水塔", "邑楽タワー"))!!, 0.0)
+        assertEquals(26.1, PartialLapDistance.distanceKm(listOf("高林給水塔", "邑楽タワー", "千代田", "管理ポイント"))!!, 0.0)
+        assertEquals(20.2, PartialLapDistance.distanceKm(listOf("高林給水塔", "邑楽タワー"))!!, 0.0)
+        assertEquals(18.0, PartialLapDistance.distanceKm(listOf("千代田", "邑楽タワー"))!!, 0.0) // more than 1 point's 12.8
         assertEquals(null, PartialLapDistance.distanceKm(emptyList()))
         val s = LapScore.scores(
             listOf(
-                lap("chuo", 26, 15, 1.00),
-                partial("gakushuin", 20.1, 1.00),
-                partial("kanchi", 14.6, 1.00),
-                partial("meiji", 11.4, 0.95),
+                lap("chuo", 26, 15, 1.00, 26.5),
+                partial("three", 26.1, 1.00),
+                partial("two", 20.2, 1.00),
+                partial("one", 11.4, 0.95),
             ),
         )
         assertEquals(1000.0, s.getValue("chuo"), 0.05)
-        assertEquals(380.7, s.getValue("gakushuin"), 0.1)
-        assertEquals(276.5, s.getValue("kanchi"), 0.1)
-        assertEquals(205.1, s.getValue("meiji"), 0.1)
+        assertEquals(26.1 / 26.5 * 500, s.getValue("three"), 1e-9)
+        assertEquals(20.2 / 26.5 * 500, s.getValue("two"), 1e-9)
+        assertEquals(11.4 / 26.5 * 500 * 0.95, s.getValue("one"), 1e-9)
     }
 
     @Test
