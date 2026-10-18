@@ -42,6 +42,7 @@ struct CurrentMapView: View {
     @State private var hasOfferedDataSourcePrompt = false
     @State private var showPaywall = false
     @State private var showTurnpointHistory = false
+    @State private var showStandings = false
     @State private var didCenterInitially = false
     @State private var showFavoritesOnly = false
     /// The visible map region's center, kept up to date so distance labels
@@ -419,6 +420,15 @@ struct CurrentMapView: View {
                     }
                     Button {
                         if subscriptionManager.hasFullAccess {
+                            showStandings = true
+                        } else {
+                            showPaywall = true
+                        }
+                    } label: {
+                        Label("団体順位", systemImage: "trophy")
+                    }
+                    Button {
+                        if subscriptionManager.hasFullAccess {
                             showTurnpointHistory = true
                         } else {
                             showPaywall = true
@@ -458,6 +468,22 @@ struct CurrentMapView: View {
                 }
                 Button("キャンセル", role: .cancel) {
                     pointOfInterestPendingDeletion = nil
+                }
+            }
+            .sheet(isPresented: $showStandings) {
+                NavigationStack {
+                    TeamStandingsView(
+                        server: settings.trackServer,
+                        log: turnpointPassageLog,
+                        course: selectedTaskCourse,
+                        knownGliders: viewModel.positions.filter { !$0.isAnonymous }.map { (id: $0.imei, name: viewModel.nameFor($0)) }
+                    )
+                    .environmentObject(handicapStore)
+                    .toolbar {
+                        ToolbarItem(placement: .topBarLeading) {
+                            Button("閉じる") { showStandings = false }
+                        }
+                    }
                 }
             }
             .sheet(isPresented: $showTurnpointHistory) {

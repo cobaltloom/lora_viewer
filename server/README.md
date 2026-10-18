@@ -67,6 +67,19 @@ gcloud compute instances add-metadata loraviewer-track --zone=us-west1-b \
 gcloud compute instances reset loraviewer-track --zone=us-west1-b
 ```
 
+## Team standings editor key
+
+Representatives save the shared team standings (団体順位) from the app with an editor key, read
+from the instance metadata attribute `standings-key` (re-read every 5 minutes, so no restart is
+needed to set or change it):
+
+```sh
+gcloud compute instances add-metadata loraviewer-track --zone=us-west1-b \
+  --metadata=standings-key=<passphrase>
+```
+
+Without it, saving is refused and the apps just show what was saved before (if anything).
+
 ## Notes
 
 - The external IP is ephemeral: it survives reboots/resets but changes if the VM is stopped and

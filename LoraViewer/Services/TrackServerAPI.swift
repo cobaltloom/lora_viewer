@@ -28,6 +28,43 @@ final class TrackServerAPI {
         return decoded.flights.mapValues { flights in flights.map(Self.points) }
     }
 
+    /// The team standings a representative last saved, or nil if none yet.
+    func fetchStandings(server: TrackServerConfig) async throws -> TeamStandings? {
+        var request = URLRequest(url: server.url.appendingPathComponent("standings"))
+        request.timeoutInterval = 15
+        request.setValue(server.key, forHTTPHeaderField: "X-Api-Key")
+        let (data, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+            throw TrailRouteAPIError.invalidResponse
+        }
+        return try JSONDecoder().decode(StandingsResponse.self, from: data).standings
+    }
+
+    /// Saves `standings` for every app to see; needs the representative's `editorKey`.
+    func saveStandings(server: TrackServerConfig, editorKey: String, standings: TeamStandings) async throws -> TeamStandings {
+        var request = URLRequest(url: server.url.appendingPathComponent("standings"))
+        request.httpMethod = "PUT"
+        request.timeoutInterval = 15
+        request.setValue(server.key, forHTTPHeaderField: "X-Api-Key")
+        request.setValue(editorKey, forHTTPHeaderField: "X-Editor-Key")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        var payload = standings
+        payload.updatedAt = nil
+        request.httpBody = try JSONEncoder().encode(payload)
+        let (data, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse else { throw TrailRouteAPIError.invalidResponse }
+        if http.statusCode == 403 { throw TrailRouteAPIError.serverError("合言葉が違います") }
+        guard (200..<300).contains(http.statusCode),
+              let saved = try JSONDecoder().decode(StandingsResponse.self, from: data).standings else {
+            throw TrailRouteAPIError.serverError("保存できませんでした(\(http.statusCode))")
+        }
+        return saved
+    }
+
+    private struct StandingsResponse: Decodable {
+        let standings: TeamStandings?
+    }
+
     private func get(_ path: String, server: TrackServerConfig, source: DataSource, groundAltitudeM: Double) async throws -> Data {
         var components = URLComponents(url: server.url.appendingPathComponent(path), resolvingAgainstBaseURL: false)
         components?.queryItems = [
@@ -86,6 +123,28 @@ struct TodaysFlights {
     let id = UUID()
     let flights: [String: [[TrackServerPoint]]]
     let baseNames: [String: String]
+}
+
+/// A competition's team standings as a representative entered them (shared through the track
+/// server): each team's gliders and its official totals up to `throughDate`.
+struct TeamStandings: Codable, Equatable {
+    struct Team: Codable, Equatable {
+        var name: String
+        /// LoRa tracker ids and FLARM callsigns of the team's gliders.
+        var gliderIds: [String] = []
+        /// Official team total (団体), per 規則55: each day's top three pilots, summed over the days.
+        var total: Double?
+        /// Official 全国選出点 total, per 規則60: each day's best pilot score, summed over the days.
+        var national: Double?
+    }
+
+    var competition: String = ""
+    /// The last competition day included in the totals, e.g. 4 for "第4日終了時点".
+    var throughDay: Int?
+    /// That day's date, "yyyy-MM-dd": when it's today, today's flights are already in the totals.
+    var throughDate: String?
+    var teams: [Team] = []
+    var updatedAt: Double?
 }
 
 struct TrackServerConfig: Equatable {

@@ -345,3 +345,75 @@ enum LapScore {
         return fast
     }
 }
+
+/// Provisional team standings: the official totals plus today's reference scores (see `LapScore`) of
+/// each team's gliders - the best three flights for the team total and the best one for 全国選出点,
+/// floored like the official results. Pilots aren't known, so each flight counts as a different
+/// pilot's last flight. Also finds the lap time a team needs to reach a given rank today. Kept in
+/// step with the Android app's TeamRanking, which has the unit tests.
+enum TeamRanking {
+    struct Row: Identifiable {
+        let name: String
+        let official: Double
+        let today: Double
+        let nationalOfficial: Double
+        let nationalToday: Double
+        /// 1 = top; teams level on points share a rank.
+        var rank: Int
+        let flightsToday: Int
+        var total: Double { official + today }
+        var nationalTotal: Double { nationalOfficial + nationalToday }
+        var id: String { name }
+    }
+
+    /// One of today's scored flights: its lap (for rescoring) and the glider that flew it.
+    struct Flight {
+        let lap: LapScore.Lap
+        let gliderID: String?
+    }
+
+    static func rows(_ standings: TeamStandings, flights: [Flight], includeToday: Bool) -> [Row] {
+        rows(standings, scores: includeToday ? LapScore.scores(flights.map(\.lap)) : [:], flights: flights, includeToday: includeToday)
+    }
+
+    private static func rows(_ standings: TeamStandings, scores: [UUID: Double], flights: [Flight], includeToday: Bool) -> [Row] {
+        let partial: [Row] = standings.teams.map { team in
+            let teamScores: [Double] = includeToday
+                ? flights.filter { flight in flight.gliderID.map { team.gliderIds.contains($0) } ?? false }
+                    .compactMap { scores[$0.lap.id] }.map { $0.rounded(.down) }.sorted(by: >)
+                : []
+            return Row(name: team.name, official: team.total ?? 0, today: teamScores.prefix(3).reduce(0, +),
+                       nationalOfficial: team.national ?? 0, nationalToday: teamScores.first ?? 0,
+                       rank: 0, flightsToday: teamScores.count)
+        }
+        return partial.map { row in
+            var ranked = row
+            ranked.rank = 1 + partial.filter { $0.total > row.total }.count
+            return ranked
+        }.sorted { $0.rank < $1.rank }
+    }
+
+    /// The slowest lap over `distanceKm` in `teamName`'s glider (`gliderID`, `handicap`) with which the
+    /// team would rank `targetRank` or better today, rescoring the whole field with it. Assumes a goal
+    /// at 330 m or above. `.infinity` if any lap would do, nil if no lap could.
+    static func lapSecondsToReach(_ standings: TeamStandings, flights: [Flight], teamName: String, gliderID: String,
+                                  handicap: Double, distanceKm: Double, targetRank: Int) -> Double? {
+        guard distanceKm > 0, standings.teams.contains(where: { $0.name == teamName }) else { return nil }
+        let candidate = UUID()
+        func reaches(_ lapSeconds: Double) -> Bool {
+            let all = flights + [Flight(lap: LapScore.Lap(id: candidate, distanceKm: distanceKm, lapSeconds: lapSeconds, handicap: handicap),
+                                        gliderID: gliderID)]
+            let ranked = rows(standings, scores: LapScore.scores(all.map(\.lap)), flights: all, includeToday: true)
+            return (ranked.first { $0.name == teamName }?.rank ?? Int.max) <= targetRank
+        }
+        var fast = 60.0, slow = 6 * 3600.0
+        if reaches(slow) { return .infinity }
+        guard reaches(fast) else { return nil }
+        // Faster always helps the team relatively, so bisect for the slowest lap that still reaches.
+        for _ in 0..<40 {
+            let mid = (fast + slow) / 2
+            if reaches(mid) { fast = mid } else { slow = mid }
+        }
+        return fast
+    }
+}
