@@ -87,6 +87,7 @@ fun StandingsEditorScreen(viewModel: GliderTrackerViewModel, onBack: () -> Unit)
             )
         }.filterValues { it.course != null || it.scores.isNotEmpty() },
         handicaps = handicaps.mapNotNull { (id, v) -> v.trim().toDoubleOrNull()?.let { id to it } }.toMap(),
+        finalizedAt = initial?.finalizedAt,
     )
     val days = remember(startDate, endDate) { draft().dates(today) }
     var selectedDay by remember { mutableStateOf(days.lastOrNull()) }

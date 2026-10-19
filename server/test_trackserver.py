@@ -158,3 +158,33 @@ class LapTimingTest(unittest.TestCase):
         finished = ts.day_results({"g1": [self.flight()]}, now=1e9)[ts.COURSES[1][0]][0]
         self.assertAlmostEqual(finished["lapSeconds"], 1765, delta=1)
 
+
+class FinalizeTest(unittest.TestCase):
+    C3 = ts.COURSES[2][0]
+
+    def results(self):
+        lap = lambda gid, minutes, alt=400.0: {"id": gid, "start": 0, "finish": minutes * 60, "lapSeconds": minutes * 60.0,
+                                              "distanceKm": 26.5, "goalAltitudeM": alt}
+        return {"2026-10-17": {"ogn": {self.C3: [lap("FLRDB0786", 26.25), lap("FLRDB0775", 27 + 52 / 60), lap("FLRDB0775", 57 + 4 / 60),
+                                                 {"id": "FLRDB076F", "start": 0, "distanceKm": 20.2, "passed": ["高林給水塔", "邑楽タワー"]}]},
+                               "lora": {self.C3: [lap("000A", 26.25)]}}}
+
+    def test_scores_match_the_official_results(self):
+        scores = ts.day_glider_scores({}, "2026-10-17", self.results()["2026-10-17"]["ogn"])
+        self.assertEqual(scores["FLRDB0786"], {"total": 1000.0, "national": 1000.0})  # 中央 ASK23B, fastest
+        self.assertEqual(scores["FLRDB0775"]["national"], 873.0)  # 慶應 Discus 0.90 (built-in), official 873
+        self.assertEqual(scores["FLRDB0775"]["total"], 873.0 + 656.0)  # and its 57:04 lap, official 656
+        self.assertEqual(scores["FLRDB076F"]["total"], 381.0)  # 関千 2 points, official 381
+
+    def test_confirmed_three_days_after_the_last_day(self):
+        competition = {"name": "test", "startDate": "2026-10-16", "endDate": "2026-10-18",
+                       "days": {"2026-10-17": {"scores": {"FLRDB0786": {"total": 900.0}}}}}
+        self.assertIsNone(ts.finalize_competition(competition, self.results(), "2026-10-20"))
+        final = ts.finalize_competition(competition, self.results(), "2026-10-21")
+        scores = final["days"]["2026-10-17"]["scores"]
+        self.assertEqual(scores["FLRDB0786"], {"total": 900.0, "national": 1000.0})  # correction kept, gap filled
+        self.assertEqual(scores["000A"]["total"], 1000.0)  # LoRa gliders too
+        self.assertIn("finalizedAt", final)
+        self.assertIsNone(ts.finalize_competition(final, self.results(), "2026-10-22"))  # only once
+        self.assertNotIn("finalizedAt", competition)  # the original is untouched
+

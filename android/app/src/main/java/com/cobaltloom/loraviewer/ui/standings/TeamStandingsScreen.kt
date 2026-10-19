@@ -123,6 +123,13 @@ fun TeamStandingsScreen(viewModel: GliderTrackerViewModel, onBack: () -> Unit, o
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                    if (competition.finalizedAt != null) {
+                        Text(
+                            "最終日の3日後に、全日の得点を自動で確定しました。",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                     if (includeToday) {
                         Text(
                             "本日のコース: " + (todayCourse ?: "まだ周回がありません") + if (courseIsSet || todayCourse == null) "" else "(周回の多さから自動判定)",

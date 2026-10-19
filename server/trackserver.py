@@ -51,7 +51,7 @@ import threading
 import time
 import urllib.parse
 import urllib.request
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 API_KEY = os.environ.get("API_KEY", "")
@@ -70,7 +70,7 @@ JST_OFFSET_S = 9 * 3600
 LORA_POLL_S = 5                  # LoRa fixes come every ~7-15 s; 10 s polling missed some
 TAKEOFF_GROUND_POINT_S = 60      # a flight starts with its last ground point this recent (see split_flights)
 SNAPSHOT_S = 60
-VERSION = "1.4"
+VERSION = "1.5"
 
 OGN_HOST, OGN_PORT = "aprs.glidernet.org", 14580
 # 20 km around Menuma airfield's center (JSAL guideline: N36°12'41" E139°25'08") - enough for the
@@ -597,13 +597,130 @@ class Results:
             return {d: v.get(source, {}) for d, v in self.days.items() if start <= d <= end}
 
 
-def run_results(store, results):
+def run_results(store, results, standings_path, standings_lock):
     while True:
         try:
-            results.update(store, time.time())
+            now = time.time()
+            results.update(store, now)
+            # FINALIZE_AFTER_DAYS after a competition's last day, confirm its scores into it.
+            with standings_lock:
+                competition = load_standings(standings_path)
+                today = datetime.fromtimestamp(now + JST_OFFSET_S, timezone.utc).strftime("%Y-%m-%d")
+                with results.lock:
+                    days = json.loads(json.dumps(results.days))
+                final = finalize_competition(competition, days, today) if isinstance(competition, dict) else None
+                if final:
+                    save_standings(standings_path, final)
+                    log.info("competition finalized: %s", final.get("name", ""))
         except Exception as e:  # noqa: BLE001 - keep going; next round may succeed
             log.warning("results failed: %s", e)
         time.sleep(RESULTS_INTERVAL_S)
+
+
+# ---------------------------------------------------------------- scoring
+#
+# The apps' LapScore (競技規則53, 56(1), 細則7 別表(4)) and CompetitionScoring, ported so a finished
+# competition's scores can be confirmed here (see finalize_competition).
+
+GOAL_MIN_ALTITUDE_M = 330.0
+GOAL_NO_SPEED_BELOW_M = 280.0
+LOW_GOAL_DEDUCTION = 50.0
+FINALIZE_AFTER_DAYS = 3
+# Known club gliders that aren't 1.00, as in the apps (LoRa ids and the FLARM each was seen carrying).
+BUILT_IN_HANDICAPS = {
+    "0006": 0.90, "ICA84C247": 0.90,  # 早稲田 LS4
+    "0007": 0.95, "FLRDB0774": 0.95,  # 明治 DG-100G
+    "0008": 0.90, "FLRDB0775": 0.90,  # 慶應 Discus
+    "000B": 0.90, "ICA841083": 0.90,  # 法政 Discus
+}
+
+
+def lap_scores(laps):
+    """Reference scores (LapScore.scores): laps are dicts with key, distanceKm, lapSeconds (None for a
+    partly flown course), handicap and goalAltitudeM. Returns {key: points}."""
+    def penalty(lap):
+        if lap.get("lapSeconds") is None or lap.get("goalAltitudeM") is None:
+            return None
+        if lap["goalAltitudeM"] < GOAL_NO_SPEED_BELOW_M:
+            return "nospeed"
+        return "deduct" if lap["goalAltitudeM"] < GOAL_MIN_ALTITUDE_M else None
+
+    def speed(lap):
+        if lap.get("lapSeconds") is None or penalty(lap) == "nospeed":
+            return 0.0
+        return lap["distanceKm"] / (lap["lapSeconds"] / 3600)
+
+    valid = [l for l in laps if l["distanceKm"] > 0 and (l.get("lapSeconds") is None or l["lapSeconds"] > 0)]
+    if not valid:
+        return {}
+    max_d = max(l["distanceKm"] for l in valid)
+    max_v = max(speed(l) for l in valid)
+    reference = [l for l in valid if speed(l) == max_v] if max_v > 0 else [l for l in valid if l["distanceKm"] == max_d]
+    ref_h = max(l["handicap"] for l in reference)
+    scores = {l["key"]: l["distanceKm"] / max_d * (500 + 500 * (speed(l) / max_v if max_v > 0 else 0)) * l["handicap"] / ref_h
+              for l in valid}
+    top = max(scores.values())
+    if top > 1000:
+        scores = {k: v * 1000 / top for k, v in scores.items()}
+    for l in valid:
+        if penalty(l) == "deduct":
+            scores[l["key"]] = max(0.0, scores[l["key"]] - LOW_GOAL_DEDUCTION)
+    return scores
+
+
+def day_course(competition, date, day_results):
+    """The day's course: as set, else the one with the most laps completed (then the most entries)."""
+    course = (competition.get("days", {}).get(date) or {}).get("course")
+    if course:
+        return course
+    candidates = [(sum(1 for e in v if "finish" in e), len(v), name) for name, v in (day_results or {}).items() if v]
+    return max(candidates)[2] if candidates else None
+
+
+def day_glider_scores(competition, date, day_results):
+    """{glider id: {"total": best three floored, "national": best one}} for one day and source."""
+    course = day_course(competition, date, day_results)
+    handicaps = competition.get("handicaps", {})
+    laps = [{"key": i, "id": e["id"], "distanceKm": e["distanceKm"], "lapSeconds": e.get("lapSeconds"),
+             "goalAltitudeM": e.get("goalAltitudeM"),
+             "handicap": handicaps.get(e["id"], BUILT_IN_HANDICAPS.get(e["id"], 1.0))}
+            for i, e in enumerate((day_results or {}).get(course, []))]
+    scores = lap_scores(laps)
+    by_glider = {}
+    for lap in laps:
+        if lap["key"] in scores:
+            by_glider.setdefault(lap["id"], []).append(math.floor(scores[lap["key"]]))
+    return {gid: {"total": float(sum(sorted(v, reverse=True)[:3])), "national": float(max(v))} for gid, v in by_glider.items()}
+
+
+def finalize_competition(competition, results, today):
+    """The competition with every day's scores filled in from the results, both sources, where not
+    already entered - so its standings outlive the results' retention. Returns None if not due
+    (FINALIZE_AFTER_DAYS after the last day) or already done."""
+    end = competition.get("endDate")
+    start = competition.get("startDate")
+    if not start or not end or competition.get("finalizedAt"):
+        return None
+    if today < (datetime.strptime(end, "%Y-%m-%d") + timedelta(days=FINALIZE_AFTER_DAYS)).strftime("%Y-%m-%d"):
+        return None
+    final = json.loads(json.dumps(competition))
+    days = final.setdefault("days", {})
+    date = datetime.strptime(start, "%Y-%m-%d")
+    while date.strftime("%Y-%m-%d") <= end:
+        key = date.strftime("%Y-%m-%d")
+        for source in ("ogn", "lora"):
+            computed = day_glider_scores(final, key, results.get(key, {}).get(source, {}))
+            if not computed:
+                continue
+            entered = days.setdefault(key, {}).setdefault("scores", {})
+            for gid, score in computed.items():
+                own = entered.setdefault(gid, {})
+                for field in ("total", "national"):
+                    if own.get(field) is None:
+                        own[field] = score[field]
+        date += timedelta(days=1)
+    final["finalizedAt"] = int(time.time())
+    return final
 
 
 # ---------------------------------------------------------------- standings
@@ -791,9 +908,10 @@ def main():
                          (run_housekeeping, (store, snapshot))):
         threading.Thread(target=target, args=args, daemon=True).start()
     Handler.store = store
-    Handler.results = Results(os.path.join(DATA_DIR, "results.json"))
-    threading.Thread(target=run_results, args=(store, Handler.results), daemon=True).start()
     Handler.standings_path = os.path.join(DATA_DIR, "standings.json")
+    Handler.results = Results(os.path.join(DATA_DIR, "results.json"))
+    threading.Thread(target=run_results, args=(store, Handler.results, Handler.standings_path, Handler.standings_lock),
+                     daemon=True).start()
     log.info("listening on 127.0.0.1:%d", PORT)
     ThreadingHTTPServer(("127.0.0.1", PORT), Handler).serve_forever()
 

@@ -175,6 +175,9 @@ struct Competition: Codable, Equatable {
     /// Glider id → competition handicap, overriding each device's own.
     var handicaps: [String: Double] = [:]
     var updatedAt: Double?
+    /// When the track server confirmed every day's scores into `days`, 3 days after the last day, so
+    /// the standings outlive its results (kept 60 days).
+    var finalizedAt: Double?
 
     static let dateFormatter: DateFormatter = {
         let formatter = DateFormatter()

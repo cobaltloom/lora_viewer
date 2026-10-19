@@ -21,6 +21,9 @@ data class Competition(
     /** Glider id → competition handicap, overriding each device's own. */
     val handicaps: Map<String, Double> = emptyMap(),
     val updatedAt: Long? = null,
+    /** When the track server confirmed every day's scores into [days], 3 days after the last day, so
+     * the standings outlive its results (kept 60 days). */
+    val finalizedAt: Long? = null,
 ) {
     @Serializable
     data class Day(

@@ -65,6 +65,9 @@ struct TeamStandingsView: View {
                         let dayCount = competition.dates(until: today).count
                         Text("\(competition.startDate ?? "")〜\(competition.endDate ?? "")" +
                              (includesToday ? "(第\(dayCount)日・本日の暫定を含む)" : "(期間外: 本日分は含みません)"))
+                        if competition.finalizedAt != nil {
+                            Text("最終日の3日後に、全日の得点を自動で確定しました。")
+                        }
                         if includesToday {
                             Text("本日のコース: " + (todayCourse ?? "まだ周回がありません") +
                                  (courseIsSet || todayCourse == nil ? "" : "(周回の多さから自動判定)"))
@@ -224,7 +227,7 @@ struct CompetitionEditorView: View {
         return Competition(name: name.trimmingCharacters(in: .whitespaces),
                            startDate: Competition.dateFormatter.string(from: startDate),
                            endDate: Competition.dateFormatter.string(from: endDate),
-                           days: days, handicaps: shared)
+                           days: days, handicaps: shared, finalizedAt: initial?.finalizedAt)
     }
 
     private func sharedHandicap(_ id: String) -> Double {
