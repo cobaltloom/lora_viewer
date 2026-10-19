@@ -1,5 +1,6 @@
 package com.cobaltloom.loraviewer.ui.standings
 
+import com.cobaltloom.loraviewer.ui.common.AdBanner
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -102,6 +103,7 @@ fun TeamStandingsScreen(viewModel: GliderTrackerViewModel, onBack: () -> Unit, o
                 actions = { TextButton(onClick = onEdit) { Text("設定") } },
             )
         },
+        bottomBar = { AdBanner() },
     ) { padding ->
         if (competition == null || competition.startDate == null || standings == null) {
             Box(Modifier.padding(padding).fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {

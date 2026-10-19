@@ -12,6 +12,7 @@ struct LoraViewerApp: App {
     @StateObject private var upperAltitudeGuideline = UpperAltitudeGuideline()
     @StateObject private var proximityAlertSettings = ProximityAlertSettings()
     @StateObject private var subscriptionManager = SubscriptionManager()
+    @StateObject private var adManager = AdManager()
     @StateObject private var handicapStore = GliderHandicapStore()
 
     init() {
@@ -31,6 +32,11 @@ struct LoraViewerApp: App {
                 .environmentObject(proximityAlertSettings)
                 .environmentObject(subscriptionManager)
                 .environmentObject(handicapStore)
+                .environmentObject(adManager)
+                // The tracking prompt only shows once the app is active.
+                .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+                    adManager.start()
+                }
         }
     }
 }

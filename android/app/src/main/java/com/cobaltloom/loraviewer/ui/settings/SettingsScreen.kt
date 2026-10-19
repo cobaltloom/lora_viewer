@@ -1,5 +1,7 @@
 package com.cobaltloom.loraviewer.ui.settings
 
+import com.cobaltloom.loraviewer.ui.common.AdBanner
+import com.cobaltloom.loraviewer.ui.common.AdFreeRow
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -99,6 +101,7 @@ fun SettingsScreen(
                 },
             )
         },
+        bottomBar = { AdBanner() },
     ) { padding ->
         LazyColumn(modifier = Modifier.padding(padding).padding(horizontal = 16.dp)) {
             when (page) {
@@ -168,6 +171,15 @@ fun SettingsScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+                SettingsSectionHeader("広告")
+                AdFreeRow()
+                Text(
+                    "すべての機能は無料でお使いいただけます。地図の画面には広告を表示しません。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
                 SettingsSectionHeader("その他")

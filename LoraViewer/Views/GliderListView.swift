@@ -4,10 +4,8 @@ struct GliderListView: View {
     @ObservedObject var viewModel: GliderTrackerViewModel
     @EnvironmentObject private var favoritesStore: FavoritesStore
     @EnvironmentObject private var nicknameStore: NicknameStore
-    @EnvironmentObject private var subscriptionManager: SubscriptionManager
     @EnvironmentObject private var handicapStore: GliderHandicapStore
     @State private var showBoardScan = false
-    @State private var showPaywall = false
 
     private var sortedPositions: [GliderPosition] {
         viewModel.positions.sorted { lhs, rhs in
@@ -79,6 +77,7 @@ struct GliderListView: View {
                 }
             }
         }
+        .safeAreaInset(edge: .bottom) { AdBanner() }
         .navigationTitle("メンバー一覧")
         .refreshable {
             await viewModel.refreshOnce()
@@ -86,11 +85,7 @@ struct GliderListView: View {
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
-                    if subscriptionManager.hasFullAccess {
-                        showBoardScan = true
-                    } else {
-                        showPaywall = true
-                    }
+                    showBoardScan = true
                 } label: {
                     Label("名簿から登録", systemImage: "text.viewfinder")
                 }
@@ -98,9 +93,6 @@ struct GliderListView: View {
         }
         .sheet(isPresented: $showBoardScan) {
             BoardScanView(viewModel: viewModel)
-        }
-        .sheet(isPresented: $showPaywall) {
-            PaywallView()
         }
     }
 

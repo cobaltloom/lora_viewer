@@ -35,6 +35,9 @@
 		C022A1964866FEBFF446EBD7 /* LocationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29984A082F88847E151497BE /* LocationManager.swift */; };
 		D5307206CBEE3CEC60FF1C06 /* AlertNotifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0C2664CB68FF2F839F20ECC /* AlertNotifier.swift */; };
 		574D5CF596912B12BB2A8BE2 /* SubscriptionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = DBD79AAC9F305A35FB1EFF35 /* SubscriptionManager.swift */; };
+		A1D0C0DE0000000000000001 /* AdManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1D0C0DE0000000000000002 /* AdManager.swift */; };
+		A1D0C0DE0000000000000003 /* AdViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1D0C0DE0000000000000004 /* AdViews.swift */; };
+		A1D0C0DE0000000000000007 /* GoogleMobileAds in Frameworks */ = {isa = PBXBuildFile; productRef = A1D0C0DE0000000000000006 /* GoogleMobileAds */; };
 		E5F17E84CD344E1193F3FD15 /* TurnpointPassageLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72A0AEE45CE92C5323380B4D /* TurnpointPassageLog.swift */; };
 		53DBA7FA1E70C43133FB4C7A /* PointOfInterestStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78BAA34743961B09AD0C2D0F /* PointOfInterestStore.swift */; };
 		2AF882452B88B0FB18AB42E4 /* GliderTrackerViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A824D246B4A60A0538405738 /* GliderTrackerViewModel.swift */; };
@@ -89,6 +92,9 @@
 		3F456235F29F951462D70E40 /* ProximityAlertSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ProximityAlertSettings.swift"; sourceTree = "<group>"; };
 		29984A082F88847E151497BE /* LocationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "LocationManager.swift"; sourceTree = "<group>"; };
 		B0C2664CB68FF2F839F20ECC /* AlertNotifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AlertNotifier.swift"; sourceTree = "<group>"; };
+		A1D0C0DE0000000000000002 /* AdManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AdManager.swift"; sourceTree = "<group>"; };
+		A1D0C0DE0000000000000004 /* AdViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AdViews.swift"; sourceTree = "<group>"; };
+		A1D0C0DE0000000000000008 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info.plist"; sourceTree = "<group>"; };
 		DBD79AAC9F305A35FB1EFF35 /* SubscriptionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SubscriptionManager.swift"; sourceTree = "<group>"; };
 		72A0AEE45CE92C5323380B4D /* TurnpointPassageLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TurnpointPassageLog.swift"; sourceTree = "<group>"; };
 		78BAA34743961B09AD0C2D0F /* PointOfInterestStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PointOfInterestStore.swift"; sourceTree = "<group>"; };
@@ -123,6 +129,7 @@
 			files = (
 				45F9B9AB3DF1E6A56342C706 /* FirebaseCore in Frameworks */,
 				7F73CFCB22E1F912E8599391 /* FirebaseFirestore in Frameworks */,
+				A1D0C0DE0000000000000007 /* GoogleMobileAds in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -155,6 +162,7 @@
 				6A3AA93937C8724920FC941C /* Utilities */,
 				E57D97F88D9220B6A495EF00 /* Assets.xcassets */,
 				A76F1A7F4B331ADB5BFC5A68 /* GoogleService-Info.plist */,
+				A1D0C0DE0000000000000008 /* Info.plist */,
 				4FDEC6314D5D466A82A6DD9A /* Configuration.storekit */,
 				828EEF42003A1558EE6E6479 /* Preview Content */,
 			);
@@ -198,6 +206,7 @@
 				29984A082F88847E151497BE /* LocationManager.swift */,
 				B0C2664CB68FF2F839F20ECC /* AlertNotifier.swift */,
 				DBD79AAC9F305A35FB1EFF35 /* SubscriptionManager.swift */,
+				A1D0C0DE0000000000000002 /* AdManager.swift */,
 				72A0AEE45CE92C5323380B4D /* TurnpointPassageLog.swift */,
 				78BAA34743961B09AD0C2D0F /* PointOfInterestStore.swift */,
 			);
@@ -219,6 +228,7 @@
 				00255660CDBB7F98DF061200 /* CameraCaptureView.swift */,
 				571940B76C07CC36B2A44623 /* FavoriteButton.swift */,
 				2AF394CF9F6557D6C2736A87 /* PaywallView.swift */,
+				A1D0C0DE0000000000000004 /* AdViews.swift */,
 				65E6489C7CC64C25A161B631 /* TurnpointPassageHistoryView.swift */,
 				2CD83656DC0E9736986617F1 /* TeamStandingsView.swift */,
 				E8D0F15370CC45F6BEB9EED6 /* AddPointOfInterestView.swift */,
@@ -262,6 +272,7 @@
 			packageProductDependencies = (
 				07A45F1F432AB06BAE50A18A /* FirebaseCore */,
 				331CE90B1568FCF94816D8D2 /* FirebaseFirestore */,
+				A1D0C0DE0000000000000006 /* GoogleMobileAds */,
 			);
 			productName = LoraViewer;
 			productReference = E89172D281EBCA2A34EE5097 /* LoraViewer.app */;
@@ -293,6 +304,7 @@
 			mainGroup = F2E53A901BAF2572112B408E;
 			packageReferences = (
 				90B72A991E1DCD4E48433A7D /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
+				A1D0C0DE0000000000000005 /* XCRemoteSwiftPackageReference "swift-package-manager-google-mobile-ads" */,
 			);
 			productRefGroup = 1C2E7EBAFE5884061F6DB64A /* Products */;
 			projectDirPath = "";
@@ -349,6 +361,8 @@
 				C022A1964866FEBFF446EBD7 /* LocationManager.swift in Sources */,
 				D5307206CBEE3CEC60FF1C06 /* AlertNotifier.swift in Sources */,
 				574D5CF596912B12BB2A8BE2 /* SubscriptionManager.swift in Sources */,
+				A1D0C0DE0000000000000001 /* AdManager.swift in Sources */,
+				A1D0C0DE0000000000000003 /* AdViews.swift in Sources */,
 				E5F17E84CD344E1193F3FD15 /* TurnpointPassageLog.swift in Sources */,
 				53DBA7FA1E70C43133FB4C7A /* PointOfInterestStore.swift in Sources */,
 				2AF882452B88B0FB18AB42E4 /* GliderTrackerViewModel.swift in Sources */,
@@ -504,10 +518,12 @@
 			DEVELOPMENT_TEAM = 563XHL5ZLR;
 			ENABLE_PREVIEWS = YES;
 			GENERATE_INFOPLIST_FILE = YES;
+			INFOPLIST_FILE = LoraViewer/Info.plist;
 			INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 			INFOPLIST_KEY_CFBundleDisplayName = "LoRa妻沼";
 			INFOPLIST_KEY_NSCameraUsageDescription = "ホワイトボードの名簿を撮影して読み取るために使用します。";
 			INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "現在地を地図の中心に表示するために使用します。";
+			INFOPLIST_KEY_NSUserTrackingUsageDescription = "興味に合った広告を表示するために使用します。許可しなくても広告の表示回数は変わらず、すべての機能を使えます。";
 			INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 			INFOPLIST_KEY_UIApplicationSupportsIndoorNavigation = NO;
 			INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -538,10 +554,12 @@
 			DEVELOPMENT_TEAM = 563XHL5ZLR;
 			ENABLE_PREVIEWS = YES;
 			GENERATE_INFOPLIST_FILE = YES;
+			INFOPLIST_FILE = LoraViewer/Info.plist;
 			INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 			INFOPLIST_KEY_CFBundleDisplayName = "LoRa妻沼";
 			INFOPLIST_KEY_NSCameraUsageDescription = "ホワイトボードの名簿を撮影して読み取るために使用します。";
 			INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "現在地を地図の中心に表示するために使用します。";
+			INFOPLIST_KEY_NSUserTrackingUsageDescription = "興味に合った広告を表示するために使用します。許可しなくても広告の表示回数は変わらず、すべての機能を使えます。";
 			INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 			INFOPLIST_KEY_UIApplicationSupportsIndoorNavigation = NO;
 			INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -593,6 +611,14 @@
 				minimumVersion = 11.0.0;
 			};
 		};
+		A1D0C0DE0000000000000005 /* XCRemoteSwiftPackageReference "swift-package-manager-google-mobile-ads" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/googleads/swift-package-manager-google-mobile-ads";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 12.0.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -605,6 +631,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 90B72A991E1DCD4E48433A7D /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
 			productName = FirebaseFirestore;
+		};
+		A1D0C0DE0000000000000006 /* GoogleMobileAds */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A1D0C0DE0000000000000005 /* XCRemoteSwiftPackageReference "swift-package-manager-google-mobile-ads" */;
+			productName = GoogleMobileAds;
 		};
 /* End XCSwiftPackageProductDependency section */
 

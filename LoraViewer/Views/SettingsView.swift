@@ -9,7 +9,6 @@ struct SettingsView: View {
     @EnvironmentObject private var competitionGuideline: CompetitionAltitudeGuideline
     @EnvironmentObject private var upperAltitudeGuideline: UpperAltitudeGuideline
     @EnvironmentObject private var proximityAlertSettings: ProximityAlertSettings
-    @EnvironmentObject private var subscriptionManager: SubscriptionManager
     @Environment(\.dismiss) private var dismiss
     @AppStorage("showGliderTrails") private var showGliderTrails = true
     @AppStorage("showDistanceReferencePoints") private var showDistanceReferencePoints = true
@@ -41,7 +40,7 @@ struct SettingsView: View {
 
                 Section("競技") {
                     NavigationLink { TaskCourseSettingsPage() } label: {
-                        LabeledContent("タスクコース・周回時間", value: proSummary(taskCourseSummary))
+                        LabeledContent("タスクコース・周回時間", value: taskCourseSummary)
                     }
                 }
 
@@ -50,23 +49,25 @@ struct SettingsView: View {
                         LabeledContent("地上判定(共通)", value: "\(Int(alertSettings.minimumFlyingAltitudeM))m以下")
                     }
                     NavigationLink { LowAltitudeAlertSettingsPage() } label: {
-                        LabeledContent("高度不足(カスタム)", value: proSummary(lowAltitudeSummary))
+                        LabeledContent("高度不足(カスタム)", value: lowAltitudeSummary)
                     }
                     NavigationLink { CompetitionGuidelineSettingsPage() } label: {
-                        LabeledContent("競技会ガイドライン", value: proSummary(onOff(competitionGuideline.isEnabled)))
+                        LabeledContent("競技会ガイドライン", value: onOff(competitionGuideline.isEnabled))
                     }
                     NavigationLink { UpperAltitudeSettingsPage() } label: {
-                        LabeledContent("上限高度", value: proSummary(upperAltitudeSummary))
+                        LabeledContent("上限高度", value: upperAltitudeSummary)
                     }
                     NavigationLink { ProximityAlertSettingsPage() } label: {
-                        LabeledContent("機体接近", value: proSummary(onOff(proximityAlertSettings.isEnabled)))
+                        LabeledContent("機体接近", value: onOff(proximityAlertSettings.isEnabled))
                     }
                 } header: {
                     Text("アラート")
-                } footer: {
-                    if !subscriptionManager.hasFullAccess {
-                        Text("🔒 はプラス機能です。購読すると有効にできます。")
-                    }
+                }
+
+                Section {
+                    AdFreeRows()
+                } header: {
+                    Text("広告")
                 }
 
                 Section("その他") {
@@ -82,21 +83,17 @@ struct SettingsView: View {
                 }
             }
         }
+        // On the stack, so it stays along the bottom of every settings page.
+        .safeAreaInset(edge: .bottom) { AdBanner() }
     }
 
     private func onOff(_ isOn: Bool) -> String { isOn ? "オン" : "オフ" }
-
-    /// Pro features read as locked without a subscription, whatever their stored setting says,
-    /// since they don't apply then.
-    private func proSummary(_ summary: String) -> String {
-        subscriptionManager.hasFullAccess ? summary : "🔒"
-    }
 
     private var mapDisplaySummary: String {
         var items: [String] = []
         if showGliderTrails { items.append("軌跡") }
         if showDistanceReferencePoints { items.append("目標地点") }
-        if showKK43Area, subscriptionManager.hasFullAccess { items.append("KK4-3") }
+        if showKK43Area { items.append("KK4-3") }
         return items.isEmpty ? "なし" : items.joined(separator: "・")
     }
 
@@ -120,27 +117,7 @@ struct SettingsView: View {
 
 // MARK: - Pages
 
-/// The "購読して有効化" row shown at the top of each pro page without a subscription.
-private struct SubscribeRow: View {
-    @EnvironmentObject private var subscriptionManager: SubscriptionManager
-    @State private var showPaywall = false
-
-    var body: some View {
-        if !subscriptionManager.hasFullAccess {
-            Button {
-                showPaywall = true
-            } label: {
-                Label("購読して有効化", systemImage: "lock.fill")
-            }
-            .sheet(isPresented: $showPaywall) {
-                PaywallView()
-            }
-        }
-    }
-}
-
 private struct MapDisplaySettingsPage: View {
-    @EnvironmentObject private var subscriptionManager: SubscriptionManager
     @AppStorage("showGliderTrails") private var showGliderTrails = true
     @AppStorage("showDistanceReferencePoints") private var showDistanceReferencePoints = true
     @AppStorage("showKK43Area") private var showKK43Area = false
@@ -164,9 +141,7 @@ private struct MapDisplaySettingsPage: View {
             }
 
             Section {
-                SubscribeRow()
                 Toggle("KK4-3を表示", isOn: $showKK43Area)
-                    .disabled(!subscriptionManager.hasFullAccess)
             } header: {
                 Text("民間訓練試験空域(KK4-3)")
             } footer: {
@@ -180,12 +155,10 @@ private struct MapDisplaySettingsPage: View {
 
 private struct TaskCourseSettingsPage: View {
     @EnvironmentObject private var competitionGuideline: CompetitionAltitudeGuideline
-    @EnvironmentObject private var subscriptionManager: SubscriptionManager
 
     var body: some View {
         Form {
             Section {
-                SubscribeRow()
                 Group {
                     Toggle("旋回点・タスクコースを表示", isOn: $competitionGuideline.showTaskCourse)
 
@@ -203,7 +176,6 @@ private struct TaskCourseSettingsPage: View {
                         .labelsHidden()
                     }
                 }
-                .disabled(!subscriptionManager.hasFullAccess)
             } header: {
                 Text("タスクコース")
             } footer: {
@@ -235,13 +207,11 @@ private struct GroundThresholdSettingsPage: View {
 
 private struct LowAltitudeAlertSettingsPage: View {
     @EnvironmentObject private var alertSettings: AlertSettings
-    @EnvironmentObject private var subscriptionManager: SubscriptionManager
     @State private var showDeleteAllStepsConfirmation = false
 
     var body: some View {
         Form {
             Section {
-                SubscribeRow()
                 Group {
                     Toggle("高度不足アラートを有効にする", isOn: $alertSettings.isEnabled)
 
@@ -299,7 +269,6 @@ private struct LowAltitudeAlertSettingsPage: View {
                         }
                     }
                 }
-                .disabled(!subscriptionManager.hasFullAccess)
             } footer: {
                 Text("妻沼滑空場中心から15km以内の機体だけが対象です。「距離ごとの段階」は、段階を複数追加して距離ごとに必要な高度を設定する方式です(各機体には、その時点の距離以下となる段階のうち最も距離が大きいものが適用されます)。「帰投高度とL/D」は、基準地点での必要高度に、距離÷滑空比(L/D)を加えた高度を必要高度とする方式で、警告と注意で異なる滑空比を設定し2段階で警告します。警告の滑空比は注意の滑空比より大きい値(より楽観的な数値)にしてください。地図上には、段階方式では各段階の距離を半径とした円が表示されます。基準地点は、競技会ガイドラインと同じ第1滑空場基準か、第2滑空場基準かを選べます。あくまで目安であり、実際の判断の根拠にはしないでください。高度は本サイトが提供する値(海抜高)をそのまま使っています。")
             }
@@ -323,14 +292,11 @@ private struct LowAltitudeAlertSettingsPage: View {
 
 private struct CompetitionGuidelineSettingsPage: View {
     @EnvironmentObject private var competitionGuideline: CompetitionAltitudeGuideline
-    @EnvironmentObject private var subscriptionManager: SubscriptionManager
 
     var body: some View {
         Form {
             Section {
-                SubscribeRow()
                 Toggle("有効にする", isOn: $competitionGuideline.isEnabled)
-                    .disabled(!subscriptionManager.hasFullAccess)
             } footer: {
                 Text("妻沼滑空場中心から15km以内の機体だけが対象です。日本学生航空連盟(JSAL)妻沼滑空場の公式ガイドライン(Ver.2026-01-26)を使用します。滑空場中心(N36°12'41\", E139°25'08\")から2.5km未満は制限なし、2.5〜3kmでMSL350m以上、以降1kmごとに70mずつ増加し、10km以上でMSL910m以上が必要です。公式資料に基づく固定値のため、数値はここでは変更できません(高度不足アラートとは別に、両方同時に有効化できます)。旋回点・タスクコースの表示は「タスクコース・周回時間」で設定します。")
             }
@@ -342,12 +308,10 @@ private struct CompetitionGuidelineSettingsPage: View {
 
 private struct UpperAltitudeSettingsPage: View {
     @EnvironmentObject private var upperAltitudeGuideline: UpperAltitudeGuideline
-    @EnvironmentObject private var subscriptionManager: SubscriptionManager
 
     var body: some View {
         Form {
             Section {
-                SubscribeRow()
                 Group {
                     Toggle("有効にする", isOn: $upperAltitudeGuideline.isEnabled)
 
@@ -372,7 +336,6 @@ private struct UpperAltitudeSettingsPage: View {
                             .foregroundStyle(.secondary)
                     }
                 }
-                .disabled(!subscriptionManager.hasFullAccess)
             } footer: {
                 Text("妻沼滑空場中心から15km以内の機体だけが対象です。公式資料のA区域・B区域の境界に基づき、区域内でその上限高度を超えるとアラートを出します。A区域は常に4,500ft MSL。B区域は土日3,500ft、それ以外(祝日を含む)は2,500ftです。競技会など別の上限が許可されている期間は「競技会中」を選び、許可された値を入力してください。区域の境界(緯度経度)は公式資料に基づく固定値のため、ここでは変更できません。")
             }
@@ -384,12 +347,10 @@ private struct UpperAltitudeSettingsPage: View {
 
 private struct ProximityAlertSettingsPage: View {
     @EnvironmentObject private var proximityAlertSettings: ProximityAlertSettings
-    @EnvironmentObject private var subscriptionManager: SubscriptionManager
 
     var body: some View {
         Form {
             Section {
-                SubscribeRow()
                 Group {
                     Toggle("有効にする", isOn: $proximityAlertSettings.isEnabled)
 
@@ -409,7 +370,6 @@ private struct ProximityAlertSettingsPage: View {
                         Text("場周除外: 高度 \(Int(proximityAlertSettings.patternExclusionCeilingM)) m 以下")
                     }
                 }
-                .disabled(!subscriptionManager.hasFullAccess)
             } footer: {
                 Text("妻沼滑空場中心から15km以内の機体だけが対象です。水平距離が近く、高度差も小さい機体同士を検知します。地図上の色分け(注意)は距離だけで表示しますが、プッシュ通知(警告)は距離が縮まり続けている場合のみ送ります。サーマルで複数機が近接して旋回するのは通常のことなので、離れつつある/一定の距離を保っている場合は通知しません。「場周除外」は、基準地点付近かつ低高度(場周経路)にいる機体同士を注意表示のみにとどめ、通知を出さないようにする設定です。着陸のたびに追従・近接するのは正常な状態のため、そこを検知対象から外します。位置情報は数秒〜数十秒間隔のポーリングによるものであり、リアルタイムのGPSではないため、あくまで参考情報です。実際の見張り・衝突回避の代わりにはなりません。")
             }

@@ -1,5 +1,6 @@
 package com.cobaltloom.loraviewer.ui.turnpoint
 
+import com.cobaltloom.loraviewer.ui.common.AdBanner
 import android.content.Context
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -163,6 +164,7 @@ fun TurnpointHistoryScreen(viewModel: GliderTrackerViewModel, onBack: () -> Unit
                 },
             )
         },
+        bottomBar = { AdBanner() },
     ) { padding ->
         Column(modifier = Modifier.padding(padding).fillMaxSize()) {
         DaySelector(

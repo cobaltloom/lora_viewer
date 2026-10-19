@@ -1,5 +1,6 @@
 package com.cobaltloom.loraviewer.ui.list
 
+import com.cobaltloom.loraviewer.ui.common.AdBanner
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -80,6 +81,7 @@ fun GliderListScreen(
                 },
             )
         },
+        bottomBar = { AdBanner() },
     ) { padding ->
         LazyColumn(modifier = Modifier.padding(padding)) {
             item {

@@ -1,11 +1,9 @@
 import SwiftUI
 import StoreKit
 
-/// Presented as a sheet wherever a subscriber-only feature is tapped
-/// without an active subscription (favorites, nicknames, and the four
-/// altitude/proximity alert features). Apple requires the subscription's
-/// price/duration/renewal terms and links to the terms of use and privacy
-/// policy to be visible here.
+/// The "広告なし" subscription, from Settings. Every feature is free; this only turns the ads off.
+/// Apple requires the subscription's price/duration/renewal terms and links to the terms of use
+/// and privacy policy to be visible here.
 struct PaywallView: View {
     @EnvironmentObject private var subscriptionManager: SubscriptionManager
     @Environment(\.dismiss) private var dismiss
@@ -15,24 +13,20 @@ struct PaywallView: View {
     private let privacyPolicyURL = URL(string: "https://cobaltloom.github.io/lora_viewer/privacy-policy.html")!
 
     private let subscriberFeatures = [
-        "お気に入り機体の登録・絞り込み表示",
-        "機体ニックネームの閲覧・登録・編集(ホワイトボード名簿の一括登録を含む)",
-        "高度不足アラート(距離ごとの段階・帰投高度とL/D比)",
-        "上限高度アラート(A区域・B区域)",
-        "機体接近アラート",
-        "JSAL公式の競技会高度ガイドライン",
+        "旋回点通過履歴・団体順位・設定などの画面から広告がなくなります",
+        "アプリの開発とサーバーの運営を応援できます",
     ]
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 20) {
-                    Image(systemName: "airplane.circle.fill")
+                    Image(systemName: "nosign")
                         .font(.system(size: 64))
                         .foregroundStyle(.blue)
                         .padding(.top, 16)
 
-                    Text("LoRa妻沼 プラス機能")
+                    Text("広告なし")
                         .font(.title.bold())
                         .multilineTextAlignment(.center)
 
@@ -50,7 +44,7 @@ struct PaywallView: View {
                     .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16))
                     .padding(.horizontal)
 
-                    Text("地図でのグライダー位置・高度の表示と地上目標地点の表示は購読なしで無料でお使いいただけます。上記の機能を使うには購読が必要です。")
+                    Text("すべての機能は購読なしで無料でお使いいただけます。地図の画面には広告を表示しません。")
                         .font(.caption)
                         .multilineTextAlignment(.center)
                         .foregroundStyle(.secondary)
