@@ -1,3 +1,4 @@
+import math
 import unittest
 
 import trackserver as ts
@@ -77,12 +78,11 @@ if __name__ == "__main__":
 class StandingsTest(unittest.TestCase):
     def test_validation(self):
         ok = {"name": "第42回関東", "startDate": "2026-10-11", "endDate": "2026-10-18",
-              "teams": [{"name": "中央23", "gliderIds": ["000A", "FLRDB0786"]}],
-              "days": {"2026-10-17": {"中央23": {"total": 900, "national": None}}}}
+              "days": {"2026-10-17": {"course": "③", "scores": {"FLRDB0786": {"total": 900, "national": None}}}},
+              "handicaps": {"ICA84C247": 0.9}}
         self.assertIs(ts.validate_standings(ok), ok)
-        for bad in ({"teams": "x"}, {"teams": [{"name": ""}]}, {"teams": [{"name": "a", "gliderIds": [1]}]},
-                    {"teams": [], "startDate": "17/10"}, {"teams": [], "days": {"x": {}}},
-                    {"teams": [], "days": {"2026-10-17": {"a": {"total": "1"}}}}):
+        for bad in ({"startDate": "17/10"}, {"days": {"x": {}}}, {"days": {"2026-10-17": {"course": 3}}},
+                    {"days": {"2026-10-17": {"scores": {"a": {"total": "1"}}}}}, {"handicaps": {"a": "0.9"}}):
             with self.assertRaises(ValueError):
                 ts.validate_standings(bad)
 
@@ -106,14 +106,14 @@ class StandingsTest(unittest.TestCase):
                 except urllib.error.HTTPError as e:
                     return e.code, None
             self.assertEqual(call("GET", {"X-Api-Key": "api"}), (200, {"standings": None}))
-            body = json.dumps({"name": "test", "teams": [{"name": "中央23", "gliderIds": ["000A"]}]}).encode()
+            body = json.dumps({"name": "test", "startDate": "2026-10-11", "endDate": "2026-10-18"}).encode()
             self.assertEqual(call("PUT", {"X-Api-Key": "api", "X-Editor-Key": "wrong"}, body)[0], 403)
             self.assertEqual(call("PUT", {"X-Api-Key": "x", "X-Editor-Key": "editor"}, body)[0], 401)
             status, saved = call("PUT", {"X-Api-Key": "api", "X-Editor-Key": "editor"}, body)
             self.assertEqual(status, 200)
             self.assertIn("updatedAt", saved["standings"])
             status, got = call("GET", {"X-Api-Key": "api"})
-            self.assertEqual(got["standings"]["teams"][0]["name"], "中央23")
+            self.assertEqual(got["standings"]["name"], "test")
             # Without an editor key set, any app may save.
             del os.environ["STANDINGS_KEY"]
             ts._editor_key.update(value="", at=time.time())
@@ -121,4 +121,40 @@ class StandingsTest(unittest.TestCase):
         finally:
             server.shutdown()
             os.environ.pop("STANDINGS_KEY", None)
+
+
+class LapTimingTest(unittest.TestCase):
+    """The ported lap timing, on a made-up flight round course ② (妻沼-千代田-高林給水塔-妻沼)."""
+
+    @staticmethod
+    def offset(origin, distance_m, bearing_deg):
+        lat = origin[0] + distance_m * math.cos(math.radians(bearing_deg)) / 110574.0
+        lon = origin[1] + distance_m * math.sin(math.radians(bearing_deg)) / (111320.0 * math.cos(math.radians(origin[0])))
+        return lat, lon
+
+    def flight(self, chiyoda_alt=700.0, goal=True):
+        names = ts.COURSES[1][2]
+        mid_goal = ((ts.GOAL_A[0] + ts.GOAL_B[0]) / 2, (ts.GOAL_A[1] + ts.GOAL_B[1]) / 2)
+        pts = [(0, *self.offset(ts.START_POINT, 200, 135), 30.0), (10, *self.offset(ts.START_POINT, 200, 315), 150.0)]
+        pts.append((600, *self.offset(ts.TURNPOINTS["千代田"], 1000, ts.sector_bearing(names, "千代田")), chiyoda_alt))
+        pts.append((1200, *self.offset(ts.TURNPOINTS["高林給水塔"], 1000, ts.sector_bearing(names, "高林給水塔")), 700.0))
+        if goal:
+            pts += [(1760, *self.offset(mid_goal, 300, 315), 400.0), (1780, *self.offset(mid_goal, 300, 135), 400.0)]
+        return pts
+
+    def test_full_lap(self):
+        lap = ts.evaluate_lap(self.flight(), ts.COURSES[1][2])
+        self.assertAlmostEqual(lap["start"], 5, delta=0.5)
+        self.assertEqual([n for n, _ in lap["passed"]], ["千代田", "高林給水塔"])
+        self.assertAlmostEqual(lap["finish"], 1770, delta=0.5)
+
+    def test_low_turnpoint_and_partial_results(self):
+        lap = ts.evaluate_lap(self.flight(chiyoda_alt=500.0), ts.COURSES[1][2])  # below the 630 m guideline there
+        self.assertEqual(lap["passed"], [])
+        self.assertIsNone(lap["finish"])
+        results = ts.day_results({"g1": [self.flight(goal=False)]}, now=1e9)
+        partial = results[ts.COURSES[1][0]]
+        self.assertEqual(partial, [{"id": "g1", "start": partial[0]["start"], "passed": ["千代田", "高林給水塔"], "distanceKm": 23.6}])
+        finished = ts.day_results({"g1": [self.flight()]}, now=1e9)[ts.COURSES[1][0]][0]
+        self.assertAlmostEqual(finished["lapSeconds"], 1765, delta=1)
 

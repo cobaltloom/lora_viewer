@@ -19,11 +19,16 @@ HTTP API (behind Caddy for HTTPS):
       Every flight (run of points above groundAltM) since midnight JST, landed ones
       included, so the apps can fill in turnpoint passages and laps flown while they
       weren't watching that source.
+  GET /results?source=ogn|lora&from=YYYY-MM-DD&to=YYYY-MM-DD   (header X-Api-Key)
+      -> {"results": {"<date>": {"<course name>": [lap or partly flown course, ...]}}}
+      Each day's laps on each task course, worked out here every 5 minutes from that day's flights
+      and kept for RESULTS_RETENTION_DAYS (results only - no positions), so team standings
+      survive even when no app was open.
   GET /standings   (header X-Api-Key)
       -> {"standings": {...} | null}: the team standings a representative last saved.
   PUT /standings   (header X-Api-Key, plus X-Editor-Key if an editor key is set; JSON body)
-      Saves the competition - name, period, teams with their gliders, and any day's corrected team
-      scores - for every app to show team standings from. If the instance metadata attribute
+      Saves the competition - name, period, and per day the course flown and any corrected team
+      scores, plus shared handicaps - for every app to show team standings from. If the instance metadata attribute
       "standings-key" (or env STANDINGS_KEY) is set, X-Editor-Key must match it; otherwise any
       app may save.
   GET /health -> counts, for monitoring.
@@ -65,7 +70,7 @@ JST_OFFSET_S = 9 * 3600
 LORA_POLL_S = 5                  # LoRa fixes come every ~7-15 s; 10 s polling missed some
 TAKEOFF_GROUND_POINT_S = 60      # a flight starts with its last ground point this recent (see split_flights)
 SNAPSHOT_S = 60
-VERSION = "1.3"
+VERSION = "1.4"
 
 OGN_HOST, OGN_PORT = "aprs.glidernet.org", 14580
 # 20 km around Menuma airfield's center (JSAL guideline: N36°12'41" E139°25'08") - enough for the
@@ -76,6 +81,8 @@ DDB_URL = "https://ddb.glidernet.org/download/?j=1&t=1"
 DDB_REFRESH_S = 24 * 3600
 
 STANDINGS_MAX_BYTES = 64 * 1024
+RESULTS_INTERVAL_S = 300
+RESULTS_RETENTION_DAYS = 60
 METADATA_URL = "http://metadata.google.internal/computeMetadata/v1/instance/attributes/"
 
 log = logging.getLogger("trackserver")
@@ -354,6 +361,251 @@ def run_lora(store):
         time.sleep(LORA_POLL_S)
 
 
+# ---------------------------------------------------------------- lap timing
+#
+# The apps' lap timing (TaskLapCalculator, TurnpointSector, PartialLapDistance in the iOS/Android
+# code, which has the unit tests), ported so each day's laps are recorded here whether or not any app
+# was open. Only the results are kept (lap times, goal altitudes, turnpoints reached) - never the
+# positions beyond 24 h.
+
+
+def _dms(d, m, s):
+    return d + m / 60 + s / 3600
+
+
+MENUMA = (_dms(36, 12, 41), _dms(139, 25, 8))  # 妻沼滑空場中心 (guideline reference)
+TURNPOINTS = {
+    "妻沼": MENUMA,
+    "高林給水塔": (_dms(36, 14, 51), _dms(139, 22, 7)),
+    "千代田": (_dms(36, 12, 26), _dms(139, 29, 13)),
+    "邑楽タワー": (_dms(36, 15, 11), _dms(139, 27, 45)),
+    "管理ポイント": (_dms(36, 12, 29), _dms(139, 25, 21)),
+}
+CHECKPOINT = "管理ポイント"
+# Names exactly as the apps show them, which they use to match a day's results to a course.
+COURSES = [
+    ("① 妻沼-高林給水塔-千代田-(管理ポイント)-妻沼", 24.0, ["妻沼", "高林給水塔", "千代田", "管理ポイント", "妻沼"]),
+    ("② 妻沼-千代田-高林給水塔-妻沼", 23.6, ["妻沼", "千代田", "高林給水塔", "妻沼"]),
+    ("③ 妻沼-高林給水塔-邑楽タワー-千代田-(管理ポイント)-妻沼", 26.5, ["妻沼", "高林給水塔", "邑楽タワー", "千代田", "管理ポイント", "妻沼"]),
+    ("④ 妻沼-千代田-邑楽タワー-高林給水塔-妻沼", 26.1, ["妻沼", "千代田", "邑楽タワー", "高林給水塔", "妻沼"]),
+]
+# 規則56(1): an unfinished flight's distance points, the way back to 妻沼 included (as the 2026-10-17
+# official results scored them), keyed by the scoring turnpoints reached in order.
+PARTIAL_DISTANCES_KM = {
+    ("高林給水塔",): 11.4, ("千代田",): 12.8,
+    ("高林給水塔", "千代田"): 23.6, ("千代田", "高林給水塔"): 23.6,
+    ("高林給水塔", "邑楽タワー"): 20.2, ("千代田", "邑楽タワー"): 18.0,
+    ("高林給水塔", "邑楽タワー", "千代田"): 26.1, ("千代田", "邑楽タワー", "高林給水塔"): 26.1,
+}
+TP_RADIUS_M = 2000.0
+MAX_JOIN_GAP_S = 180
+SAMPLE_SPACING_M = 25.0
+START_POINT = (_dms(36, 12, 48), _dms(139, 24, 59))
+GOAL_A = (_dms(36, 12, 47), _dms(139, 24, 57))
+GOAL_B = (_dms(36, 12, 24), _dms(139, 24, 29))
+
+
+def _distance_m(a, b):
+    lat1, lat2 = math.radians(a[0]), math.radians(b[0])
+    dlat, dlon = lat2 - lat1, math.radians(b[1] - a[1])
+    h = math.sin(dlat / 2) ** 2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2) ** 2
+    return 2 * 6371008.8 * math.asin(math.sqrt(h))
+
+
+def _bearing(a, b):
+    lat1, lat2 = math.radians(a[0]), math.radians(b[0])
+    dlon = math.radians(b[1] - a[1])
+    y = math.sin(dlon) * math.cos(lat2)
+    x = math.cos(lat1) * math.sin(lat2) - math.sin(lat1) * math.cos(lat2) * math.cos(dlon)
+    return math.degrees(math.atan2(y, x)) % 360
+
+
+def _angle_diff(a, b):
+    d = (b - a) % 360
+    return d - 360 if d > 180 else d
+
+
+def sector_bearing(names, name):
+    i = names.index(name)
+    if i == 0 or i == len(names) - 1:
+        return None
+    bin_ = _bearing(TURNPOINTS[names[i - 1]], TURNPOINTS[name])
+    bout = _bearing(TURNPOINTS[name], TURNPOINTS[names[i + 1]])
+    return (bin_ + _angle_diff(bin_, bout) / 2) % 360
+
+
+def in_sector(lat, lon, names, name):
+    tp = TURNPOINTS[name]
+    bisector = sector_bearing(names, name)
+    return (bisector is not None and _distance_m(tp, (lat, lon)) <= TP_RADIUS_M
+            and abs(_angle_diff(bisector, _bearing(tp, (lat, lon)))) <= 45)
+
+
+def required_altitude_m(lat, lon):
+    km = _distance_m(MENUMA, (lat, lon)) / 1000
+    if km < 2.5:
+        return None
+    if km < 3:
+        return 350.0
+    if km >= 10:
+        return 910.0
+    return 420.0 + 70 * (int(km) - 3)
+
+
+def _interpolate(a, b, t):
+    return (a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t, a[3] + (b[3] - a[3]) * t)
+
+
+def _ok_altitude(p):
+    req = required_altitude_m(p[1], p[2])
+    return req is None or p[3] >= req
+
+
+def first_entry(a, b, names, name):
+    """The first fraction along fix a → fix b (t, lat, lon, alt) inside the sector and not below the
+    guideline altitude there, or None; fixes more than MAX_JOIN_GAP_S apart aren't joined."""
+    if a is None or b[0] < a[0] or b[0] - a[0] > MAX_JOIN_GAP_S:
+        return 1.0 if in_sector(b[1], b[2], names, name) and _ok_altitude(b) else None
+    tp = TURNPOINTS[name]
+    m_lon = 111320.0 * math.cos(math.radians(tp[0]))
+    ax, ay = (a[2] - tp[1]) * m_lon, (a[1] - tp[0]) * 110574.0
+    bx, by = (b[2] - tp[1]) * m_lon, (b[1] - tp[0]) * 110574.0
+    length = math.hypot(bx - ax, by - ay)
+    closest = 0.0 if length == 0 else min(max(-(ax * (bx - ax) + ay * (by - ay)) / (length * length), 0.0), 1.0)
+    if math.hypot(ax + (bx - ax) * closest, ay + (by - ay) * closest) > TP_RADIUS_M * 1.05:
+        return None
+    samples = min(max(int(math.ceil(length / SAMPLE_SPACING_M)), 1), 400)
+    for i in range(samples + 1):
+        t = i / samples
+        p = _interpolate(a, b, t)
+        if in_sector(p[1], p[2], names, name) and _ok_altitude(p):
+            return t
+    return None
+
+
+_M_LAT = 110574.0
+_M_LON = 111320.0 * math.cos(math.radians(START_POINT[0]))
+
+
+def _xy(lat, lon):
+    return ((lon - START_POINT[1]) * _M_LON, (lat - START_POINT[0]) * _M_LAT)
+
+
+_GA, _GB = _xy(*GOAL_A), _xy(*GOAL_B)
+_gl = math.hypot(_GB[0] - _GA[0], _GB[1] - _GA[1])
+_SA = (-(_GB[0] - _GA[0]) / _gl * 150, -(_GB[1] - _GA[1]) / _gl * 150)
+_SB = (-_SA[0], -_SA[1])
+
+
+def _intersection(p, q, a, b):
+    rx, ry = q[0] - p[0], q[1] - p[1]
+    sx, sy = b[0] - a[0], b[1] - a[1]
+    den = rx * sy - ry * sx
+    if den == 0:
+        return None
+    t = ((a[0] - p[0]) * sy - (a[1] - p[1]) * sx) / den
+    u = ((a[0] - p[0]) * ry - (a[1] - p[1]) * rx) / den
+    return t if 0 <= t <= 1 and 0 <= u <= 1 else None
+
+
+def _first_crossing(pts, start, a, b, min_fraction=0.0):
+    for i in range(max(start, 0), len(pts) - 1):
+        p, q = pts[i], pts[i + 1]
+        t = _intersection(_xy(p[1], p[2]), _xy(q[1], q[2]), a, b)
+        if t is None or (i == start and t < min_fraction):
+            continue
+        return (p[0] + (q[0] - p[0]) * t, p[3] + (q[3] - p[3]) * t, i + 1)
+    return None
+
+
+def evaluate_lap(pts, names):
+    """One flight's lap around a course (TaskLapCalculator): start line crossing, the turnpoints in
+    order, then the goal line. pts are (t, lat, lon, alt). None without a start."""
+    tps = names[1:-1]
+    start = _first_crossing(pts, 0, _SA, _SB)
+    if start is None:
+        return None
+    passed, index, last = [], start[2], 0.0
+    while index < len(pts) and len(passed) < len(tps):
+        a, b = pts[index - 1], pts[index]
+        t = first_entry(a, b, names, tps[len(passed)])
+        if t is not None:
+            passed.append((tps[len(passed)], a[0] + (b[0] - a[0]) * t))
+            last = t
+        else:
+            index += 1
+    finish = _first_crossing(pts, index - 1, _GA, _GB, last) if len(passed) == len(tps) else None
+    return {"start": start[0], "startAltitudeM": start[1], "passed": passed,
+            "finish": finish[0] if finish else None, "finishAltitudeM": finish[1] if finish else None}
+
+
+def day_results(flights, now):
+    """Each course's laps and partly flown courses for a day's flights ({id: [flight points]}): one
+    entry per flight that finished, or that has ended after reaching at least one scoring turnpoint."""
+    results = {}
+    for name, distance, names in COURSES:
+        entries = []
+        for gid, segs in flights.items():
+            for index, seg in enumerate(segs):
+                pts = [tuple(p) for p in seg]
+                lap = evaluate_lap(pts, names)
+                if not lap:
+                    continue
+                if lap["finish"] is not None:
+                    entries.append({"id": gid, "start": round(lap["start"], 1), "finish": round(lap["finish"], 1),
+                                    "lapSeconds": round(lap["finish"] - lap["start"], 1), "distanceKm": distance,
+                                    "goalAltitudeM": round(lap["finishAltitudeM"], 1)})
+                    continue
+                scored = [n for n, _ in lap["passed"] if n != CHECKPOINT]
+                still_flying = index == len(segs) - 1 and now - pts[-1][0] < 180
+                partial = PARTIAL_DISTANCES_KM.get(tuple(scored))
+                if partial and not still_flying:
+                    entries.append({"id": gid, "start": round(lap["start"], 1), "passed": scored, "distanceKm": partial})
+        results[name] = entries
+    return results
+
+
+class Results:
+    """Each day's lap results per source and course (see day_results), saved to disk."""
+
+    def __init__(self, path):
+        self.path = path
+        self.lock = threading.Lock()
+        try:
+            with open(path) as f:
+                self.days = json.load(f)
+        except (OSError, ValueError):
+            self.days = {}
+
+    def update(self, store, now):
+        date = datetime.fromtimestamp(now + JST_OFFSET_S, timezone.utc).strftime("%Y-%m-%d")
+        day = {source: day_results(store.all_flights(source, 60.0, jst_midnight(now)), now) for source in ("ogn", "lora")}
+        cutoff = datetime.fromtimestamp(now + JST_OFFSET_S - RESULTS_RETENTION_DAYS * 86400, timezone.utc).strftime("%Y-%m-%d")
+        with self.lock:
+            # A day keeps its last results once its flights have aged out of the store.
+            if any(entries for courses in day.values() for entries in courses.values()) or date not in self.days:
+                self.days[date] = day
+            self.days = {d: v for d, v in self.days.items() if d >= cutoff}
+            data = json.dumps(self.days, ensure_ascii=False)
+        tmp = self.path + ".tmp"
+        with open(tmp, "w") as f:
+            f.write(data)
+        os.replace(tmp, self.path)
+
+    def get(self, source, start, end):
+        with self.lock:
+            return {d: v.get(source, {}) for d, v in self.days.items() if start <= d <= end}
+
+
+def run_results(store, results):
+    while True:
+        try:
+            results.update(store, time.time())
+        except Exception as e:  # noqa: BLE001 - keep going; next round may succeed
+            log.warning("results failed: %s", e)
+        time.sleep(RESULTS_INTERVAL_S)
+
+
 # ---------------------------------------------------------------- standings
 
 _editor_key = {"value": None, "at": 0.0}
@@ -387,8 +639,8 @@ def _is_points(value):
 
 
 def validate_standings(data):
-    """The saved competition (name, period, teams with their gliders, and any day's corrected team
-    scores), checked for shape; raises ValueError if unusable."""
+    """The saved competition - name, period, per day the course flown and any corrected scores (by
+    glider id), and shared handicaps - checked for shape; raises ValueError if unusable."""
     if not isinstance(data, dict):
         raise ValueError("not an object")
     name = data.get("name", "")
@@ -397,26 +649,25 @@ def validate_standings(data):
     for key in ("startDate", "endDate"):
         if data.get(key) is not None and not _is_date(data[key]):
             raise ValueError(key)
-    teams = data.get("teams")
-    if not isinstance(teams, list) or len(teams) > 60:
-        raise ValueError("teams")
-    for team in teams:
-        if not isinstance(team, dict) or not isinstance(team.get("name"), str) or not team["name"].strip():
-            raise ValueError("team name")
-        if len(team["name"]) > 60:
-            raise ValueError("team name too long")
-        gliders = team.get("gliderIds", [])
-        if not isinstance(gliders, list) or len(gliders) > 20 or not all(isinstance(g, str) and len(g) <= 40 for g in gliders):
-            raise ValueError("gliderIds")
     days = data.get("days", {})
     if not isinstance(days, dict) or len(days) > 60:
         raise ValueError("days")
-    for date, scores in days.items():
-        if not _is_date(date) or not isinstance(scores, dict) or len(scores) > 60:
+    for date, day in days.items():
+        if not _is_date(date) or not isinstance(day, dict):
             raise ValueError("day " + str(date)[:20])
-        for team_name, score in scores.items():
-            if not isinstance(score, dict) or not _is_points(score.get("total")) or not _is_points(score.get("national")):
-                raise ValueError("score " + str(team_name)[:20])
+        course = day.get("course")
+        if course is not None and (not isinstance(course, str) or len(course) > 120):
+            raise ValueError("course")
+        scores = day.get("scores", {})
+        if not isinstance(scores, dict) or len(scores) > 100:
+            raise ValueError("scores")
+        for glider, score in scores.items():
+            if len(glider) > 40 or not isinstance(score, dict) or not _is_points(score.get("total")) or not _is_points(score.get("national")):
+                raise ValueError("score " + str(glider)[:20])
+    handicaps = data.get("handicaps", {})
+    if not isinstance(handicaps, dict) or len(handicaps) > 200 or not all(
+            isinstance(k, str) and len(k) <= 40 and _is_points(v) and v is not None for k, v in handicaps.items()):
+        raise ValueError("handicaps")
     return data
 
 
@@ -439,6 +690,7 @@ def save_standings(path, data):
 
 class Handler(BaseHTTPRequestHandler):
     store = None
+    results = None
     standings_path = None
     standings_lock = threading.Lock()
     server_version = "LoraViewerTrack/" + VERSION
@@ -462,7 +714,7 @@ class Handler(BaseHTTPRequestHandler):
         data["updatedAt"] = int(time.time())
         with self.standings_lock:
             save_standings(self.standings_path, data)
-        log.info("competition saved: %s, %d teams", data.get("name", ""), len(data["teams"]))
+        log.info("competition saved: %s %s..%s", data.get("name", ""), data.get("startDate"), data.get("endDate"))
         self._json({"standings": data})
 
     def do_GET(self):
@@ -471,7 +723,7 @@ class Handler(BaseHTTPRequestHandler):
             with self.store.lock:
                 counts = {s: len(v) for s, v in self.store.tracks.items()}
             return self._json({"ok": True, "gliders": counts})
-        if url.path not in ("/tracks", "/flights", "/standings"):
+        if url.path not in ("/tracks", "/flights", "/standings", "/results"):
             return self._json({"error": "not found"}, 404)
         if not API_KEY or self.headers.get("X-Api-Key") != API_KEY:
             return self._json({"error": "unauthorized"}, 401)
@@ -479,6 +731,12 @@ class Handler(BaseHTTPRequestHandler):
             with self.standings_lock:
                 return self._json({"standings": load_standings(self.standings_path)})
         q = urllib.parse.parse_qs(url.query)
+        if url.path == "/results":
+            source = q.get("source", [""])[0]
+            start, end = q.get("from", ["0000-00-00"])[0], q.get("to", ["9999-99-99"])[0]
+            if source not in ("ogn", "lora"):
+                return self._json({"error": "bad source"}, 400)
+            return self._json({"results": self.results.get(source, start, end)})
         source = q.get("source", [""])[0]
         if source not in ("ogn", "lora"):
             return self._json({"error": "bad source"}, 400)
@@ -533,6 +791,8 @@ def main():
                          (run_housekeeping, (store, snapshot))):
         threading.Thread(target=target, args=args, daemon=True).start()
     Handler.store = store
+    Handler.results = Results(os.path.join(DATA_DIR, "results.json"))
+    threading.Thread(target=run_results, args=(store, Handler.results), daemon=True).start()
     Handler.standings_path = os.path.join(DATA_DIR, "standings.json")
     log.info("listening on 127.0.0.1:%d", PORT)
     ThreadingHTTPServer(("127.0.0.1", PORT), Handler).serve_forever()
