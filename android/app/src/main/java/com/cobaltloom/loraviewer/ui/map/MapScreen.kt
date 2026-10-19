@@ -80,10 +80,8 @@ import com.cobaltloom.loraviewer.data.model.GliderPosition
 import com.cobaltloom.loraviewer.data.remote.OgnApiClient
 import com.cobaltloom.loraviewer.data.settings.DataSource
 import com.cobaltloom.loraviewer.ui.detail.GliderDetailCard
-import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
-import com.google.android.gms.maps.model.LatLngBounds
 import com.google.maps.android.compose.Circle
 import com.google.maps.android.compose.GoogleMap
 import com.google.maps.android.compose.MapProperties
@@ -99,37 +97,10 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import kotlin.math.roundToInt
 
-private val JsalMenumaFallbackCenter = LatLng(36.1994, 139.4429)
-
-/** Extra breathing room applied to the tight bounding box of the initial positions. */
-private const val InitialBoundsPaddingFactor = 1.4
-
-/** Floor on the initial bounds' span (degrees, ~1.1km), so a single glider or a tight cluster on
- * the ground still gets a reasonably zoomed-out view instead of one tight to just its exact
- * position. Mirrors the iOS app's MKCoordinateRegion(coordinates:). */
-private const val MinInitialSpanDegrees = 0.01
-
-/** A bounding box around [positions], padded so the initial camera fit doesn't zoom in tighter than useful. */
-private fun paddedBounds(positions: List<GliderPosition>): LatLngBounds {
-    var minLat = positions[0].lat
-    var maxLat = positions[0].lat
-    var minLon = positions[0].lon
-    var maxLon = positions[0].lon
-    for (position in positions) {
-        minLat = minOf(minLat, position.lat)
-        maxLat = maxOf(maxLat, position.lat)
-        minLon = minOf(minLon, position.lon)
-        maxLon = maxOf(maxLon, position.lon)
-    }
-    val centerLat = (minLat + maxLat) / 2
-    val centerLon = (minLon + maxLon) / 2
-    val latSpan = maxOf((maxLat - minLat) * InitialBoundsPaddingFactor, MinInitialSpanDegrees)
-    val lonSpan = maxOf((maxLon - minLon) * InitialBoundsPaddingFactor, MinInitialSpanDegrees)
-    return LatLngBounds(
-        LatLng(centerLat - latSpan / 2, centerLon - lonSpan / 2),
-        LatLng(centerLat + latSpan / 2, centerLon + lonSpan / 2),
-    )
-}
+/** Always opens on Menuma, wide enough for the task turnpoints: the app is for Menuma, so gliders
+ * elsewhere (FLARM shows up to 150 km out) mustn't pull the map away. */
+private val MenumaCenter = LatLng(CompetitionAltitudeGuideline.referenceCoordinate.latitude, CompetitionAltitudeGuideline.referenceCoordinate.longitude)
+private const val InitialZoom = 11.5f
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -164,11 +135,10 @@ fun MapScreen(
     ) { }
 
     var mapLoaded by remember { mutableStateOf(false) }
-    var didCenterInitially by remember { mutableStateOf(false) }
     var selectedGlider by remember { mutableStateOf<GliderPosition?>(null) }
     var editingGlider by remember { mutableStateOf<GliderPosition?>(null) }
     val cameraPositionState = rememberCameraPositionState {
-        position = CameraPosition.fromLatLngZoom(JsalMenumaFallbackCenter, 12f)
+        position = CameraPosition.fromLatLngZoom(MenumaCenter, InitialZoom)
     }
 
     LaunchedEffect(Unit) {
@@ -179,12 +149,6 @@ fun MapScreen(
         ) {
             notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
-    }
-
-    LaunchedEffect(uiState.positions, mapLoaded) {
-        if (!mapLoaded || didCenterInitially || uiState.positions.isEmpty()) return@LaunchedEffect
-        didCenterInitially = true
-        cameraPositionState.animate(CameraUpdateFactory.newLatLngBounds(paddedBounds(uiState.positions), 24))
     }
 
     // Updated once the map stops moving, so distance labels on the alert circles can be placed on

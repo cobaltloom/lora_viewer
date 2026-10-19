@@ -23,7 +23,11 @@ struct CurrentMapView: View {
     @AppStorage("mapStyleIsSatellite") private var mapStyleIsSatellite = false
     @State private var showAddPointOfInterest = false
     @State private var pointOfInterestPendingDeletion: PointOfInterest?
-    @State private var cameraPosition: MapCameraPosition = .automatic
+    /// Always opens on Menuma, wide enough for the task turnpoints: the app is for Menuma, so gliders
+    /// elsewhere (FLARM shows up to 150 km out) mustn't pull the map away.
+    @State private var cameraPosition: MapCameraPosition = .region(MKCoordinateRegion(
+        center: CompetitionAltitudeGuideline.referenceCoordinate, latitudinalMeters: 20_000, longitudinalMeters: 20_000
+    ))
     @State private var selectedGlider: GliderPosition?
     /// Each timed glider's progress around the selected task course (see `updateLapStatuses`).
     @State private var lapStatuses: [String: TaskLapStatus] = [:]
@@ -43,7 +47,6 @@ struct CurrentMapView: View {
     @State private var showPaywall = false
     @State private var showTurnpointHistory = false
     @State private var showStandings = false
-    @State private var didCenterInitially = false
     @State private var showFavoritesOnly = false
     /// The visible map region's center, kept up to date so distance labels
     /// on the alert circles can be placed on whichever side of the circle
@@ -550,9 +553,6 @@ struct CurrentMapView: View {
                 previousTurnpointFixes = [:]
                 if let todays = viewModel.todaysFlights { recordTodaysFlights(todays) }
             }
-            .onChange(of: viewModel.positions) { _, newPositions in
-                centerMapIfNeeded(on: newPositions)
-            }
             // Every few seconds rather than every poll: polling FLARM each second only moves markers.
             .onChange(of: viewModel.analysisPositions) { _, newPositions in
                 updateProximityAlerts(in: newPositions)
@@ -561,13 +561,6 @@ struct CurrentMapView: View {
                 updateLapStatuses()
             }
         }
-    }
-
-    private func centerMapIfNeeded(on positions: [GliderPosition]) {
-        guard !didCenterInitially, !positions.isEmpty else { return }
-        didCenterInitially = true
-        let coordinates = positions.map(\.coordinate)
-        cameraPosition = .region(MKCoordinateRegion(coordinates: coordinates))
     }
 
     /// Notifies once per glider each time it newly enters an alerting state
