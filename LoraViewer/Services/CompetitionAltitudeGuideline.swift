@@ -22,6 +22,8 @@ final class CompetitionAltitudeGuideline: ObservableObject {
     /// the turnpoints without connecting them into a course line.
     @Published var selectedCourseIndex: Int? {
         didSet {
+            // Marks the first-launch defaults as seen, so choosing "none" isn't reset to ③.
+            UserDefaults.standard.set(showTaskCourse, forKey: Self.showTaskCourseKey)
             if let selectedCourseIndex {
                 UserDefaults.standard.set(selectedCourseIndex, forKey: Self.selectedCourseIndexKey)
             } else {
@@ -64,6 +66,10 @@ final class CompetitionAltitudeGuideline: ObservableObject {
         showTaskCourse = UserDefaults.standard.object(forKey: Self.showTaskCourseKey) as? Bool ?? true
         if UserDefaults.standard.object(forKey: Self.selectedCourseIndexKey) != nil {
             selectedCourseIndex = UserDefaults.standard.integer(forKey: Self.selectedCourseIndexKey)
+        } else if UserDefaults.standard.object(forKey: Self.showTaskCourseKey) == nil {
+            // First launch: course ③. Choosing "none" later sticks, since
+            // the task course toggle has been saved by then.
+            selectedCourseIndex = 2
         } else {
             selectedCourseIndex = nil
         }
