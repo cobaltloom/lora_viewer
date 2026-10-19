@@ -28,7 +28,9 @@ HTTP API (behind Caddy for HTTPS):
       -> {"standings": {...} | null}: the team standings a representative last saved.
   PUT /standings   (header X-Api-Key, plus X-Editor-Key if an editor key is set; JSON body)
       Saves the competition - name, period, and per day the course flown and any corrected team
-      scores, plus shared handicaps - for every app to show team standings from. If the instance metadata attribute
+      scores, plus shared handicaps - for every app to show team standings from. Its scores are
+      confirmed into it FINALIZE_AFTER_DAYS after its last day, and it's removed DELETE_AFTER_DAYS
+      after. If the instance metadata attribute
       "standings-key" (or env STANDINGS_KEY) is set, X-Editor-Key must match it; otherwise any
       app may save.
   GET /health -> counts, for monitoring.
@@ -70,7 +72,7 @@ JST_OFFSET_S = 9 * 3600
 LORA_POLL_S = 5                  # LoRa fixes come every ~7-15 s; 10 s polling missed some
 TAKEOFF_GROUND_POINT_S = 60      # a flight starts with its last ground point this recent (see split_flights)
 SNAPSHOT_S = 60
-VERSION = "1.5"
+VERSION = "1.6"
 
 OGN_HOST, OGN_PORT = "aprs.glidernet.org", 14580
 # 20 km around Menuma airfield's center (JSAL guideline: N36°12'41" E139°25'08") - enough for the
@@ -602,10 +604,15 @@ def run_results(store, results, standings_path, standings_lock):
         try:
             now = time.time()
             results.update(store, now)
-            # FINALIZE_AFTER_DAYS after a competition's last day, confirm its scores into it.
+            # FINALIZE_AFTER_DAYS after a competition's last day, confirm its scores into it;
+            # DELETE_AFTER_DAYS after, remove it.
             with standings_lock:
                 competition = load_standings(standings_path)
                 today = datetime.fromtimestamp(now + JST_OFFSET_S, timezone.utc).strftime("%Y-%m-%d")
+                if isinstance(competition, dict) and competition_expired(competition, today):
+                    os.remove(standings_path)
+                    log.info("competition removed: %s", competition.get("name", ""))
+                    competition = None
                 with results.lock:
                     days = json.loads(json.dumps(results.days))
                 final = finalize_competition(competition, days, today) if isinstance(competition, dict) else None
@@ -626,6 +633,7 @@ GOAL_MIN_ALTITUDE_M = 330.0
 GOAL_NO_SPEED_BELOW_M = 280.0
 LOW_GOAL_DEDUCTION = 50.0
 FINALIZE_AFTER_DAYS = 3
+DELETE_AFTER_DAYS = 14
 # Known club gliders that aren't 1.00, as in the apps (LoRa ids and the FLARM each was seen carrying).
 BUILT_IN_HANDICAPS = {
     "0006": 0.90, "ICA84C247": 0.90,  # 早稲田 LS4
@@ -691,6 +699,14 @@ def day_glider_scores(competition, date, day_results):
         if lap["key"] in scores:
             by_glider.setdefault(lap["id"], []).append(math.floor(scores[lap["key"]]))
     return {gid: {"total": float(sum(sorted(v, reverse=True)[:3])), "national": float(max(v))} for gid, v in by_glider.items()}
+
+
+def competition_expired(competition, today):
+    """Whether a competition is DELETE_AFTER_DAYS past its last day, when its setup is removed."""
+    end = competition.get("endDate")
+    if not end:
+        return False
+    return today >= (datetime.strptime(end, "%Y-%m-%d") + timedelta(days=DELETE_AFTER_DAYS)).strftime("%Y-%m-%d")
 
 
 def finalize_competition(competition, results, today):

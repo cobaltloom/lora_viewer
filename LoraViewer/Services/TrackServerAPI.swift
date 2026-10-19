@@ -148,7 +148,8 @@ struct TodaysFlights {
     let baseNames: [String: String]
 }
 
-/// A competition as set up in the app (shared through the track server): its period, and per day the
+/// A competition as set up in the app (shared through the track server, which confirms its scores 3
+/// days after the last day and removes it 14 days after): its period, and per day the
 /// course flown and any corrected team scores, plus shared handicaps. The teams are the gliders
 /// themselves (each source's own ids), and their laps come from the track server, which times every
 /// flight whether or not any app was open (see `LapResult`).

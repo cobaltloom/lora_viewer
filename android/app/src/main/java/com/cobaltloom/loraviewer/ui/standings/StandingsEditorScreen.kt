@@ -148,7 +148,7 @@ fun StandingsEditorScreen(viewModel: GliderTrackerViewModel, onBack: () -> Unit)
                         )
                     }
                     Text(
-                        "期間中に飛んだ機体が自動でチームとして並び、トラックサーバーが計時した周回から毎日の得点を積み上げます(端末を閉じていた日も含みます)。",
+                        "期間中に飛んだ機体が自動でチームとして並び、トラックサーバーが計時した周回から毎日の得点を積み上げます(端末を閉じていた日も含みます)。最終日の3日後に得点を自動で確定し、14日後に競技会の設定を削除します。",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

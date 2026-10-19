@@ -188,3 +188,9 @@ class FinalizeTest(unittest.TestCase):
         self.assertIsNone(ts.finalize_competition(final, self.results(), "2026-10-22"))  # only once
         self.assertNotIn("finalizedAt", competition)  # the original is untouched
 
+    def test_removed_fourteen_days_after_the_last_day(self):
+        competition = {"name": "test", "startDate": "2026-10-11", "endDate": "2026-10-18"}
+        self.assertFalse(ts.competition_expired(competition, "2026-10-31"))
+        self.assertTrue(ts.competition_expired(competition, "2026-11-01"))
+        self.assertFalse(ts.competition_expired({"name": "no period"}, "2030-01-01"))
+

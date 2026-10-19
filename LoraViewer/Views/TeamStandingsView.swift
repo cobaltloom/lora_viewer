@@ -260,7 +260,7 @@ struct CompetitionEditorView: View {
                 DatePicker("開始日", selection: $startDate, displayedComponents: .date)
                 DatePicker("終了日", selection: $endDate, in: startDate..., displayedComponents: .date)
             } footer: {
-                Text("期間中に飛んだ機体が自動でチームとして並び、トラックサーバーが計時した周回から毎日の得点を積み上げます(端末を閉じていた日も含みます)。")
+                Text("期間中に飛んだ機体が自動でチームとして並び、トラックサーバーが計時した周回から毎日の得点を積み上げます(端末を閉じていた日も含みます)。最終日の3日後に得点を自動で確定し、14日後に競技会の設定を削除します。")
             }
             daySection
         }
