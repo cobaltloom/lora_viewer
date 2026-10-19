@@ -1,3 +1,4 @@
+import math
 import unittest
 
 import trackserver as ts
@@ -73,3 +74,123 @@ class TrackServerTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+class StandingsTest(unittest.TestCase):
+    def test_validation(self):
+        ok = {"name": "第42回関東", "startDate": "2026-10-11", "endDate": "2026-10-18",
+              "days": {"2026-10-17": {"course": "③", "scores": {"FLRDB0786": {"total": 900, "national": None}}}},
+              "handicaps": {"ICA84C247": 0.9}}
+        self.assertIs(ts.validate_standings(ok), ok)
+        for bad in ({"startDate": "17/10"}, {"days": {"x": {}}}, {"days": {"2026-10-17": {"course": 3}}},
+                    {"days": {"2026-10-17": {"scores": {"a": {"total": "1"}}}}}, {"handicaps": {"a": "0.9"}}):
+            with self.assertRaises(ValueError):
+                ts.validate_standings(bad)
+
+    def test_http_round_trip(self):
+        import json, os, tempfile, threading, time, urllib.request, urllib.error
+        from http.server import ThreadingHTTPServer
+        tmp = tempfile.mkdtemp()
+        ts.API_KEY = "api"
+        os.environ["STANDINGS_KEY"] = "editor"
+        ts.Handler.store = ts.Store()
+        ts.Handler.standings_path = os.path.join(tmp, "standings.json")
+        server = ThreadingHTTPServer(("127.0.0.1", 0), ts.Handler)
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        base = "http://127.0.0.1:%d/standings" % server.server_address[1]
+        try:
+            def call(method, headers, body=None):
+                req = urllib.request.Request(base, data=body, method=method, headers=headers)
+                try:
+                    with urllib.request.urlopen(req) as r:
+                        return r.status, json.load(r)
+                except urllib.error.HTTPError as e:
+                    return e.code, None
+            self.assertEqual(call("GET", {"X-Api-Key": "api"}), (200, {"standings": None}))
+            body = json.dumps({"name": "test", "startDate": "2026-10-11", "endDate": "2026-10-18"}).encode()
+            self.assertEqual(call("PUT", {"X-Api-Key": "api", "X-Editor-Key": "wrong"}, body)[0], 403)
+            self.assertEqual(call("PUT", {"X-Api-Key": "x", "X-Editor-Key": "editor"}, body)[0], 401)
+            status, saved = call("PUT", {"X-Api-Key": "api", "X-Editor-Key": "editor"}, body)
+            self.assertEqual(status, 200)
+            self.assertIn("updatedAt", saved["standings"])
+            status, got = call("GET", {"X-Api-Key": "api"})
+            self.assertEqual(got["standings"]["name"], "test")
+            # Without an editor key set, any app may save.
+            del os.environ["STANDINGS_KEY"]
+            ts._editor_key.update(value="", at=time.time())
+            self.assertEqual(call("PUT", {"X-Api-Key": "api"}, body)[0], 200)
+        finally:
+            server.shutdown()
+            os.environ.pop("STANDINGS_KEY", None)
+
+
+class LapTimingTest(unittest.TestCase):
+    """The ported lap timing, on a made-up flight round course ② (妻沼-千代田-高林給水塔-妻沼)."""
+
+    @staticmethod
+    def offset(origin, distance_m, bearing_deg):
+        lat = origin[0] + distance_m * math.cos(math.radians(bearing_deg)) / 110574.0
+        lon = origin[1] + distance_m * math.sin(math.radians(bearing_deg)) / (111320.0 * math.cos(math.radians(origin[0])))
+        return lat, lon
+
+    def flight(self, chiyoda_alt=700.0, goal=True):
+        names = ts.COURSES[1][2]
+        mid_goal = ((ts.GOAL_A[0] + ts.GOAL_B[0]) / 2, (ts.GOAL_A[1] + ts.GOAL_B[1]) / 2)
+        pts = [(0, *self.offset(ts.START_POINT, 200, 135), 30.0), (10, *self.offset(ts.START_POINT, 200, 315), 150.0)]
+        pts.append((600, *self.offset(ts.TURNPOINTS["千代田"], 1000, ts.sector_bearing(names, "千代田")), chiyoda_alt))
+        pts.append((1200, *self.offset(ts.TURNPOINTS["高林給水塔"], 1000, ts.sector_bearing(names, "高林給水塔")), 700.0))
+        if goal:
+            pts += [(1760, *self.offset(mid_goal, 300, 315), 400.0), (1780, *self.offset(mid_goal, 300, 135), 400.0)]
+        return pts
+
+    def test_full_lap(self):
+        lap = ts.evaluate_lap(self.flight(), ts.COURSES[1][2])
+        self.assertAlmostEqual(lap["start"], 5, delta=0.5)
+        self.assertEqual([n for n, _ in lap["passed"]], ["千代田", "高林給水塔"])
+        self.assertAlmostEqual(lap["finish"], 1770, delta=0.5)
+
+    def test_low_turnpoint_and_partial_results(self):
+        lap = ts.evaluate_lap(self.flight(chiyoda_alt=500.0), ts.COURSES[1][2])  # below the 630 m guideline there
+        self.assertEqual(lap["passed"], [])
+        self.assertIsNone(lap["finish"])
+        results = ts.day_results({"g1": [self.flight(goal=False)]}, now=1e9)
+        partial = results[ts.COURSES[1][0]]
+        self.assertEqual(partial, [{"id": "g1", "start": partial[0]["start"], "passed": ["千代田", "高林給水塔"], "distanceKm": 23.6}])
+        finished = ts.day_results({"g1": [self.flight()]}, now=1e9)[ts.COURSES[1][0]][0]
+        self.assertAlmostEqual(finished["lapSeconds"], 1765, delta=1)
+
+
+class FinalizeTest(unittest.TestCase):
+    C3 = ts.COURSES[2][0]
+
+    def results(self):
+        lap = lambda gid, minutes, alt=400.0: {"id": gid, "start": 0, "finish": minutes * 60, "lapSeconds": minutes * 60.0,
+                                              "distanceKm": 26.5, "goalAltitudeM": alt}
+        return {"2026-10-17": {"ogn": {self.C3: [lap("FLRDB0786", 26.25), lap("FLRDB0775", 27 + 52 / 60), lap("FLRDB0775", 57 + 4 / 60),
+                                                 {"id": "FLRDB076F", "start": 0, "distanceKm": 20.2, "passed": ["高林給水塔", "邑楽タワー"]}]},
+                               "lora": {self.C3: [lap("000A", 26.25)]}}}
+
+    def test_scores_match_the_official_results(self):
+        scores = ts.day_glider_scores({}, "2026-10-17", self.results()["2026-10-17"]["ogn"])
+        self.assertEqual(scores["FLRDB0786"], {"total": 1000.0, "national": 1000.0})  # 中央 ASK23B, fastest
+        self.assertEqual(scores["FLRDB0775"]["national"], 873.0)  # 慶應 Discus 0.90 (built-in), official 873
+        self.assertEqual(scores["FLRDB0775"]["total"], 873.0 + 656.0)  # and its 57:04 lap, official 656
+        self.assertEqual(scores["FLRDB076F"]["total"], 381.0)  # 関千 2 points, official 381
+
+    def test_confirmed_three_days_after_the_last_day(self):
+        competition = {"name": "test", "startDate": "2026-10-16", "endDate": "2026-10-18",
+                       "days": {"2026-10-17": {"scores": {"FLRDB0786": {"total": 900.0}}}}}
+        self.assertIsNone(ts.finalize_competition(competition, self.results(), "2026-10-20"))
+        final = ts.finalize_competition(competition, self.results(), "2026-10-21")
+        scores = final["days"]["2026-10-17"]["scores"]
+        self.assertEqual(scores["FLRDB0786"], {"total": 900.0, "national": 1000.0})  # correction kept, gap filled
+        self.assertEqual(scores["000A"]["total"], 1000.0)  # LoRa gliders too
+        self.assertIn("finalizedAt", final)
+        self.assertIsNone(ts.finalize_competition(final, self.results(), "2026-10-22"))  # only once
+        self.assertNotIn("finalizedAt", competition)  # the original is untouched
+
+    def test_removed_fourteen_days_after_the_last_day(self):
+        competition = {"name": "test", "startDate": "2026-10-11", "endDate": "2026-10-18"}
+        self.assertFalse(ts.competition_expired(competition, "2026-10-31"))
+        self.assertTrue(ts.competition_expired(competition, "2026-11-01"))
+        self.assertFalse(ts.competition_expired({"name": "no period"}, "2030-01-01"))
+

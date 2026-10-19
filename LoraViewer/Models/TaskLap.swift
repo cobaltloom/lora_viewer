@@ -217,20 +217,23 @@ enum TaskLapCalculator {
 }
 
 /// 競技規則56(1): a flight that rounds some turnpoints but not the whole course scores distance only
-/// - "the last valid turnpoint plus 妻沼", by the 細則2 table below (管理ポイント doesn't count).
+/// - "the last valid turnpoint plus 妻沼" (管理ポイント doesn't count). The official results of
+/// 2026-10-17 scored 高林給水塔→邑楽タワー as 20.2 km, i.e. including the way back to 妻沼 (ST point →
+/// turnpoints → ST point), not 細則2's 14.6 km to the last turnpoint; so the table below is that
+/// round distance, taking 細則2's figures where they cover the same route.
 enum PartialLapDistance {
     static let checkpointName = "管理ポイント"
 
-    /// 細則2「ポイント毎の距離」, keyed by the turnpoints rounded in order (after 妻沼).
+    /// Keyed by the turnpoints rounded in order (after 妻沼), in km.
     static let table: [[String]: Double] = [
-        ["高林給水塔"]: 11.4,
-        ["千代田"]: 12.8,
-        ["高林給水塔", "千代田"]: 17.7,
-        ["千代田", "高林給水塔"]: 17.8,
-        ["高林給水塔", "邑楽タワー"]: 14.6,
-        ["千代田", "邑楽タワー"]: 11.7,
-        ["高林給水塔", "邑楽タワー", "千代田"]: 20.1,
-        ["千代田", "邑楽タワー", "高林給水塔"]: 20.2,
+        ["高林給水塔"]: 11.4, // 細則2 1ポイント
+        ["千代田"]: 12.8, // 細則2 1ポイント
+        ["高林給水塔", "千代田"]: 23.6, // = 細則2 コース②
+        ["千代田", "高林給水塔"]: 23.6, // = 細則2 コース②
+        ["高林給水塔", "邑楽タワー"]: 20.2, // 2026-10-17 official results
+        ["千代田", "邑楽タワー"]: 18.0, // ST point round, 17.97 km
+        ["高林給水塔", "邑楽タワー", "千代田"]: 26.1, // ST point round, 26.11 km
+        ["千代田", "邑楽タワー", "高林給水塔"]: 26.1, // = 細則2 コース④
     ]
 
     /// The course's turnpoints that score, in order.
@@ -338,6 +341,168 @@ enum LapScore {
         for _ in 0..<40 {
             let mid = (fast + slow) / 2
             if beats(mid) { fast = mid } else { slow = mid }
+        }
+        return fast
+    }
+}
+
+/// Each team's totals before today, as `TeamRanking` adds today's flights to them (see
+/// `CompetitionScoring.standingsBeforeToday`).
+struct TeamStandings {
+    struct Team {
+        var name: String
+        /// LoRa tracker ids and FLARM callsigns of the team's gliders whose flights today count.
+        var gliderIds: [String] = []
+        /// Team total (団体), per 規則55: each day's top three pilots, summed over the days.
+        var total: Double?
+        /// 全国選出点 total, per 規則60: each day's best pilot score, summed over the days.
+        var national: Double?
+    }
+
+    var competition: String = ""
+    var teams: [Team] = []
+}
+
+/// A competition's team scores day by day from the track server's results: each glider's best three
+/// reference scores that day (best one for 全国選出点), floored like the official results, on the
+/// day's course - unless corrected. Kept in step with the Android app's CompetitionScoring, which has
+/// the unit tests.
+enum CompetitionScoring {
+    static func key(_ date: Date) -> String { Competition.dateFormatter.string(from: date) }
+
+    /// The day's course: as set, else the one with the most laps completed (then the most entries).
+    static func dayCourse(_ competition: Competition, date: Date, results: DayResults?) -> String? {
+        if let course = competition.days[key(date)]?.course { return course }
+        return results?.filter { !$0.value.isEmpty }.max { a, b in
+            (a.value.filter { $0.finish != nil }.count, a.value.count) < (b.value.filter { $0.finish != nil }.count, b.value.count)
+        }?.key
+    }
+
+    /// A day's flights on `course`, for scoring.
+    static func flights(_ results: DayResults?, course: String?, handicap: (String) -> Double) -> [TeamRanking.Flight] {
+        guard let course, let laps = results?[course] else { return [] }
+        return laps.map { result in
+            TeamRanking.Flight(lap: LapScore.Lap(id: UUID(), distanceKm: result.distanceKm, lapSeconds: result.lapSeconds,
+                                                 handicap: handicap(result.id), goalAltitudeM: result.goalAltitudeM),
+                               gliderID: result.id)
+        }
+    }
+
+    /// Every glider with a result on a competition day up to `today`, or a corrected score.
+    static func gliders(_ competition: Competition, today: Date, results: [String: DayResults]) -> [String] {
+        let dates = Set(competition.dates(until: today).map(key))
+        let fromResults = results.filter { dates.contains($0.key) }.values.flatMap { $0.values.flatMap { $0.map(\.id) } }
+        let corrected = competition.days.filter { dates.contains($0.key) }.values.flatMap { $0.scores.keys }
+        return Array(Set(fromResults + corrected)).sorted()
+    }
+
+    /// One day's scores per glider: corrections where entered, else the server results'.
+    static func dayScores(_ competition: Competition, date: Date, results: DayResults?,
+                          handicap: (String) -> Double) -> [String: Competition.DayScore] {
+        let dayFlights = Self.flights(results, course: dayCourse(competition, date: date, results: results), handicap: handicap)
+        let scores = LapScore.scores(dayFlights.map(\.lap))
+        var auto: [String: Competition.DayScore] = [:]
+        for (id, own) in Dictionary(grouping: dayFlights, by: { $0.gliderID ?? "" }) {
+            let best = own.compactMap { scores[$0.lap.id] }.map { $0.rounded(.down) }.sorted(by: >)
+            auto[id] = Competition.DayScore(total: best.prefix(3).reduce(0, +), national: best.first ?? 0)
+        }
+        let entered = competition.days[key(date)]?.scores ?? [:]
+        var result: [String: Competition.DayScore] = [:]
+        for id in Set(auto.keys).union(entered.keys) {
+            result[id] = Competition.DayScore(total: entered[id]?.total ?? auto[id]?.total ?? 0,
+                                              national: entered[id]?.national ?? auto[id]?.national ?? 0)
+        }
+        return result
+    }
+
+    /// Each glider's totals over the competition days before today, plus today's corrections where
+    /// entered - those gliders are then left out of today's flights so they aren't counted twice - for
+    /// `TeamRanking`, which adds today's flights. Team names are the glider ids.
+    static func standingsBeforeToday(_ competition: Competition, today: Date, results: [String: DayResults],
+                                     handicap: (String) -> Double) -> TeamStandings {
+        let calendar = Calendar.current
+        let before = competition.dates(until: today).filter { !calendar.isDate($0, inSameDayAs: today) }
+            .map { dayScores(competition, date: $0, results: results[key($0)], handicap: handicap) }
+        let todayEntered = competition.days[key(today)]?.scores ?? [:]
+        return TeamStandings(competition: competition.name, teams: gliders(competition, today: today, results: results).map { id in
+            let entered = todayEntered[id]
+            return TeamStandings.Team(
+                name: id,
+                gliderIds: entered?.total != nil ? [] : [id],
+                total: before.reduce(0) { $0 + ($1[id]?.total ?? 0) } + (entered?.total ?? 0),
+                national: before.reduce(0) { $0 + ($1[id]?.national ?? 0) } + (entered?.national ?? 0)
+            )
+        })
+    }
+}
+
+/// Provisional team standings: the official totals plus today's reference scores (see `LapScore`) of
+/// each team's gliders - the best three flights for the team total and the best one for 全国選出点,
+/// floored like the official results. Pilots aren't known, so each flight counts as a different
+/// pilot's last flight. Also finds the lap time a team needs to reach a given rank today. Kept in
+/// step with the Android app's TeamRanking, which has the unit tests.
+enum TeamRanking {
+    struct Row: Identifiable {
+        let name: String
+        let official: Double
+        let today: Double
+        let nationalOfficial: Double
+        let nationalToday: Double
+        /// 1 = top; teams level on points share a rank.
+        var rank: Int
+        let flightsToday: Int
+        var total: Double { official + today }
+        var nationalTotal: Double { nationalOfficial + nationalToday }
+        var id: String { name }
+    }
+
+    /// One of today's scored flights: its lap (for rescoring) and the glider that flew it.
+    struct Flight {
+        let lap: LapScore.Lap
+        let gliderID: String?
+    }
+
+    static func rows(_ standings: TeamStandings, flights: [Flight], includeToday: Bool) -> [Row] {
+        rows(standings, scores: includeToday ? LapScore.scores(flights.map(\.lap)) : [:], flights: flights, includeToday: includeToday)
+    }
+
+    private static func rows(_ standings: TeamStandings, scores: [UUID: Double], flights: [Flight], includeToday: Bool) -> [Row] {
+        let partial: [Row] = standings.teams.map { team in
+            let teamScores: [Double] = includeToday
+                ? flights.filter { flight in flight.gliderID.map { team.gliderIds.contains($0) } ?? false }
+                    .compactMap { scores[$0.lap.id] }.map { $0.rounded(.down) }.sorted(by: >)
+                : []
+            return Row(name: team.name, official: team.total ?? 0, today: teamScores.prefix(3).reduce(0, +),
+                       nationalOfficial: team.national ?? 0, nationalToday: teamScores.first ?? 0,
+                       rank: 0, flightsToday: teamScores.count)
+        }
+        return partial.map { row in
+            var ranked = row
+            ranked.rank = 1 + partial.filter { $0.total > row.total }.count
+            return ranked
+        }.sorted { $0.rank < $1.rank }
+    }
+
+    /// The slowest lap over `distanceKm` in `teamName`'s glider (`gliderID`, `handicap`) with which the
+    /// team would rank `targetRank` or better today, rescoring the whole field with it. Assumes a goal
+    /// at 330 m or above. `.infinity` if any lap would do, nil if no lap could.
+    static func lapSecondsToReach(_ standings: TeamStandings, flights: [Flight], teamName: String, gliderID: String,
+                                  handicap: Double, distanceKm: Double, targetRank: Int) -> Double? {
+        guard distanceKm > 0, standings.teams.contains(where: { $0.name == teamName }) else { return nil }
+        let candidate = UUID()
+        func reaches(_ lapSeconds: Double) -> Bool {
+            let all = flights + [Flight(lap: LapScore.Lap(id: candidate, distanceKm: distanceKm, lapSeconds: lapSeconds, handicap: handicap),
+                                        gliderID: gliderID)]
+            let ranked = rows(standings, scores: LapScore.scores(all.map(\.lap)), flights: all, includeToday: true)
+            return (ranked.first { $0.name == teamName }?.rank ?? Int.max) <= targetRank
+        }
+        var fast = 60.0, slow = 6 * 3600.0
+        if reaches(slow) { return .infinity }
+        guard reaches(fast) else { return nil }
+        // Faster always helps the team relatively, so bisect for the slowest lap that still reaches.
+        for _ in 0..<40 {
+            let mid = (fast + slow) / 2
+            if reaches(mid) { fast = mid } else { slow = mid }
         }
         return fast
     }

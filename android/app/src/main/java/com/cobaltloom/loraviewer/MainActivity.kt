@@ -41,6 +41,8 @@ import com.cobaltloom.loraviewer.ui.paywall.PaywallScreen
 import com.cobaltloom.loraviewer.ui.settings.AdvancedSettingsScreen
 import com.cobaltloom.loraviewer.ui.settings.SettingsScreen
 import com.cobaltloom.loraviewer.ui.theme.LoraViewerTheme
+import com.cobaltloom.loraviewer.ui.standings.StandingsEditorScreen
+import com.cobaltloom.loraviewer.ui.standings.TeamStandingsScreen
 import com.cobaltloom.loraviewer.ui.turnpoint.TurnpointHistoryScreen
 
 class MainActivity : ComponentActivity() {
@@ -63,6 +65,8 @@ private object Routes {
     const val PAYWALL = "paywall"
     const val TURNPOINT_HISTORY = "turnpointHistory"
     const val ADVANCED_SETTINGS = "advancedSettings"
+    const val STANDINGS = "standings"
+    const val STANDINGS_EDITOR = "standingsEditor"
 }
 
 @Composable
@@ -136,6 +140,7 @@ private fun LoraViewerNavHost(billingRepository: BillingRepository) {
                 onOpenList = { navController.navigate(Routes.LIST) },
                 onOpenSettings = { navController.navigate(Routes.SETTINGS) },
                 onOpenTurnpointHistory = { navController.navigate(Routes.TURNPOINT_HISTORY) },
+                onOpenStandings = { navController.navigate(Routes.STANDINGS) },
                 onRequireSubscription = onRequireSubscription,
             )
         }
@@ -166,6 +171,16 @@ private fun LoraViewerNavHost(billingRepository: BillingRepository) {
         }
         composable(Routes.TURNPOINT_HISTORY) {
             TurnpointHistoryScreen(viewModel = viewModel, onBack = { navController.popBackStack() })
+        }
+        composable(Routes.STANDINGS) {
+            TeamStandingsScreen(
+                viewModel = viewModel,
+                onBack = { navController.popBackStack() },
+                onEdit = { navController.navigate(Routes.STANDINGS_EDITOR) },
+            )
+        }
+        composable(Routes.STANDINGS_EDITOR) {
+            StandingsEditorScreen(viewModel = viewModel, onBack = { navController.popBackStack() })
         }
         composable(Routes.BOARD_SCAN) {
             BoardScanScreen(viewModel = viewModel, onDone = { navController.popBackStack() })

@@ -23,7 +23,11 @@ struct CurrentMapView: View {
     @AppStorage("mapStyleIsSatellite") private var mapStyleIsSatellite = false
     @State private var showAddPointOfInterest = false
     @State private var pointOfInterestPendingDeletion: PointOfInterest?
-    @State private var cameraPosition: MapCameraPosition = .automatic
+    /// Always opens on Menuma, wide enough for the task turnpoints: the app is for Menuma, so gliders
+    /// elsewhere (FLARM shows up to 150 km out) mustn't pull the map away.
+    @State private var cameraPosition: MapCameraPosition = .region(MKCoordinateRegion(
+        center: CompetitionAltitudeGuideline.referenceCoordinate, latitudinalMeters: 20_000, longitudinalMeters: 20_000
+    ))
     @State private var selectedGlider: GliderPosition?
     /// Each timed glider's progress around the selected task course (see `updateLapStatuses`).
     @State private var lapStatuses: [String: TaskLapStatus] = [:]
@@ -32,6 +36,9 @@ struct CurrentMapView: View {
     @State private var lapCache = TaskLapCache()
     @Environment(\.scenePhase) private var scenePhase
     @State private var showSettings = false
+    /// The user's own location is shown only on request: keeping it on had GPS at full accuracy the
+    /// whole time (about a fifth of the app's energy use), and remote viewers have no use for it.
+    @State private var showUserLocation = false
     /// Launch-time LoRa/OGN chooser, so people notice OGN is available at all. Shown once per launch
     /// until "次回から表示しない" is checked.
     @AppStorage(DataSourcePromptView.suppressedKey) private var dataSourcePromptSuppressed = false
@@ -39,7 +46,7 @@ struct CurrentMapView: View {
     @State private var hasOfferedDataSourcePrompt = false
     @State private var showPaywall = false
     @State private var showTurnpointHistory = false
-    @State private var didCenterInitially = false
+    @State private var showStandings = false
     @State private var showFavoritesOnly = false
     /// The visible map region's center, kept up to date so distance labels
     /// on the alert circles can be placed on whichever side of the circle
@@ -291,7 +298,9 @@ struct CurrentMapView: View {
                                 }
                         }
                     }
-                    UserAnnotation()
+                    if showUserLocation {
+                        UserAnnotation()
+                    }
                 }
                 // Flat, not 3D terrain: the Menuma area gains nothing visible from it, and rendering terrain
                 // kept the GPU busy enough to make phones run hot.
@@ -299,7 +308,6 @@ struct CurrentMapView: View {
                 .mapControls {
                     MapCompass()
                     MapScaleView()
-                    MapUserLocationButton()
                 }
                 // Only once a pan/zoom ends: updating on every frame rebuilt the whole map content each frame.
                 .onMapCameraChange(frequency: .onEnd) { context in
@@ -317,16 +325,23 @@ struct CurrentMapView: View {
                     }
                 }
                 .safeAreaInset(edge: .top) {
-                    VStack(spacing: 6) {
-                        if !subscriptionManager.isSubscribed, subscriptionManager.isFreePeriodActive,
-                           let freeAccessUntil = subscriptionManager.freeAccessUntil {
-                            freePeriodIndicator(until: freeAccessUntil)
-                        }
-                        if !activeAlertLabels.isEmpty {
-                            activeAlertsIndicator
-                        }
-                        if !alertingGliders.isEmpty {
-                            alertBanner
+                    // Only built when there's something to show: an empty stack still made a
+                    // full-width, zero-height layer, which Core Animation logged as
+                    // "Failed to create 1206x0 image slot".
+                    let freeAccessUntil = !subscriptionManager.isSubscribed && subscriptionManager.isFreePeriodActive
+                        ? subscriptionManager.freeAccessUntil : nil
+                    let alerting = alertingGliders
+                    if freeAccessUntil != nil || !activeAlertLabels.isEmpty || !alerting.isEmpty {
+                        VStack(spacing: 6) {
+                            if let freeAccessUntil {
+                                freePeriodIndicator(until: freeAccessUntil)
+                            }
+                            if !activeAlertLabels.isEmpty {
+                                activeAlertsIndicator
+                            }
+                            if !alerting.isEmpty {
+                                alertBanner
+                            }
                         }
                     }
                 }
@@ -372,6 +387,13 @@ struct CurrentMapView: View {
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
+                        toggleUserLocation()
+                    } label: {
+                        Image(systemName: showUserLocation ? "location.fill" : "location")
+                    }
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
                         mapStyleIsSatellite.toggle()
                     } label: {
                         Image(systemName: mapStyleIsSatellite ? "map.fill" : "globe.americas.fill")
@@ -398,6 +420,15 @@ struct CurrentMapView: View {
                         showAddPointOfInterest = true
                     } label: {
                         Label("地点を追加", systemImage: "mappin.and.ellipse")
+                    }
+                    Button {
+                        if subscriptionManager.hasFullAccess {
+                            showStandings = true
+                        } else {
+                            showPaywall = true
+                        }
+                    } label: {
+                        Label("団体順位", systemImage: "trophy")
                     }
                     Button {
                         if subscriptionManager.hasFullAccess {
@@ -442,9 +473,20 @@ struct CurrentMapView: View {
                     pointOfInterestPendingDeletion = nil
                 }
             }
+            .sheet(isPresented: $showStandings) {
+                NavigationStack {
+                    TeamStandingsView(server: settings.trackServer, viewModel: viewModel, selectedCourse: selectedTaskCourse)
+                    .environmentObject(handicapStore)
+                    .toolbar {
+                        ToolbarItem(placement: .topBarLeading) {
+                            Button("閉じる") { showStandings = false }
+                        }
+                    }
+                }
+            }
             .sheet(isPresented: $showTurnpointHistory) {
                 NavigationStack {
-                    TurnpointPassageHistoryView(log: turnpointPassageLog)
+                    TurnpointPassageHistoryView(log: turnpointPassageLog, courseName: selectedTaskCourse?.name)
                         .environmentObject(handicapStore)
                         .toolbar {
                             ToolbarItem(placement: .topBarLeading) {
@@ -467,7 +509,6 @@ struct CurrentMapView: View {
                 turnpointPassageLog.dataSource = settings.effectiveDataSource
                 viewModel.startPolling()
                 offerDataSourcePromptIfNeeded()
-                locationManager.requestAuthorizationIfNeeded()
                 alertNotifier.requestAuthorizationIfNeeded()
             }
             .onDisappear {
@@ -501,24 +542,20 @@ struct CurrentMapView: View {
                 if let todays = viewModel.todaysFlights { recordTodaysFlights(todays) }
             }
             .onChange(of: selectedTaskCourse?.id) {
-                // Another course: today's flights may have rounded its turnpoints.
+                // Another course: its sectors differ, so start the live checks afresh, and fill its
+                // history from today's flights (the previous course's rows stay, for switching back).
+                glidersInsideTurnpoints = []
+                previousTurnpointFixes = [:]
                 if let todays = viewModel.todaysFlights { recordTodaysFlights(todays) }
             }
-            .onChange(of: viewModel.positions) { _, newPositions in
-                centerMapIfNeeded(on: newPositions)
+            // Every few seconds rather than every poll: polling FLARM each second only moves markers.
+            .onChange(of: viewModel.analysisPositions) { _, newPositions in
                 updateProximityAlerts(in: newPositions)
                 notifyNewAlerts(in: newPositions)
                 notifyTurnpointPassages(in: newPositions)
                 updateLapStatuses()
             }
         }
-    }
-
-    private func centerMapIfNeeded(on positions: [GliderPosition]) {
-        guard !didCenterInitially, !positions.isEmpty else { return }
-        didCenterInitially = true
-        let coordinates = positions.map(\.coordinate)
-        cameraPosition = .region(MKCoordinateRegion(coordinates: coordinates))
     }
 
     /// Notifies once per glider each time it newly enters an alerting state
@@ -579,7 +616,8 @@ struct CurrentMapView: View {
                 let altitudeM = glider.alt.map { _ in entry.altitudeM }
                 // Deduped like a backfilled passage, so a glider skimming a sector's edge isn't
                 // announced over and over.
-                if turnpointPassageLog.recordPastPassage(gliderName: gliderName, turnpointName: name, altitudeM: altitudeM, timestamp: entry.time) {
+                if turnpointPassageLog.recordPastPassage(gliderName: gliderName, turnpointName: name, altitudeM: altitudeM, timestamp: entry.time,
+                                                         courseName: selectedCourse.name) {
                     alertNotifier.notifyTurnpointPassage(gliderName: gliderName, turnpointName: name, altitudeM: altitudeM)
                 }
             }
@@ -632,7 +670,7 @@ struct CurrentMapView: View {
     private func toBeat(for glider: GliderPosition) -> ToBeat? {
         guard let course = selectedTaskCourse, let status = lapStatuses[glider.imei],
               let start = status.start, status.finish == nil else { return nil }
-        let laps = LapScore.laps(from: turnpointPassageLog.todaysRecords) { id in
+        let laps = LapScore.laps(from: turnpointPassageLog.todaysRecords.filter { $0.belongs(toCourse: course.name) }) { id in
             id.map(handicapStore.handicap(for:)) ?? GliderHandicapStore.defaultHandicap
         }
         guard laps.contains(where: { $0.lapSeconds != nil }),
@@ -647,13 +685,13 @@ struct CurrentMapView: View {
         let scored = status.passedTurnpoints.filter { $0.name != PartialLapDistance.checkpointName }
         guard let start = status.start, status.finish == nil, let last = scored.last,
               let distanceKm = PartialLapDistance.distanceKm(passed: scored.map { $0.name }),
-              reportedLapEvents.insert("\(id)|partial|\(start.timeIntervalSince1970)").inserted else { return }
+              reportedLapEvents.insert("\(course.name)|\(id)|partial|\(start.timeIntervalSince1970)").inserted else { return }
         let total = PartialLapDistance.scoredTurnpoints(of: course).count
         let names = scored.map { $0.name }.joined(separator: "・")
         turnpointPassageLog.recordPastPassage(
             gliderName: gliderName,
             turnpointName: TurnpointPassageRecord.partialLapPrefix + "旋回点 \(scored.count)/\(total)(\(names))・距離 \(String(format: "%.1f", distanceKm))km",
-            altitudeM: nil, timestamp: last.time, gliderID: id, courseDistanceKm: distanceKm
+            altitudeM: nil, timestamp: last.time, gliderID: id, courseDistanceKm: distanceKm, courseName: course.name
         )
     }
 
@@ -662,15 +700,17 @@ struct CurrentMapView: View {
     private func logLapEvents(id: String, status: TaskLapStatus, gliderName: String, course: CompetitionTaskCourse, now: Date, notify: Bool) {
         // Logged only once the first turnpoint is reached, so a flight that lands without
         // rounding any turnpoint leaves no stray "スタート" in the history.
-        if let start = status.start, !status.passedTurnpoints.isEmpty, reportedLapEvents.insert("\(id)|start|\(start.timeIntervalSince1970)").inserted {
-            turnpointPassageLog.recordPastPassage(gliderName: gliderName, turnpointName: "スタート", altitudeM: status.startAltitudeM, timestamp: start)
+        if let start = status.start, !status.passedTurnpoints.isEmpty, reportedLapEvents.insert("\(course.name)|\(id)|start|\(start.timeIntervalSince1970)").inserted {
+            turnpointPassageLog.recordPastPassage(gliderName: gliderName, turnpointName: "スタート", altitudeM: status.startAltitudeM, timestamp: start,
+                                                  courseName: course.name)
         }
         guard let finish = status.finish,
-              reportedLapEvents.insert("\(id)|finish|\(finish.timeIntervalSince1970)").inserted else { return }
+              reportedLapEvents.insert("\(course.name)|\(id)|finish|\(finish.timeIntervalSince1970)").inserted else { return }
         let summary = String(status.summary(courseDistanceKm: course.distanceKm, now: now).dropFirst("周回: ".count))
         let recorded = turnpointPassageLog.recordPastPassage(gliderName: gliderName, turnpointName: TurnpointPassageRecord.finishPrefix + summary,
                                                              altitudeM: status.finishAltitudeM, timestamp: finish,
-                                                             gliderID: id, lapSeconds: status.lapDuration, courseDistanceKm: course.distanceKm)
+                                                             gliderID: id, lapSeconds: status.lapDuration, courseDistanceKm: course.distanceKm,
+                                                             courseName: course.name)
         // Only announce a finish that just happened - not one found in history on reopening.
         if notify, recorded, now.timeIntervalSince(finish) < 5 * 60 {
             alertNotifier.notifyTaskFinish(gliderName: gliderName, summary: summary)
@@ -696,7 +736,8 @@ struct CurrentMapView: View {
                         if let previous, TurnpointSector.isInSector(previous.coordinate, course: course, name: name) { continue }
                         guard let t = TurnpointSector.firstEntry(from: previous, to: fix, course: course, name: name) else { continue }
                         let entry = previous.map { TurnpointSector.interpolate($0, fix, t) } ?? fix
-                        turnpointPassageLog.recordPastPassage(gliderName: gliderName, turnpointName: name, altitudeM: entry.altitudeM, timestamp: entry.time)
+                        turnpointPassageLog.recordPastPassage(gliderName: gliderName, turnpointName: name, altitudeM: entry.altitudeM, timestamp: entry.time,
+                                                              courseName: course.name)
                     }
                     previous = fix
                 }
@@ -835,6 +876,17 @@ struct CurrentMapView: View {
             .padding(.vertical, 2)
             .background(.white.opacity(0.9), in: Capsule())
             .overlay(Capsule().stroke(colorFor(imei: glider.imei), lineWidth: 1))
+    }
+
+    /// Shows the user's own location and moves the map to it, or hides it again (which lets GPS rest).
+    /// Location permission is asked for the first time it's shown.
+    private func toggleUserLocation() {
+        showUserLocation.toggle()
+        guard showUserLocation else { return }
+        locationManager.requestAuthorizationIfNeeded()
+        withAnimation {
+            cameraPosition = .userLocation(fallback: cameraPosition)
+        }
     }
 
     private func toggleFavoritesOnly() {

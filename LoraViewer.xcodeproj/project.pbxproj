@@ -50,6 +50,7 @@
 		F8EACEED39ECA9C1977593C7 /* FavoriteButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 571940B76C07CC36B2A44623 /* FavoriteButton.swift */; };
 		A5926228A3084A18EF58E11F /* PaywallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2AF394CF9F6557D6C2736A87 /* PaywallView.swift */; };
 		6FCB4A1F8C1598963305BAB6 /* TurnpointPassageHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65E6489C7CC64C25A161B631 /* TurnpointPassageHistoryView.swift */; };
+		CC2C9A0C2DC7A589E1367A69 /* TeamStandingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CD83656DC0E9736986617F1 /* TeamStandingsView.swift */; };
 		F622A31248518CBD121BAEF7 /* AddPointOfInterestView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8D0F15370CC45F6BEB9EED6 /* AddPointOfInterestView.swift */; };
 		43359A1C4B5EC832567A58D7 /* MKCoordinateRegion+Fit.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5CB83C5C7B2C4E59D20160C /* MKCoordinateRegion+Fit.swift */; };
 		6AAEC6787EBDD5B3CBC4A948 /* CLLocationCoordinate2D+Geometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3124123965A6C4823A06CF5 /* CLLocationCoordinate2D+Geometry.swift */; };
@@ -104,6 +105,7 @@
 		571940B76C07CC36B2A44623 /* FavoriteButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "FavoriteButton.swift"; sourceTree = "<group>"; };
 		2AF394CF9F6557D6C2736A87 /* PaywallView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PaywallView.swift"; sourceTree = "<group>"; };
 		65E6489C7CC64C25A161B631 /* TurnpointPassageHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TurnpointPassageHistoryView.swift"; sourceTree = "<group>"; };
+		2CD83656DC0E9736986617F1 /* TeamStandingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TeamStandingsView.swift"; sourceTree = "<group>"; };
 		E8D0F15370CC45F6BEB9EED6 /* AddPointOfInterestView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AddPointOfInterestView.swift"; sourceTree = "<group>"; };
 		D5CB83C5C7B2C4E59D20160C /* MKCoordinateRegion+Fit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MKCoordinateRegion+Fit.swift"; sourceTree = "<group>"; };
 		B3124123965A6C4823A06CF5 /* CLLocationCoordinate2D+Geometry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CLLocationCoordinate2D+Geometry.swift"; sourceTree = "<group>"; };
@@ -218,6 +220,7 @@
 				571940B76C07CC36B2A44623 /* FavoriteButton.swift */,
 				2AF394CF9F6557D6C2736A87 /* PaywallView.swift */,
 				65E6489C7CC64C25A161B631 /* TurnpointPassageHistoryView.swift */,
+				2CD83656DC0E9736986617F1 /* TeamStandingsView.swift */,
 				E8D0F15370CC45F6BEB9EED6 /* AddPointOfInterestView.swift */,
 			);
 			path = Views;
@@ -361,6 +364,7 @@
 				F8EACEED39ECA9C1977593C7 /* FavoriteButton.swift in Sources */,
 				A5926228A3084A18EF58E11F /* PaywallView.swift in Sources */,
 				6FCB4A1F8C1598963305BAB6 /* TurnpointPassageHistoryView.swift in Sources */,
+				CC2C9A0C2DC7A589E1367A69 /* TeamStandingsView.swift in Sources */,
 				F622A31248518CBD121BAEF7 /* AddPointOfInterestView.swift in Sources */,
 				43359A1C4B5EC832567A58D7 /* MKCoordinateRegion+Fit.swift in Sources */,
 				6AAEC6787EBDD5B3CBC4A948 /* CLLocationCoordinate2D+Geometry.swift in Sources */,
@@ -495,7 +499,7 @@
 			ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 			ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 			CODE_SIGN_STYLE = Automatic;
-			CURRENT_PROJECT_VERSION = 16;
+			CURRENT_PROJECT_VERSION = 17;
 			DEVELOPMENT_ASSET_PATHS = "\"LoraViewer/Preview Content\"";
 			DEVELOPMENT_TEAM = 563XHL5ZLR;
 			ENABLE_PREVIEWS = YES;
@@ -514,7 +518,7 @@
 				"$(inherited)",
 				"@executable_path/Frameworks",
 			);
-			MARKETING_VERSION = 1.7;
+			MARKETING_VERSION = 1.8;
 			PRODUCT_BUNDLE_IDENTIFIER = com.cobaltloom.loraviewer;
 			PRODUCT_NAME = "$(TARGET_NAME)";
 			SWIFT_EMIT_LOC_STRINGS = YES;
@@ -529,7 +533,7 @@
 			ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 			ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 			CODE_SIGN_STYLE = Automatic;
-			CURRENT_PROJECT_VERSION = 16;
+			CURRENT_PROJECT_VERSION = 17;
 			DEVELOPMENT_ASSET_PATHS = "\"LoraViewer/Preview Content\"";
 			DEVELOPMENT_TEAM = 563XHL5ZLR;
 			ENABLE_PREVIEWS = YES;
@@ -548,7 +552,7 @@
 				"$(inherited)",
 				"@executable_path/Frameworks",
 			);
-			MARKETING_VERSION = 1.7;
+			MARKETING_VERSION = 1.8;
 			PRODUCT_BUNDLE_IDENTIFIER = com.cobaltloom.loraviewer;
 			PRODUCT_NAME = "$(TARGET_NAME)";
 			SWIFT_EMIT_LOC_STRINGS = YES;

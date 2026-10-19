@@ -18,6 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.outlined.Flag
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -26,6 +27,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -60,17 +62,41 @@ private val timeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss").withZone(Zon
 @Composable
 fun TurnpointHistoryScreen(viewModel: GliderTrackerViewModel, onBack: () -> Unit) {
     val uiState by viewModel.uiState.collectAsState()
-    val todaysRecords = remember(uiState.turnpointPassageRecords) {
-        val today = LocalDate.now()
-        uiState.turnpointPassageRecords.filter { it.localDate == today }.sortedByDescending { it.timestampMillis }
+    // Today by default, or an earlier day's laps and scores (kept for 30 days).
+    val today = LocalDate.now()
+    var selectedDay by remember { mutableStateOf(today) }
+    var showClearConfirmation by remember { mutableStateOf(false) }
+    val isToday = selectedDay == today
+    val days = remember(uiState.turnpointPassageRecords) {
+        (uiState.turnpointPassageRecords.map { it.localDate } + today).distinct().sortedDescending()
+    }
+    // Today: the selected task course's rows (all rows when none is selected). An earlier day: the
+    // course picked for it, else the selected course if that day has its rows, else the course with
+    // most rows that day.
+    var pastCourseName by remember(selectedDay) { mutableStateOf<String?>(null) }
+    val pastCourseNames = remember(uiState.turnpointPassageRecords, selectedDay) {
+        uiState.turnpointPassageRecords.filter { it.localDate == selectedDay && it.isScoredFlight }
+            .mapNotNull { it.courseName }.groupingBy { it }.eachCount()
+            .entries.sortedWith(compareByDescending<Map.Entry<String, Int>> { it.value }.thenBy { it.key }).map { it.key }
+    }
+    val selectedCourseName = uiState.selectedCourse?.name
+    val courseName = when {
+        isToday -> selectedCourseName
+        pastCourseName != null && pastCourseName in pastCourseNames -> pastCourseName
+        selectedCourseName != null && selectedCourseName in pastCourseNames -> selectedCourseName
+        else -> pastCourseNames.firstOrNull()
+    }
+    val todaysRecords = remember(uiState.turnpointPassageRecords, courseName, selectedDay) {
+        uiState.turnpointPassageRecords.filter { it.localDate == selectedDay && it.belongsToCourse(courseName) }
+            .sortedByDescending { it.timestampMillis }
     }
     // Reference scores for today's goal and partial-lap rows that carry scoring data (see LapScore).
     val laps = remember(todaysRecords, uiState.handicaps) { LapScore.laps(todaysRecords) { uiState.handicapFor(it) } }
     val scores = remember(laps) { LapScore.scores(laps) }
     // "To beat": the lap time each handicap class needs to top today's best score, over the day's
     // course distance. 0.90-1.00 always, the slower classes only when such a glider has scored today.
-    val toBeat = remember(laps) {
-        val distanceKm = laps.filter { it.lapSeconds != null }.maxOfOrNull { it.distanceKm }
+    val toBeat = remember(laps, isToday) {
+        val distanceKm = laps.filter { it.lapSeconds != null }.maxOfOrNull { it.distanceKm }?.takeIf { isToday }
         if (distanceKm == null) {
             emptyList()
         } else {
@@ -97,6 +123,32 @@ fun TurnpointHistoryScreen(viewModel: GliderTrackerViewModel, onBack: () -> Unit
         }
     }
 
+    if (showClearConfirmation) {
+        val dayLabel = (if (isToday) "今日 " else "") + dayFormatter.format(selectedDay)
+        AlertDialog(
+            onDismissRequest = { showClearConfirmation = false },
+            title = { Text("${dayLabel}の記録を消去しますか?") },
+            text = {
+                Text(
+                    if (isToday) {
+                        "この端末の記録だけが消え、他の人には影響しません。今日の記録は、次にアプリを開いたときなどにサーバーの飛行記録から再び記録されます。"
+                    } else {
+                        "この端末の記録だけが消え、他の人には影響しません。過去の日の記録は元に戻せません。"
+                    },
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.clearTurnpointPassages(selectedDay)
+                        showClearConfirmation = false
+                    },
+                ) { Text("消去", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = { TextButton(onClick = { showClearConfirmation = false }) { Text("キャンセル") } },
+        )
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -106,18 +158,30 @@ fun TurnpointHistoryScreen(viewModel: GliderTrackerViewModel, onBack: () -> Unit
                 },
                 actions = {
                     if (todaysRecords.isNotEmpty()) {
-                        TextButton(onClick = { viewModel.clearTodaysTurnpointPassages() }) { Text("消去") }
+                        TextButton(onClick = { showClearConfirmation = true }) { Text("消去") }
                     }
                 },
             )
         },
     ) { padding ->
+        Column(modifier = Modifier.padding(padding).fillMaxSize()) {
+        DaySelector(
+            days = days,
+            selectedDay = selectedDay,
+            onSelect = { selectedDay = it },
+            courseNames = if (isToday) emptyList() else pastCourseNames,
+            selectedCourseName = courseName,
+            onSelectCourse = { pastCourseName = it },
+        )
         if (todaysRecords.isEmpty()) {
-            Box(modifier = Modifier.padding(padding).fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("本日の旋回点通過はまだありません", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text(
+                    if (isToday) "本日の旋回点通過はまだありません" else "この日の記録はありません",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         } else {
-            LazyColumn(modifier = Modifier.padding(padding).fillMaxSize()) {
+            LazyColumn(modifier = Modifier.fillMaxSize()) {
                 if (todaysFinishes.isNotEmpty()) {
                     item(key = "finishesHeader") { SectionHeader("周回・得点") }
                     val topScore = scores.values.maxOrNull()
@@ -157,7 +221,7 @@ fun TurnpointHistoryScreen(viewModel: GliderTrackerViewModel, onBack: () -> Unit
                     if (scores.isNotEmpty()) {
                         item(key = "scoreNote") {
                             Text(
-                                "参考得点は競技規則53の式(距離・速度・ハンディキャップ)で、この端末が計時した飛行ごとに計算した目安です。周回できなかった飛行は、規則56(1)により細則2の距離表の距離点のみです。ゴール高度が280〜330m未満は50点減点、280m未満は速度点なしです(細則7 別表)。「TIME TO BEAT」は、その時間で周回すると全員の得点を計算し直した結果1位(P1)になる時間です(ゴール高度330m以上の場合)。公式成績は各選手のその日最後の飛行をIGCロガーで判定します。ハンディキャップは関東大会の出場機には機種に合わせた値が入っており、それ以外は1.00です。得点の行をタップするか、メンバー一覧で機体ごとに変更できます。",
+                                "参考得点は競技規則53の式(距離・速度・ハンディキャップ)で、この端末が計時した飛行ごとに計算した目安です(公式成績と同じく小数点以下切り捨て)。周回できなかった飛行は、規則56(1)により最後の有効な旋回点から妻沼に戻るまでの距離点のみです。ゴール高度が280〜330m未満は50点減点、280m未満は速度点なしです(細則7 別表)。「TIME TO BEAT」は、その時間で周回すると全員の得点を計算し直した結果1位(P1)になる時間です(ゴール高度330m以上の場合)。公式成績は各選手のその日最後の飛行をIGCロガーで判定します。ハンディキャップは関東大会の出場機には機種に合わせた値が入っており、それ以外は1.00です。得点の行をタップするか、メンバー一覧で機体ごとに変更できます。",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
@@ -172,6 +236,54 @@ fun TurnpointHistoryScreen(viewModel: GliderTrackerViewModel, onBack: () -> Unit
                 }
             }
         }
+        }
+    }
+}
+
+private val dayFormatter = java.time.format.DateTimeFormatter.ofPattern("M月d日(E)", java.util.Locale.JAPANESE)
+
+/** Picks the day to show (and, for an earlier day judged against several courses, the course). */
+@Composable
+private fun DaySelector(
+    days: List<LocalDate>,
+    selectedDay: LocalDate,
+    onSelect: (LocalDate) -> Unit,
+    courseNames: List<String>,
+    selectedCourseName: String?,
+    onSelectCourse: (String) -> Unit,
+) {
+    fun label(day: LocalDate) = (if (day == LocalDate.now()) "今日 " else "") + dayFormatter.format(day)
+    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            var expanded by remember { mutableStateOf(false) }
+            Box {
+                OutlinedButton(onClick = { expanded = true }) { Text(label(selectedDay)) }
+                DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                    days.forEach { day ->
+                        DropdownMenuItem(text = { Text(label(day)) }, onClick = { onSelect(day); expanded = false })
+                    }
+                }
+            }
+            if (courseNames.size > 1) {
+                var courseExpanded by remember { mutableStateOf(false) }
+                Box {
+                    OutlinedButton(onClick = { courseExpanded = true }) {
+                        Text(selectedCourseName?.take(1) ?: "コース", maxLines = 1)
+                    }
+                    DropdownMenu(expanded = courseExpanded, onDismissRequest = { courseExpanded = false }) {
+                        courseNames.forEach { name ->
+                            DropdownMenuItem(text = { Text(name) }, onClick = { onSelectCourse(name); courseExpanded = false })
+                        }
+                    }
+                }
+            }
+        }
+        Text(
+            "周回・周回未達成の記録と参考得点は30日間、旋回点の通過記録は2日間残ります。",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 4.dp),
+        )
     }
 }
 
@@ -228,7 +340,7 @@ private fun TurnpointPassageRow(
             var expanded by remember { mutableStateOf(false) }
             Box {
                 Text(
-                    "参考得点 %.1f点(ハンデ %.2f%s)".format(score, handicap, goalPenaltyNote(record)),
+                    "参考得点 %d点(ハンデ %.2f%s)".format(kotlin.math.floor(score).toInt(), handicap, goalPenaltyNote(record)),
                     style = MaterialTheme.typography.bodyMedium,
                     color = FinishGreen,
                     fontWeight = FontWeight.Bold,

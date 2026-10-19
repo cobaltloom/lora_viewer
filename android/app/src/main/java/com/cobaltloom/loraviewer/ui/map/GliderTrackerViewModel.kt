@@ -10,12 +10,15 @@ import com.cobaltloom.loraviewer.data.alert.AlertSettings
 import com.cobaltloom.loraviewer.data.alert.AlertSettingsRepository
 import com.cobaltloom.loraviewer.data.alert.AlertSeverity
 import com.cobaltloom.loraviewer.data.alert.AltitudeCalculationMode
+import com.cobaltloom.loraviewer.data.alert.Competition
 import com.cobaltloom.loraviewer.data.alert.CompetitionAltitudeGuideline
 import com.cobaltloom.loraviewer.data.alert.CompetitionGuidelineRepository
 import com.cobaltloom.loraviewer.data.alert.CompetitionGuidelineSettings
+import com.cobaltloom.loraviewer.data.alert.CompetitionScoring
 import com.cobaltloom.loraviewer.data.alert.CompetitionTaskCourse
 import com.cobaltloom.loraviewer.data.alert.CompetitionTaskCourseData
 import com.cobaltloom.loraviewer.data.alert.Coordinate
+import com.cobaltloom.loraviewer.data.alert.DayResults
 import com.cobaltloom.loraviewer.data.alert.GliderAlertReason
 import com.cobaltloom.loraviewer.data.alert.LapScore
 import com.cobaltloom.loraviewer.data.alert.PartialLapDistance
@@ -24,16 +27,17 @@ import com.cobaltloom.loraviewer.data.alert.ProximityAlertSettingsRepository
 import com.cobaltloom.loraviewer.data.alert.TaskLapCache
 import com.cobaltloom.loraviewer.data.alert.TaskLapCalculator
 import com.cobaltloom.loraviewer.data.alert.TaskLapStatus
+import com.cobaltloom.loraviewer.data.alert.TeamRanking
+import com.cobaltloom.loraviewer.data.alert.TeamStandings
 import com.cobaltloom.loraviewer.data.alert.TimedPoint
 import com.cobaltloom.loraviewer.data.alert.TurnpointPassageLogRepository
-import com.cobaltloom.loraviewer.data.alert.TurnpointSector
 import com.cobaltloom.loraviewer.data.alert.TurnpointPassageRecord
+import com.cobaltloom.loraviewer.data.alert.TurnpointSector
 import com.cobaltloom.loraviewer.data.alert.UpperAltitudeGuidelineRepository
 import com.cobaltloom.loraviewer.data.alert.UpperAltitudeSettings
 import com.cobaltloom.loraviewer.data.alert.bearingDegrees
 import com.cobaltloom.loraviewer.data.alert.distanceMeters
 import com.cobaltloom.loraviewer.data.alert.lapSummary
-import com.cobaltloom.loraviewer.ui.common.ToBeat
 import com.cobaltloom.loraviewer.data.favorites.FavoritesRepository
 import com.cobaltloom.loraviewer.data.favorites.GliderHandicapRepository
 import com.cobaltloom.loraviewer.data.model.AppConfig
@@ -46,6 +50,7 @@ import com.cobaltloom.loraviewer.data.repository.GliderRepository
 import com.cobaltloom.loraviewer.data.settings.DataSource
 import com.cobaltloom.loraviewer.data.trail.GliderTrailRepository
 import com.cobaltloom.loraviewer.data.trail.MapDisplaySettingsRepository
+import com.cobaltloom.loraviewer.ui.common.ToBeat
 import com.cobaltloom.loraviewer.ui.common.assignGliderColorSlots
 import com.cobaltloom.loraviewer.ui.common.gliderColor
 import java.time.Duration
@@ -66,6 +71,13 @@ data class GliderTrackerUiState(
     val nicknames: Map<String, String> = emptyMap(),
     /** Each glider's competition handicap, by id (see [GliderHandicapRepository]). */
     val handicaps: Map<String, Double> = emptyMap(),
+    /** The shared competition (see [Competition]), once fetched. */
+    val competition: Competition? = null,
+    /** The track server's lap results over the competition so far, for the current source: date → course → laps. */
+    val competitionResults: Map<String, DayResults> = emptyMap(),
+    /** Names of gliders that may no longer be on the map (FLARM ones looked up), by id. */
+    val gliderNames: Map<String, String> = emptyMap(),
+    val standingsError: String? = null,
     val nicknameSyncMode: NicknameSyncMode = NicknameSyncMode.SYNCED,
     val favorites: Set<String> = emptySet(),
     val alertSettings: AlertSettings = AlertSettings(),
@@ -137,10 +149,29 @@ data class GliderTrackerUiState(
         val start = status.startMillis ?: return null
         if (status.finishMillis != null) return null
         val today = java.time.LocalDate.now()
-        val laps = LapScore.laps(turnpointPassageRecords.filter { it.localDate == today }) { handicapFor(it) }
+        val laps = LapScore.laps(
+            turnpointPassageRecords.filter { it.localDate == today && it.belongsToCourse(course.name) },
+        ) { handicapFor(it) }
         if (laps.none { it.lapSeconds != null }) return null
         val seconds = LapScore.lapSecondsToBeat(laps, course.distanceKm, handicapFor(glider.imei)) ?: return null
         return ToBeat(seconds, (System.currentTimeMillis() - start) / 1000.0)
+    }
+
+    /** A day's passage-history rows. */
+    fun recordsOn(date: java.time.LocalDate): List<TurnpointPassageRecord> = turnpointPassageRecords.filter { it.localDate == date }
+
+    /** A glider's competition handicap: the competition's shared one, else this device's. */
+    fun competitionHandicap(id: String): Double = competition?.handicaps?.get(id) ?: handicapFor(id)
+
+    /** A glider's name for the standings, whether or not it's on the map now. */
+    fun standingsName(id: String): String {
+        positions.firstOrNull { it.imei == id }?.let { return nameFor(it) }
+        gliderNames[id]?.let { return it }
+        // LoRa trackers: the site's board name for the tracker's index.
+        config?.imeiMaster?.entries?.firstOrNull { it.value == id }?.key?.let { index ->
+            config.nameMasterDisplayed[index]?.let { return (if (isSubscribed) nicknames[id] else null) ?: it }
+        }
+        return id
     }
 
     fun handicapFor(id: String?): Double = id?.let { handicaps[it] ?: LapScore.builtInDefault(it) } ?: LapScore.DEFAULT_HANDICAP
@@ -224,6 +255,7 @@ class GliderTrackerViewModel(
         const val MAX_TIMED_POINTS = 7200
         const val RECENT_FINISH_MILLIS = 5 * 60 * 1000L
         const val TAKEOFF_GROUND_FIX_MAX_AGE_MILLIS = 60_000L
+        const val ANALYSIS_INTERVAL_MILLIS = 3_000L
     }
 
     private val _uiState = MutableStateFlow(GliderTrackerUiState())
@@ -241,6 +273,10 @@ class GliderTrackerViewModel(
      * server), kept for lap timing. Dropped when the glider lands, like its trail. */
     private val timedTracks = mutableMapOf<String, MutableList<TimedPoint>>()
     private val lapCache = TaskLapCache()
+    /** Every fix polled since the last analysis pass, in poll order, so the timed tracks and trails get
+     * all of them (FLARM sends a fix about every second in flight) even though analysis runs less often. */
+    private val pendingFixes = mutableListOf<GliderPosition>()
+    private var lastAnalysisMillis = 0L
     /** Each glider's latest fix at/below the ground threshold (see [recordTimedPoints]). */
     private val lastGroundFixes = mutableMapOf<String, TimedPoint>()
 
@@ -310,7 +346,13 @@ class GliderTrackerViewModel(
                 val previousCourse = _uiState.value.selectedCourse
                 _uiState.update { it.copy(competitionGuidelineSettings = settings) }
                 // Another course: today's flights may have rounded its turnpoints.
-                if (_uiState.value.selectedCourse != previousCourse) recordTodaysFlights()
+                if (_uiState.value.selectedCourse != previousCourse) {
+                    // Another course: its sectors differ, so start the live checks afresh, and fill its
+                    // history from today's flights (the previous course's rows stay, for switching back).
+                    previouslyInsideTurnpoints = emptySet()
+                    previousTurnpointFixes = emptyMap()
+                    recordTodaysFlights()
+                }
             }
         }
         viewModelScope.launch {
@@ -415,6 +457,8 @@ class GliderTrackerViewModel(
         gliderTrailRepository.clear()
         timedTracks.clear()
         lapCache.clear()
+        pendingFixes.clear()
+        lastAnalysisMillis = 0L
         _uiState.update { it.copy(lapStatuses = emptyMap()) }
         needsTrailBackfill = true
         lastTrailBackfill = Instant.EPOCH
@@ -464,6 +508,40 @@ class GliderTrackerViewModel(
         viewModelScope.launch { nicknameRepository.setSyncMode(mode) }
     }
 
+    /** Fetches the competition and the track server's results over it so far, for the current source. */
+    fun refreshCompetition() {
+        viewModelScope.launch {
+            val source = _uiState.value.dataSource
+            runCatching {
+                val competition = repository.fetchCompetition()
+                val dates = competition?.dates(java.time.LocalDate.now()).orEmpty()
+                val results = if (dates.isEmpty()) emptyMap() else repository.fetchResults(source, dates.first().toString(), dates.last().toString())
+                competition to results
+            }.onSuccess { (competition, results) ->
+                _uiState.update { it.copy(competition = competition, competitionResults = results, standingsError = null) }
+                // FLARM gliders that have left the map: their names from the device databases.
+                if (source == DataSource.OGN) {
+                    val known = _uiState.value.gliderNames.keys + _uiState.value.positions.map { it.imei }
+                    val missing = results.values.flatMap { day -> day.values.flatten().map { it.id } }.toSet() - known
+                    val names = missing.mapNotNull { id -> repository.ognBaseName(id)?.let { id to it } }.toMap()
+                    if (names.isNotEmpty()) _uiState.update { it.copy(gliderNames = it.gliderNames + names) }
+                }
+            }.onFailure { e -> _uiState.update { it.copy(standingsError = e.message ?: "競技会の設定を取得できませんでした") } }
+        }
+    }
+
+    /** Saves [competition] for everyone; [onResult] gets null on success, else the error message. */
+    fun saveCompetition(competition: Competition, onResult: (String?) -> Unit) {
+        viewModelScope.launch {
+            runCatching { repository.saveCompetition(competition) }
+                .onSuccess { saved ->
+                    _uiState.update { it.copy(competition = saved, standingsError = null) }
+                    onResult(null)
+                }
+                .onFailure { e -> onResult(e.message ?: "保存できませんでした") }
+        }
+    }
+
     fun setHandicap(id: String, value: Double) {
         viewModelScope.launch { handicapRepository.setHandicap(id, value) }
     }
@@ -492,8 +570,8 @@ class GliderTrackerViewModel(
         viewModelScope.launch { proximityAlertSettingsRepository.save(settings) }
     }
 
-    fun clearTodaysTurnpointPassages() {
-        viewModelScope.launch { turnpointPassageLogRepository.clearToday(_uiState.value.dataSource) }
+    fun clearTurnpointPassages(day: java.time.LocalDate) {
+        viewModelScope.launch { turnpointPassageLogRepository.clearDay(_uiState.value.dataSource, day) }
     }
 
     fun setShowGliderTrails(show: Boolean) {
@@ -523,32 +601,45 @@ class GliderTrackerViewModel(
                 _uiState.update { it.copy(isLoading = false) }
                 return
             }
-            var stateWithNewPositions = _uiState.value.copy(positions = positions)
-            val proximityReasons = updateProximityAlerts(stateWithNewPositions)
-            stateWithNewPositions = stateWithNewPositions.copy(proximityReasonsByImei = proximityReasons)
-            notifyNewAlerts(stateWithNewPositions)
-            notifyTurnpointPassages(stateWithNewPositions)
-            val groundAltitudeM = stateWithNewPositions.alertSettings.minimumFlyingAltitudeM
-            recordTimedPoints(positions, groundAltitudeM)
-            updateLapStatuses(stateWithNewPositions)
-            if (gliderTrailRepository.recordPositions(positions, groundAltitudeM)) {
-                needsTrailBackfill = true // newly seen in flight: its earlier part may be on the server
-            }
-            // Launched separately: a slow track server must never hold up the live refresh loop.
-            viewModelScope.launch { backfillTrailsIfNeeded(source, groundAltitudeM) }
-            viewModelScope.launch { fetchTodaysFlightsIfNeeded(source, groundAltitudeM) }
+            // Every poll (each second for FLARM) only moves the markers; the rest runs in analyzeIfDue.
             _uiState.update {
-                it.copy(
-                    positions = positions,
-                    proximityReasonsByImei = proximityReasons,
-                    lastUpdated = Instant.now(),
-                    errorMessage = null,
-                    isLoading = false,
-                )
+                it.copy(positions = positions, lastUpdated = Instant.now(), errorMessage = null, isLoading = false)
             }
+            pendingFixes += positions
+            analyzeIfDue(source)
         } catch (e: Exception) {
             _uiState.update { it.copy(errorMessage = e.message, isLoading = false) }
         }
+    }
+
+    /**
+     * Every [ANALYSIS_INTERVAL_MILLIS] (or every poll, when polling is slower): records the fixes polled
+     * since the last pass into the timed tracks and the latest ones into the trails, then runs alerts, proximity, turnpoint
+     * passages and lap timing on the latest positions - so polling FLARM each second only moves markers.
+     */
+    private suspend fun analyzeIfDue(source: DataSource) {
+        val now = System.currentTimeMillis()
+        if (now - lastAnalysisMillis < ANALYSIS_INTERVAL_MILLIS - 500) return
+        lastAnalysisMillis = now
+        val fixes = pendingFixes.toList()
+        pendingFixes.clear()
+        var state = _uiState.value
+        val proximityReasons = updateProximityAlerts(state)
+        state = state.copy(proximityReasonsByImei = proximityReasons)
+        notifyNewAlerts(state)
+        notifyTurnpointPassages(state)
+        val groundAltitudeM = state.alertSettings.minimumFlyingAltitudeM
+        recordTimedPoints(fixes, groundAltitudeM)
+        updateLapStatuses(state)
+        // Trails are drawn, not timed: one point per pass is plenty, and keeps the 2000-point cap
+        // covering a whole flight rather than half an hour of 1-second fixes.
+        if (gliderTrailRepository.recordPositions(state.positions, groundAltitudeM)) {
+            needsTrailBackfill = true // newly seen in flight: its earlier part may be on the server
+        }
+        // Launched separately: a slow track server must never hold up the live refresh loop.
+        viewModelScope.launch { backfillTrailsIfNeeded(source, groundAltitudeM) }
+        viewModelScope.launch { fetchTodaysFlightsIfNeeded(source, groundAltitudeM) }
+        _uiState.update { it.copy(proximityReasonsByImei = proximityReasons) }
     }
 
     /** Fills in trails from the track server so they reach back to takeoff even if the app was
@@ -708,7 +799,10 @@ class GliderTrackerViewModel(
                 val altitudeM = glider.alt?.let { entry.altitudeM }
                 // Deduped like a backfilled passage, so a glider skimming a sector's edge isn't
                 // announced over and over.
-                if (turnpointPassageLogRepository.recordPastPassage(state.dataSource, gliderName, name, altitudeM, entry.timeMillis)) {
+                if (turnpointPassageLogRepository.recordPastPassage(
+                        state.dataSource, gliderName, name, altitudeM, entry.timeMillis, courseName = course.name,
+                    )
+                ) {
                     alertNotifier.notifyTurnpointPassage(gliderName, name, altitudeM)
                 }
             }
@@ -787,7 +881,7 @@ class GliderTrackerViewModel(
         val scored = status.passedTurnpoints.filter { it.first != PartialLapDistance.CHECKPOINT_NAME }
         val last = scored.lastOrNull() ?: return
         val distanceKm = PartialLapDistance.distanceKm(scored.map { it.first }) ?: return
-        if (!reportedPartials.add("$id|$start")) return
+        if (!reportedPartials.add("${course.name}|$id|$start")) return
         val total = PartialLapDistance.scoredTurnpoints(course).size
         val names = scored.joinToString("・") { it.first }
         turnpointPassageLogRepository.recordPastPassage(
@@ -798,6 +892,7 @@ class GliderTrackerViewModel(
             last.second,
             gliderId = id,
             courseDistanceKm = distanceKm,
+            courseName = course.name,
         )
     }
 
@@ -820,16 +915,19 @@ class GliderTrackerViewModel(
         // Logged only once the first turnpoint is reached, so a flight that lands without
         // rounding any turnpoint leaves no stray "スタート" in the history.
         status.startMillis?.takeIf { status.passedTurnpoints.isNotEmpty() }?.let { start ->
-            if (reportedStarts.add("$id|$start")) {
-                turnpointPassageLogRepository.recordPastPassage(state.dataSource, gliderName, "スタート", status.startAltitudeM, start)
+            if (reportedStarts.add("${course.name}|$id|$start")) {
+                turnpointPassageLogRepository.recordPastPassage(
+                    state.dataSource, gliderName, "スタート", status.startAltitudeM, start, courseName = course.name,
+                )
             }
         }
         val finish = status.finishMillis ?: return
-        if (!reportedFinishes.add("$id|$finish")) return
+        if (!reportedFinishes.add("${course.name}|$id|$finish")) return
         val summary = lapSummary(status, course.distanceKm, now) { "" }.removePrefix("周回: ")
         val recorded = turnpointPassageLogRepository.recordPastPassage(
             state.dataSource, gliderName, TurnpointPassageRecord.FINISH_PREFIX + summary, status.finishAltitudeM, finish,
             gliderId = id, lapSeconds = status.lapMillis?.let { it / 1000.0 }, courseDistanceKm = course.distanceKm,
+            courseName = course.name,
         )
         // Only announce a finish that just happened - not one found in history on reopening.
         if (notify && recorded && now - finish < RECENT_FINISH_MILLIS) alertNotifier.notifyTaskFinish(gliderName, summary)
@@ -859,7 +957,9 @@ class GliderTrackerViewModel(
                         if (previous != null && TurnpointSector.isInSector(previous.lat, previous.lon, course, name)) continue
                         val t = TurnpointSector.firstEntry(previous, fix, course, name) ?: continue
                         val entry = previous?.let { TurnpointSector.interpolate(it, fix, t) } ?: fix
-                        turnpointPassageLogRepository.recordPastPassage(state.dataSource, gliderName, name, entry.altitudeM, entry.timeMillis)
+                        turnpointPassageLogRepository.recordPastPassage(
+                            state.dataSource, gliderName, name, entry.altitudeM, entry.timeMillis, courseName = course.name,
+                        )
                     }
                     previous = fix
                 }

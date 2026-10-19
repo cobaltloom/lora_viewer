@@ -16,7 +16,18 @@ private struct TrailPoint: Codable {
 @MainActor
 final class GliderTrackerViewModel: ObservableObject {
     @Published var config: AppConfig?
+    /// The latest fix of every glider, refreshed on every poll (each second for FLARM) - drives the
+    /// map markers and detail card, which are cheap to move.
     @Published var positions: [GliderPosition] = []
+    /// `positions` as of the latest analysis pass (see `analyzeIfDue`), at most every
+    /// `analysisInterval`: alerts, proximity, turnpoint passages and lap timing react to this rather
+    /// than to every poll, so polling each second only moves the markers.
+    @Published private(set) var analysisPositions: [GliderPosition] = []
+    /// Every fix polled since the last analysis pass, in poll order, so the timed tracks and trails get
+    /// all of them (FLARM sends a fix about every second in flight) even though analysis runs less often.
+    private var pendingFixes: [GliderPosition] = []
+    private var lastAnalysis = Date.distantPast
+    private static let analysisInterval: TimeInterval = 3
     @Published var lastUpdated: Date?
     @Published var errorMessage: String?
     @Published var isLoading = false
@@ -85,6 +96,29 @@ final class GliderTrackerViewModel: ObservableObject {
 
     var dataSource: DataSource { settings.effectiveDataSource }
 
+    /// Names of gliders that may no longer be on the map (FLARM ones looked up), by id.
+    @Published private(set) var gliderNames: [String: String] = [:]
+
+    /// A glider's name for the standings, whether or not it's on the map now: the map's, a looked-up
+    /// FLARM name, or the LoRa site's board name for the tracker.
+    func standingsName(_ id: String) -> String {
+        if let glider = positions.first(where: { $0.imei == id }) { return nameFor(glider) }
+        if let name = gliderNames[id] { return name }
+        if let config, let index = config.imeiMaster.first(where: { $0.value == id })?.key,
+           let name = config.nameMasterDisplayed[index] {
+            return name
+        }
+        return id
+    }
+
+    /// Looks up the names of FLARM gliders in `ids` that have left the map.
+    func resolveNames(_ ids: [String]) async {
+        guard dataSource == .ogn else { return }
+        for id in ids where gliderNames[id] == nil && !positions.contains(where: { $0.imei == id }) {
+            if let name = await ognAPI.baseName(forCallsign: id) { gliderNames[id] = name }
+        }
+    }
+
     func nameFor(_ glider: GliderPosition) -> String {
         glider.sourceName ?? config?.nameMasterDisplayed[glider.index] ?? "#\(glider.index)"
     }
@@ -106,6 +140,9 @@ final class GliderTrackerViewModel: ObservableObject {
         let source = settings.effectiveDataSource
         if let lastDataSource, lastDataSource != source {
             positions = []
+            analysisPositions = []
+            pendingFixes = []
+            lastAnalysis = .distantPast
             trails = [:]
             timedTracks = [:]
             saveTrails()
@@ -126,21 +163,36 @@ final class GliderTrackerViewModel: ObservableObject {
             }
             // The source may have been switched while this request was in flight.
             guard source == settings.effectiveDataSource else { return }
-            recordTimedPoints(from: fetched) // before `positions`, which the view's lap timing reacts to
             positions = fetched
-            let hadTrail = Set(trails.keys)
-            recordTrailPoints(from: positions)
-            if positions.contains(where: { trails[$0.imei] != nil && !hadTrail.contains($0.imei) }) {
-                needsTrailBackfill = true // newly seen in flight: its earlier part may be on the server
-            }
-            // Not awaited: a slow track server must never hold up the live refresh loop.
-            Task { await backfillTrailsIfNeeded(source: source) }
-            Task { await fetchTodaysFlightsIfNeeded(source: source) }
+            pendingFixes.append(contentsOf: fetched)
+            analyzeIfDue(source: source)
             lastUpdated = Date()
             if errorMessage != nil { errorMessage = nil }
         } catch {
             errorMessage = error.localizedDescription
         }
+    }
+
+    /// Every `analysisInterval` (or every poll, when polling is slower): records the fixes polled since
+    /// the last pass into the timed tracks and the latest ones into the trails, then publishes
+    /// `analysisPositions` for the view's alerts, passages and lap timing.
+    private func analyzeIfDue(source: DataSource) {
+        guard Date().timeIntervalSince(lastAnalysis) >= Self.analysisInterval - 0.5 else { return }
+        lastAnalysis = Date()
+        let fixes = pendingFixes
+        pendingFixes = []
+        recordTimedPoints(from: fixes) // before `analysisPositions`, which the view's lap timing reacts to
+        let hadTrail = Set(trails.keys)
+        // Trails are drawn, not timed: one point per pass is plenty, and keeps the 2000-point cap
+        // covering a whole flight rather than half an hour of 1-second fixes.
+        recordTrailPoints(from: positions)
+        if positions.contains(where: { trails[$0.imei] != nil && !hadTrail.contains($0.imei) }) {
+            needsTrailBackfill = true // newly seen in flight: its earlier part may be on the server
+        }
+        // Not awaited: a slow track server must never hold up the live refresh loop.
+        Task { await backfillTrailsIfNeeded(source: source) }
+        Task { await fetchTodaysFlightsIfNeeded(source: source) }
+        analysisPositions = positions
     }
 
     /// Replaces flying gliders' trails with their whole flight from the track server, so trails

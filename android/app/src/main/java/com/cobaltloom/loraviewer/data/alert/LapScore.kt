@@ -5,21 +5,24 @@ data class HandicapOption(val value: Double, val types: String)
 
 /**
  * 競技規則56(1): a flight that rounds some turnpoints but not the whole course scores distance only -
- * "the last valid turnpoint plus 妻沼", by the 細則2 table below (管理ポイント doesn't count).
+ * "the last valid turnpoint plus 妻沼" (管理ポイント doesn't count). The official results of
+ * 2026-10-17 scored 高林給水塔→邑楽タワー as 20.2 km, i.e. including the way back to 妻沼 (ST point →
+ * turnpoints → ST point), not 細則2's 14.6 km to the last turnpoint; so the table below is that round
+ * distance, taking 細則2's figures where they cover the same route. Kept in step with iOS.
  */
 object PartialLapDistance {
     const val CHECKPOINT_NAME = "管理ポイント"
 
-    /** 細則2「ポイント毎の距離」, keyed by the turnpoints rounded in order (after 妻沼). */
+    /** Keyed by the turnpoints rounded in order (after 妻沼), in km. */
     val table: Map<List<String>, Double> = mapOf(
-        listOf("高林給水塔") to 11.4,
-        listOf("千代田") to 12.8,
-        listOf("高林給水塔", "千代田") to 17.7,
-        listOf("千代田", "高林給水塔") to 17.8,
-        listOf("高林給水塔", "邑楽タワー") to 14.6,
-        listOf("千代田", "邑楽タワー") to 11.7,
-        listOf("高林給水塔", "邑楽タワー", "千代田") to 20.1,
-        listOf("千代田", "邑楽タワー", "高林給水塔") to 20.2,
+        listOf("高林給水塔") to 11.4, // 細則2 1ポイント
+        listOf("千代田") to 12.8, // 細則2 1ポイント
+        listOf("高林給水塔", "千代田") to 23.6, // = 細則2 コース②
+        listOf("千代田", "高林給水塔") to 23.6, // = 細則2 コース②
+        listOf("高林給水塔", "邑楽タワー") to 20.2, // 2026-10-17 official results
+        listOf("千代田", "邑楽タワー") to 18.0, // ST point round, 17.97 km
+        listOf("高林給水塔", "邑楽タワー", "千代田") to 26.1, // ST point round, 26.11 km
+        listOf("千代田", "邑楽タワー", "高林給水塔") to 26.1, // = 細則2 コース④
     )
 
     /** The course's turnpoints that score, in order. */

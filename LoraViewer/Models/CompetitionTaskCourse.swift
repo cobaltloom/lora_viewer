@@ -51,7 +51,7 @@ enum CompetitionTaskCourseData {
     static let courses: [CompetitionTaskCourse] = [
         CompetitionTaskCourse(name: "① 妻沼-高林給水塔-千代田-(管理ポイント)-妻沼", distanceKm: 24.0, turnpointNames: ["妻沼", "高林給水塔", "千代田", "管理ポイント", "妻沼"]),
         CompetitionTaskCourse(name: "② 妻沼-千代田-高林給水塔-妻沼", distanceKm: 23.6, turnpointNames: ["妻沼", "千代田", "高林給水塔", "妻沼"]),
-        CompetitionTaskCourse(name: "③ 妻沼-高林給水塔-邑楽タワー-千代田-(管理ポイント)-妻沼", distanceKm: 26.4, turnpointNames: ["妻沼", "高林給水塔", "邑楽タワー", "千代田", "管理ポイント", "妻沼"]),
+        CompetitionTaskCourse(name: "③ 妻沼-高林給水塔-邑楽タワー-千代田-(管理ポイント)-妻沼", distanceKm: 26.5, turnpointNames: ["妻沼", "高林給水塔", "邑楽タワー", "千代田", "管理ポイント", "妻沼"]), // 細則2 says 26.4; the official results use 26.5
         CompetitionTaskCourse(name: "④ 妻沼-千代田-邑楽タワー-高林給水塔-妻沼", distanceKm: 26.1, turnpointNames: ["妻沼", "千代田", "邑楽タワー", "高林給水塔", "妻沼"]),
     ]
 

@@ -133,7 +133,7 @@ fun ToBeatCard(leaderName: String, leaderScore: Double, leaderLapSeconds: Double
             Column(horizontalAlignment = Alignment.End) {
                 Text("P1  $leaderName", color = Color.White, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelLarge, maxLines = 1)
                 Text(
-                    listOfNotNull(leaderLapSeconds?.let { ToBeat.clock(it) }, "%.1f点".format(leaderScore)).joinToString("  "),
+                    listOfNotNull(leaderLapSeconds?.let { ToBeat.clock(it) }, "%d点".format(kotlin.math.floor(leaderScore).toInt())).joinToString("  "),
                     color = Color.White.copy(alpha = 0.75f),
                     style = MaterialTheme.typography.labelMedium,
                     fontFamily = FontFamily.Monospace,

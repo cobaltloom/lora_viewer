@@ -1,9 +1,10 @@
 import CoreLocation
 
 /// Thin wrapper whose only job is to trigger the system location-permission
-/// prompt. Once authorized, MapKit's own `UserAnnotation()` and
-/// `MapUserLocationButton()` handle showing and centering on the user's
-/// location without this class doing anything further.
+/// prompt, the first time the user asks to see their location. Once
+/// authorized, MapKit's own `UserAnnotation()` (shown only while the map's
+/// location button is on) handles showing it without this class doing
+/// anything further.
 final class LocationManager: NSObject, ObservableObject {
     private let manager = CLLocationManager()
 

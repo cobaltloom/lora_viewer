@@ -1,9 +1,42 @@
 import SwiftUI
 
-/// Shows today's turnpoint-passage events (see `TurnpointPassageLog`) as a
-/// backup to the push notification, in case it was missed.
+/// Shows a day's turnpoint-passage events (see `TurnpointPassageLog`) as a
+/// backup to the push notification, in case it was missed - today by default,
+/// or an earlier day's laps and scores (kept for 30 days).
 struct TurnpointPassageHistoryView: View {
     @ObservedObject var log: TurnpointPassageLog
+    /// The selected task course: only its rows are shown and scored (all rows when none is selected).
+    var courseName: String? = nil
+
+    @State private var selectedDay = Calendar.current.startOfDay(for: Date())
+    /// The course shown for an earlier day, when the user picks one (see `dayCourseName`).
+    @State private var pastCourseName: String?
+    @State private var showClearConfirmation = false
+
+    private var isToday: Bool { Calendar.current.isDateInToday(selectedDay) }
+
+    /// The courses an earlier day's laps were judged against, most rows first.
+    private var pastCourseNames: [String] {
+        let names = log.records(on: selectedDay).filter(\.isScoredFlight).compactMap(\.courseName)
+        let counts = Dictionary(names.map { ($0, 1) }, uniquingKeysWith: +)
+        return counts.keys.sorted { (counts[$0] ?? 0, $1) > (counts[$1] ?? 0, $0) }
+    }
+
+    /// Today: the selected task course. An earlier day: the course picked for it, else the selected
+    /// course if that day has its rows, else the course with most rows that day.
+    private var dayCourseName: String? {
+        if isToday { return courseName }
+        let names = pastCourseNames
+        if let pastCourseName, names.contains(pastCourseName) { return pastCourseName }
+        if let courseName, names.contains(courseName) { return courseName }
+        return names.first
+    }
+
+    /// The selected day's rows for its course, newest first.
+    private var dayRecords: [TurnpointPassageRecord] {
+        let course = dayCourseName
+        return log.records(on: selectedDay).filter { $0.belongs(toCourse: course) }
+    }
     @EnvironmentObject private var handicapStore: GliderHandicapStore
     @AppStorage("finishSortOrder") private var sortOrder: FinishSortOrder = .score
 
@@ -23,7 +56,7 @@ struct TurnpointPassageHistoryView: View {
     /// among the turnpoint passages - in the chosen order. Partial laps (no lap time) follow the
     /// laps by lap time, and rows saved before scoring go last in those orders.
     private func todaysScoredFlights(scores: [UUID: Double]) -> [TurnpointPassageRecord] {
-        let flights = log.todaysRecords.filter(\.isScoredFlight) // newest first
+        let flights = dayRecords.filter(\.isScoredFlight) // newest first
         switch sortOrder {
         case .score:
             return flights.sorted { (scores[$0.id] ?? -1) > (scores[$1.id] ?? -1) }
@@ -37,7 +70,7 @@ struct TurnpointPassageHistoryView: View {
     }
 
     private var todaysLaps: [LapScore.Lap] {
-        LapScore.laps(from: log.todaysRecords) { id in
+        LapScore.laps(from: dayRecords) { id in
             id.map(handicapStore.handicap(for:)) ?? GliderHandicapStore.defaultHandicap
         }
     }
@@ -59,11 +92,25 @@ struct TurnpointPassageHistoryView: View {
         let laps = todaysLaps
         let scores = LapScore.scores(laps)
         let finishes = todaysScoredFlights(scores: scores)
-        let toBeat = toBeatRows(laps)
+        let toBeat = isToday ? toBeatRows(laps) : []
         let leader = finishes.first { record in scores[record.id] == scores.values.max() }
         List {
-            if log.todaysRecords.isEmpty {
-                ContentUnavailableView("本日の旋回点通過はまだありません", systemImage: "airplane")
+            Section {
+                Picker("日付", selection: $selectedDay) {
+                    ForEach(log.days, id: \.self) { day in
+                        Text(Self.dayLabel(day)).tag(day)
+                    }
+                }
+                if !isToday, pastCourseNames.count > 1 {
+                    Picker("コース", selection: Binding(get: { dayCourseName ?? "" }, set: { pastCourseName = $0 })) {
+                        ForEach(pastCourseNames, id: \.self) { Text($0).tag($0) }
+                    }
+                }
+            } footer: {
+                Text("周回・周回未達成の記録と参考得点は30日間、旋回点の通過記録は2日間残ります。")
+            }
+            if dayRecords.isEmpty {
+                ContentUnavailableView(isToday ? "本日の旋回点通過はまだありません" : "この日の記録はありません", systemImage: "airplane")
             } else {
                 if !finishes.isEmpty {
                     Section {
@@ -86,12 +133,12 @@ struct TurnpointPassageHistoryView: View {
                         Text("周回・得点")
                     } footer: {
                         if !scores.isEmpty {
-                            Text("参考得点は競技規則53の式(距離・速度・ハンディキャップ)で、この端末が計時した飛行ごとに計算した目安です。周回できなかった飛行は、規則56(1)により細則2の距離表の距離点のみです。ゴール高度が280〜330m未満は50点減点、280m未満は速度点なしです(細則7 別表)。「TIME TO BEAT」は、その時間で周回すると全員の得点を計算し直した結果1位(P1)になる時間です(ゴール高度330m以上の場合)。公式成績は各選手のその日最後の飛行をIGCロガーで判定します。ハンディキャップは関東大会の出場機には機種に合わせた値が入っており、それ以外は1.00です。得点の行をタップするか、メンバー一覧で機体ごとに変更できます。")
+                            Text("参考得点は競技規則53の式(距離・速度・ハンディキャップ)で、この端末が計時した飛行ごとに計算した目安です(公式成績と同じく小数点以下切り捨て)。周回できなかった飛行は、規則56(1)により最後の有効な旋回点から妻沼に戻るまでの距離点のみです。ゴール高度が280〜330m未満は50点減点、280m未満は速度点なしです(細則7 別表)。「TIME TO BEAT」は、その時間で周回すると全員の得点を計算し直した結果1位(P1)になる時間です(ゴール高度330m以上の場合)。公式成績は各選手のその日最後の飛行をIGCロガーで判定します。ハンディキャップは関東大会の出場機には機種に合わせた値が入っており、それ以外は1.00です。得点の行をタップするか、メンバー一覧で機体ごとに変更できます。")
                         }
                     }
                 }
                 Section {
-                    ForEach(log.todaysRecords) { record in
+                    ForEach(dayRecords) { record in
                         row(for: record, score: scores[record.id])
                     }
                 } header: {
@@ -101,17 +148,34 @@ struct TurnpointPassageHistoryView: View {
                 }
             }
         }
+        .onChange(of: selectedDay) { pastCourseName = nil }
+        .alert("\(Self.dayLabel(selectedDay))の記録を消去しますか?", isPresented: $showClearConfirmation) {
+            Button("消去", role: .destructive) {
+                log.clear(day: selectedDay)
+            }
+            Button("キャンセル", role: .cancel) {}
+        } message: {
+            Text(isToday
+                 ? "この端末の記録だけが消え、他の人には影響しません。今日の記録は、次にアプリを開いたときなどにサーバーの飛行記録から再び記録されます。"
+                 : "この端末の記録だけが消え、他の人には影響しません。過去の日の記録は元に戻せません。")
+        }
         .navigationTitle("旋回点通過履歴")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            if !log.todaysRecords.isEmpty {
+            if !dayRecords.isEmpty {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("消去", role: .destructive) {
-                        log.clearToday()
+                        showClearConfirmation = true
                     }
                 }
             }
         }
+    }
+
+    /// "10月18日(日)", or "今日 10月18日(日)".
+    private static func dayLabel(_ day: Date) -> String {
+        let label = day.formatted(.dateTime.month().day().weekday(.abbreviated).locale(Locale(identifier: "ja_JP")))
+        return Calendar.current.isDateInToday(day) ? "今日 \(label)" : label
     }
 
     /// "・ゴール高度不足 -50点" / "・ゴール280m未満のため速度点なし" for a low goal (細則7 別表(4)).
@@ -156,7 +220,7 @@ struct TurnpointPassageHistoryView: View {
                         }
                     }
                 } label: {
-                    Text("参考得点 \(score, specifier: "%.1f")点(ハンデ \(handicapStore.handicap(for: gliderID), specifier: "%.2f")\(Self.goalPenaltyNote(record)))")
+                    Text("参考得点 \(Int(score.rounded(.down)))点(ハンデ \(handicapStore.handicap(for: gliderID), specifier: "%.2f")\(Self.goalPenaltyNote(record)))")
                         .font(.subheadline.bold())
                         .foregroundStyle(.green)
                 }
@@ -199,7 +263,7 @@ struct ToBeatCard: View {
                         if let leaderLapSeconds {
                             Text(ToBeat.clock(leaderLapSeconds))
                         }
-                        Text(String(format: "%.1f点", leaderScore))
+                        Text("\(Int(leaderScore.rounded(.down)))点")
                     }
                     .font(.caption.monospacedDigit())
                     .foregroundStyle(.white.opacity(0.75))

@@ -36,7 +36,15 @@ data class TurnpointPassageRecord(
     val gliderId: String? = null,
     val lapSeconds: Double? = null,
     val courseDistanceKm: Double? = null,
+    /** The task course the row was judged against (sector orientation, lap): the history shows the
+     * selected course's rows, so picking another course later - e.g. once it's known which one was
+     * flown - shows that course's passages and laps instead. Absent in rows saved before this. */
+    val courseName: String? = null,
 ) {
+    /** Whether this row belongs to [courseName]'s history: rows from before courses were recorded
+     * count for every course. */
+    fun belongsToCourse(courseName: String?): Boolean = courseName == null || this.courseName == null || this.courseName == courseName
+
     val localDate: LocalDate
         get() = Instant.ofEpochMilli(timestampMillis).atZone(ZoneId.systemDefault()).toLocalDate()
 
@@ -59,7 +67,8 @@ data class TurnpointPassageRecord(
 /**
  * Persists turnpoint-passage events to DataStore so they survive app relaunch and can be reviewed
  * later in the day even if a push notification was missed. This is a rolling log for same-day
- * review, not a full flight-log archive, so entries older than [retentionDays] are dropped.
+ * review, not a full flight-log archive: turnpoint and start rows are dropped after [retentionDays],
+ * while goal and partial-lap rows - the day's laps and scores - are kept for [scoredRetentionDays].
  * LoRa and OGN (FLARM) keep separate logs, like favorites: the same glider has different names in
  * each, so a shared log would mix them and could list one passage twice.
  */
@@ -73,6 +82,7 @@ class TurnpointPassageLogRepository(private val context: Context) {
     )
     private val json = Json { ignoreUnknownKeys = true }
     private val retentionDays = 2L
+    private val scoredRetentionDays = 30L
 
     val recordsBySource: Flow<Map<DataSource, List<TurnpointPassageRecord>>> =
         context.turnpointPassageLogDataStore.data.map { prefs ->
@@ -94,6 +104,7 @@ class TurnpointPassageLogRepository(private val context: Context) {
         gliderId: String? = null,
         lapSeconds: Double? = null,
         courseDistanceKm: Double? = null,
+        courseName: String? = null,
     ): Boolean {
         val duplicateWindowMillis = 10 * 60 * 1000L
         var recorded = false
@@ -103,16 +114,24 @@ class TurnpointPassageLogRepository(private val context: Context) {
             // and the server's, so any two goal rows count as the same event; likewise partial-lap rows.
             val isFinish = turnpointName.startsWith(TurnpointPassageRecord.FINISH_PREFIX)
             val isPartialLap = turnpointName.startsWith(TurnpointPassageRecord.PARTIAL_LAP_PREFIX)
+            // Rows of another course are another history (see TurnpointPassageRecord.courseName); a row
+            // from before courses were recorded is taken as this course's.
             val duplicate = existing.indexOfFirst {
                 it.gliderName == gliderName &&
+                    (it.courseName == courseName || it.courseName == null) &&
                     (it.turnpointName == turnpointName || (isFinish && it.isFinish) || (isPartialLap && it.isPartialLap)) &&
                     kotlin.math.abs(it.timestampMillis - timestampMillis) < duplicateWindowMillis
             }
             if (duplicate >= 0) {
+                var row = existing[duplicate]
+                if (row.courseName == null && courseName != null) row = row.copy(courseName = courseName)
                 // A goal row saved before lap scoring gets its lap time now, so it can be scored.
-                if (existing[duplicate].lapSeconds == null && lapSeconds != null) {
+                if (row.lapSeconds == null && lapSeconds != null) {
+                    row = row.copy(gliderId = gliderId, lapSeconds = lapSeconds, courseDistanceKm = courseDistanceKm)
+                }
+                if (row != existing[duplicate]) {
                     val updated = existing.toMutableList()
-                    updated[duplicate] = existing[duplicate].copy(gliderId = gliderId, lapSeconds = lapSeconds, courseDistanceKm = courseDistanceKm)
+                    updated[duplicate] = row
                     prefs[key(source)] = json.encodeToString(updated)
                 }
                 return@edit
@@ -125,6 +144,7 @@ class TurnpointPassageLogRepository(private val context: Context) {
                 gliderId = gliderId,
                 lapSeconds = lapSeconds,
                 courseDistanceKm = courseDistanceKm,
+                courseName = courseName,
             )
             prefs[key(source)] = json.encodeToString(prune(existing + record))
             recorded = true
@@ -132,10 +152,9 @@ class TurnpointPassageLogRepository(private val context: Context) {
         return recorded
     }
 
-    suspend fun clearToday(source: DataSource) {
+    suspend fun clearDay(source: DataSource, day: LocalDate) {
         context.turnpointPassageLogDataStore.edit { prefs ->
-            val today = LocalDate.now()
-            prefs[key(source)] = json.encodeToString(decode(prefs[key(source)]).filterNot { it.localDate == today })
+            prefs[key(source)] = json.encodeToString(decode(prefs[key(source)]).filterNot { it.localDate == day })
         }
     }
 
@@ -143,7 +162,8 @@ class TurnpointPassageLogRepository(private val context: Context) {
         raw?.let { runCatching { json.decodeFromString<List<TurnpointPassageRecord>>(it) }.getOrNull() } ?: emptyList()
 
     private fun prune(records: List<TurnpointPassageRecord>): List<TurnpointPassageRecord> {
-        val cutoff = System.currentTimeMillis() - retentionDays * 24 * 60 * 60 * 1000
-        return records.filter { it.timestampMillis >= cutoff }
+        val now = System.currentTimeMillis()
+        val dayMillis = 24 * 60 * 60 * 1000L
+        return records.filter { it.timestampMillis >= now - (if (it.isScoredFlight) scoredRetentionDays else retentionDays) * dayMillis }
     }
 }

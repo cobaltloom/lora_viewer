@@ -49,7 +49,7 @@ object CompetitionTaskCourseData {
     val courses: List<CompetitionTaskCourse> = listOf(
         CompetitionTaskCourse("① 妻沼-高林給水塔-千代田-(管理ポイント)-妻沼", 24.0, listOf("妻沼", "高林給水塔", "千代田", "管理ポイント", "妻沼")),
         CompetitionTaskCourse("② 妻沼-千代田-高林給水塔-妻沼", 23.6, listOf("妻沼", "千代田", "高林給水塔", "妻沼")),
-        CompetitionTaskCourse("③ 妻沼-高林給水塔-邑楽タワー-千代田-(管理ポイント)-妻沼", 26.4, listOf("妻沼", "高林給水塔", "邑楽タワー", "千代田", "管理ポイント", "妻沼")),
+        CompetitionTaskCourse("③ 妻沼-高林給水塔-邑楽タワー-千代田-(管理ポイント)-妻沼", 26.5, listOf("妻沼", "高林給水塔", "邑楽タワー", "千代田", "管理ポイント", "妻沼")), // 細則2 says 26.4; the official results use 26.5
         CompetitionTaskCourse("④ 妻沼-千代田-邑楽タワー-高林給水塔-妻沼", 26.1, listOf("妻沼", "千代田", "邑楽タワー", "高林給水塔", "妻沼")),
     )
 

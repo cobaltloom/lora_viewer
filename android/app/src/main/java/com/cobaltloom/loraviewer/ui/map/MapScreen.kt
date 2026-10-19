@@ -15,10 +15,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.ListAlt
+import androidx.compose.material.icons.filled.LocationSearching
 import androidx.compose.material.icons.filled.Map
+import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Navigation
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Satellite
@@ -43,6 +46,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -56,12 +60,12 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import com.cobaltloom.loraviewer.data.alert.AlertSeverity
 import com.cobaltloom.loraviewer.data.alert.AltitudeCalculationMode
 import com.cobaltloom.loraviewer.data.alert.CivilTrainingAreaKK43
@@ -76,10 +80,8 @@ import com.cobaltloom.loraviewer.data.model.GliderPosition
 import com.cobaltloom.loraviewer.data.remote.OgnApiClient
 import com.cobaltloom.loraviewer.data.settings.DataSource
 import com.cobaltloom.loraviewer.ui.detail.GliderDetailCard
-import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
-import com.google.android.gms.maps.model.LatLngBounds
 import com.google.maps.android.compose.Circle
 import com.google.maps.android.compose.GoogleMap
 import com.google.maps.android.compose.MapProperties
@@ -95,37 +97,10 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import kotlin.math.roundToInt
 
-private val JsalMenumaFallbackCenter = LatLng(36.1994, 139.4429)
-
-/** Extra breathing room applied to the tight bounding box of the initial positions. */
-private const val InitialBoundsPaddingFactor = 1.4
-
-/** Floor on the initial bounds' span (degrees, ~1.1km), so a single glider or a tight cluster on
- * the ground still gets a reasonably zoomed-out view instead of one tight to just its exact
- * position. Mirrors the iOS app's MKCoordinateRegion(coordinates:). */
-private const val MinInitialSpanDegrees = 0.01
-
-/** A bounding box around [positions], padded so the initial camera fit doesn't zoom in tighter than useful. */
-private fun paddedBounds(positions: List<GliderPosition>): LatLngBounds {
-    var minLat = positions[0].lat
-    var maxLat = positions[0].lat
-    var minLon = positions[0].lon
-    var maxLon = positions[0].lon
-    for (position in positions) {
-        minLat = minOf(minLat, position.lat)
-        maxLat = maxOf(maxLat, position.lat)
-        minLon = minOf(minLon, position.lon)
-        maxLon = maxOf(maxLon, position.lon)
-    }
-    val centerLat = (minLat + maxLat) / 2
-    val centerLon = (minLon + maxLon) / 2
-    val latSpan = maxOf((maxLat - minLat) * InitialBoundsPaddingFactor, MinInitialSpanDegrees)
-    val lonSpan = maxOf((maxLon - minLon) * InitialBoundsPaddingFactor, MinInitialSpanDegrees)
-    return LatLngBounds(
-        LatLng(centerLat - latSpan / 2, centerLon - lonSpan / 2),
-        LatLng(centerLat + latSpan / 2, centerLon + lonSpan / 2),
-    )
-}
+/** Always opens on Menuma, wide enough for the task turnpoints: the app is for Menuma, so gliders
+ * elsewhere (FLARM shows up to 150 km out) mustn't pull the map away. */
+private val MenumaCenter = LatLng(CompetitionAltitudeGuideline.referenceCoordinate.latitude, CompetitionAltitudeGuideline.referenceCoordinate.longitude)
+private const val InitialZoom = 11.5f
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -134,6 +109,7 @@ fun MapScreen(
     onOpenList: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenTurnpointHistory: () -> Unit,
+    onOpenStandings: () -> Unit,
     onRequireSubscription: () -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -145,38 +121,34 @@ fun MapScreen(
                 PackageManager.PERMISSION_GRANTED,
         )
     }
+    // The user's own location is shown only on request: keeping it on had GPS running the whole time,
+    // and remote viewers have no use for it. Permission is asked for the first time it's shown.
+    var showMyLocation by remember { mutableStateOf(false) }
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
-    ) { granted -> hasLocationPermission = granted }
+    ) { granted ->
+        hasLocationPermission = granted
+        showMyLocation = granted
+    }
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { }
 
     var mapLoaded by remember { mutableStateOf(false) }
-    var didCenterInitially by remember { mutableStateOf(false) }
     var selectedGlider by remember { mutableStateOf<GliderPosition?>(null) }
     var editingGlider by remember { mutableStateOf<GliderPosition?>(null) }
     val cameraPositionState = rememberCameraPositionState {
-        position = CameraPosition.fromLatLngZoom(JsalMenumaFallbackCenter, 12f)
+        position = CameraPosition.fromLatLngZoom(MenumaCenter, InitialZoom)
     }
 
     LaunchedEffect(Unit) {
         viewModel.startPolling()
-        if (!hasLocationPermission) {
-            permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
-        }
         if (android.os.Build.VERSION.SDK_INT >= 33 &&
             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
             PackageManager.PERMISSION_GRANTED
         ) {
             notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
-    }
-
-    LaunchedEffect(uiState.positions, mapLoaded) {
-        if (!mapLoaded || didCenterInitially || uiState.positions.isEmpty()) return@LaunchedEffect
-        didCenterInitially = true
-        cameraPositionState.animate(CameraUpdateFactory.newLatLngBounds(paddedBounds(uiState.positions), 24))
     }
 
     // Updated once the map stops moving, so distance labels on the alert circles can be placed on
@@ -281,6 +253,20 @@ fun MapScreen(
                             contentDescription = if (uiState.showSatelliteMap) "標準地図に切り替え" else "航空写真に切り替え",
                         )
                     }
+                    IconButton(
+                        onClick = {
+                            when {
+                                showMyLocation -> showMyLocation = false
+                                hasLocationPermission -> showMyLocation = true
+                                else -> permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+                            }
+                        },
+                    ) {
+                        Icon(
+                            imageVector = if (showMyLocation) Icons.Filled.MyLocation else Icons.Filled.LocationSearching,
+                            contentDescription = if (showMyLocation) "現在地を非表示" else "現在地を表示",
+                        )
+                    }
                     IconButton(onClick = onOpenSettings) {
                         Icon(Icons.Filled.Settings, contentDescription = "設定")
                     }
@@ -302,11 +288,19 @@ fun MapScreen(
                             Text("更新: ${formatTime(it)}", style = MaterialTheme.typography.bodySmall)
                         }
                     }
-                    TextButton(
-                        onClick = { if (uiState.isSubscribed) onOpenTurnpointHistory() else onRequireSubscription() },
-                    ) {
-                        Icon(Icons.Filled.ListAlt, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Text("通過履歴")
+                    Row {
+                        TextButton(
+                            onClick = { if (uiState.isSubscribed) onOpenStandings() else onRequireSubscription() },
+                        ) {
+                            Icon(Icons.Filled.EmojiEvents, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Text("団体順位")
+                        }
+                        TextButton(
+                            onClick = { if (uiState.isSubscribed) onOpenTurnpointHistory() else onRequireSubscription() },
+                        ) {
+                            Icon(Icons.Filled.ListAlt, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Text("通過履歴")
+                        }
                     }
                 }
             }
@@ -317,10 +311,10 @@ fun MapScreen(
                 modifier = Modifier.fillMaxSize(),
                 cameraPositionState = cameraPositionState,
                 properties = MapProperties(
-                    isMyLocationEnabled = hasLocationPermission,
+                    isMyLocationEnabled = hasLocationPermission && showMyLocation,
                     mapType = if (uiState.showSatelliteMap) MapType.HYBRID else MapType.NORMAL,
                 ),
-                uiSettings = MapUiSettings(myLocationButtonEnabled = hasLocationPermission),
+                uiSettings = MapUiSettings(myLocationButtonEnabled = hasLocationPermission && showMyLocation),
                 onMapLoaded = { mapLoaded = true },
             ) {
                 if (alertReferenceCoordinate != null) {
@@ -516,12 +510,16 @@ fun MapScreen(
                     val lapBadge = uiState.selectedCourse?.let { uiState.lapStatuses[glider.imei]?.markerBadge }
                     // MarkerComposable rasterizes its content once and only redraws it when these keys
                     // change, so every input the content reads must be listed - otherwise the marker keeps
-                    // showing the altitude from its first render. key(imei) keeps each marker bound to the
-                    // same glider when the list order changes between polls.
+                    // showing the altitude from its first render - but not the position, which moves the
+                    // existing marker without redrawing it (FLARM moves markers every second). key(imei)
+                    // keeps each marker bound to the same glider when the list order changes between polls.
                     key(glider.imei) {
+                        val markerState = remember { MarkerState(position = LatLng(glider.lat, glider.lon)) }
+                        SideEffect { markerState.position = LatLng(glider.lat, glider.lon) }
                         MarkerComposable(
-                            glider, name, showName, isSelected, isFavorite, alertSeverity ?: "none", lapBadge ?: "",
-                            state = MarkerState(position = LatLng(glider.lat, glider.lon)),
+                            glider.index, glider.alt?.roundToInt() ?: "none", glider.source, glider.isDisconnected,
+                            name, showName, isSelected, isFavorite, alertSeverity ?: "none", lapBadge ?: "",
+                            state = markerState,
                             title = name,
                             anchor = Offset(0.5f, 0.5f),
                             onClick = { selectedGlider = glider; true },
