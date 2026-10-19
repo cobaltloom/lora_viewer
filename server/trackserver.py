@@ -21,7 +21,7 @@ HTTP API (behind Caddy for HTTPS):
       weren't watching that source.
   GET /results?source=ogn|lora&from=YYYY-MM-DD&to=YYYY-MM-DD   (header X-Api-Key)
       -> {"results": {"<date>": {"<course name>": [lap or partly flown course, ...]}}}
-      Each day's laps on each task course, worked out here every 5 minutes from that day's flights
+      Each day's laps on each task course, worked out here every minute from that day's flights
       and kept for RESULTS_RETENTION_DAYS (results only - no positions), so team standings
       survive even when no app was open.
   GET /standings   (header X-Api-Key)
@@ -81,7 +81,7 @@ DDB_URL = "https://ddb.glidernet.org/download/?j=1&t=1"
 DDB_REFRESH_S = 24 * 3600
 
 STANDINGS_MAX_BYTES = 64 * 1024
-RESULTS_INTERVAL_S = 300
+RESULTS_INTERVAL_S = 60
 RESULTS_RETENTION_DAYS = 60
 METADATA_URL = "http://metadata.google.internal/computeMetadata/v1/instance/attributes/"
 

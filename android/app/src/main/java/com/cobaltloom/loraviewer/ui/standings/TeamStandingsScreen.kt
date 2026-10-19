@@ -51,11 +51,11 @@ import kotlinx.coroutines.delay
 @Composable
 fun TeamStandingsScreen(viewModel: GliderTrackerViewModel, onBack: () -> Unit, onEdit: () -> Unit) {
     val uiState by viewModel.uiState.collectAsState()
-    // Fetched on opening and every minute while open: the server re-times today's laps every 5 minutes.
+    // Fetched on opening and every 30 s while open: the server re-times today's laps every minute.
     LaunchedEffect(uiState.dataSource) {
         while (true) {
             viewModel.refreshCompetition()
-            delay(60_000)
+            delay(30_000)
         }
     }
     val competition = uiState.competition

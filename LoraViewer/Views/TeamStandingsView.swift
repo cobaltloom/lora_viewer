@@ -98,11 +98,11 @@ struct TeamStandingsView: View {
                 .environmentObject(handicapStore)
             }
         }
-        // Fetched on opening and every minute while open: the server re-times today's laps every 5 minutes.
+        // Fetched on opening and every 30 s while open: the server re-times today's laps every minute.
         .task(id: viewModel.dataSource) {
             while !Task.isCancelled {
                 await refresh()
-                try? await Task.sleep(nanoseconds: 60_000_000_000)
+                try? await Task.sleep(nanoseconds: 30_000_000_000)
             }
         }
     }
