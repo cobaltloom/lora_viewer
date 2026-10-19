@@ -31,7 +31,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.cobaltloom.loraviewer.data.alert.CompetitionScoring
+import com.cobaltloom.loraviewer.data.alert.CompetitionTaskCourseData
 import com.cobaltloom.loraviewer.data.alert.TeamRanking
+import com.cobaltloom.loraviewer.data.settings.DataSource
 import com.cobaltloom.loraviewer.ui.common.ToBeat
 import com.cobaltloom.loraviewer.ui.common.ToBeatTag
 import com.cobaltloom.loraviewer.ui.map.GliderTrackerViewModel
@@ -39,46 +42,50 @@ import java.time.LocalDate
 import kotlinx.coroutines.delay
 
 /**
- * Provisional team standings over a competition a representative set up (shared through the track
- * server): each earlier competition day's team scores - corrected where someone entered them, else
- * worked out from this device's lap records - plus today's reference scores, and for each team the lap
- * time that would take it to P1, or one place up, today.
+ * Provisional team standings over a competition set up in the app (shared through the track server):
+ * every glider seen on the current source is a team, scored each competition day from the laps the
+ * track server timed (so days when no app was open count too) - corrected where someone entered it -
+ * plus today's, and for each team the lap time that would take it to P1, or one place up, today.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TeamStandingsScreen(viewModel: GliderTrackerViewModel, onBack: () -> Unit, onEdit: () -> Unit) {
     val uiState by viewModel.uiState.collectAsState()
-    // Fetched on opening and every minute while open: the representative may update it any time.
-    LaunchedEffect(Unit) {
+    // Fetched on opening and every minute while open: the server re-times today's laps every 5 minutes.
+    LaunchedEffect(uiState.dataSource) {
         while (true) {
             viewModel.refreshCompetition()
             delay(60_000)
         }
     }
     val competition = uiState.competition
-    val course = uiState.selectedCourse
+    val results = uiState.competitionResults
     val today = LocalDate.now()
-    val standings = remember(competition, uiState.turnpointPassageRecords, uiState.handicaps) { uiState.standingsBeforeToday() }
     // Today counts only during the competition.
     val includeToday = competition?.dates(today)?.lastOrNull() == today
-    val flights = remember(uiState.turnpointPassageRecords, uiState.handicaps, course) { uiState.todaysTeamFlights() }
+    val handicap: (String) -> Double = { uiState.competitionHandicap(it) }
+    val standings = remember(competition, results, uiState.handicaps) {
+        competition?.let { CompetitionScoring.standingsBeforeToday(it, today, results, handicap) }
+    }
+    val todayResults = results[today.toString()]
+    val todayCourse = competition?.let { CompetitionScoring.dayCourse(it, today, todayResults) } ?: uiState.selectedCourse?.name
+    val courseIsSet = competition?.days?.get(today.toString())?.course != null
+    val flights = remember(todayResults, todayCourse, uiState.handicaps, competition) { CompetitionScoring.flights(todayResults, todayCourse, handicap) }
+    val distanceKm = CompetitionTaskCourseData.courses.firstOrNull { it.name == todayCourse }?.distanceKm
     val rows = remember(standings, flights, includeToday) {
         standings?.let { TeamRanking.rows(it, flights, includeToday) }.orEmpty()
     }
-    // Each team's lap time to P1 and to one place up, in its first glider.
-    val targets = remember(rows, course, uiState.handicaps) {
-        if (standings == null || course == null || !includeToday) {
+    // Each team's lap time to P1 and to one place up.
+    val targets = remember(rows, distanceKm, uiState.handicaps) {
+        if (standings == null || distanceKm == null || !includeToday) {
             emptyMap()
         } else {
             rows.associate { row ->
-                val glider = standings.teams.firstOrNull { it.name == row.name }?.gliderIds?.firstOrNull()
-                row.name to if (glider == null || row.rank == 1) {
+                row.name to if (row.rank == 1) {
                     emptyList()
                 } else {
                     listOfNotNull(1, (row.rank - 1).takeIf { it > 1 }).map { target ->
-                        target to TeamRanking.lapSecondsToReach(
-                            standings, flights, row.name, glider, uiState.handicapFor(glider), course.distanceKm, target,
-                        )
+                        target to TeamRanking.lapSecondsToReach(standings, flights, row.name, row.name, handicap(row.name), distanceKm, target)
                     }
                 }
             }
@@ -96,10 +103,10 @@ fun TeamStandingsScreen(viewModel: GliderTrackerViewModel, onBack: () -> Unit, o
             )
         },
     ) { padding ->
-        if (competition == null || standings == null || competition.teams.isEmpty()) {
+        if (competition == null || competition.startDate == null || standings == null) {
             Box(Modifier.padding(padding).fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
                 Text(
-                    uiState.standingsError ?: "競技会がまだ設定されていません。右上の「設定」から、大会期間とチームを設定してください。",
+                    uiState.standingsError ?: "競技会がまだ設定されていません。右上の「設定」から、大会期間を設定してください。期間中に飛んだ機体が自動でチームとして並びます。",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
@@ -111,14 +118,14 @@ fun TeamStandingsScreen(viewModel: GliderTrackerViewModel, onBack: () -> Unit, o
                     Text(competition.name.ifBlank { "競技会" }, style = MaterialTheme.typography.titleMedium)
                     val days = competition.dates(today)
                     Text(
-                        "${competition.startDate.orEmpty()}〜${competition.endDate.orEmpty()}" +
+                        "${competition.startDate}〜${competition.endDate.orEmpty()}" +
                             (if (includeToday) "(第${days.size}日・本日の暫定を含む)" else "(期間外: 本日分は含みません)"),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    if (includeToday && course == null) {
+                    if (includeToday) {
                         Text(
-                            "タスクコースを選ぶと、順位を上げるのに必要な周回時間を表示します。",
+                            "本日のコース: " + (todayCourse ?: "まだ周回がありません") + if (courseIsSet || todayCourse == null) "" else "(周回の多さから自動判定)",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -126,13 +133,22 @@ fun TeamStandingsScreen(viewModel: GliderTrackerViewModel, onBack: () -> Unit, o
                 }
                 HorizontalDivider()
             }
+            if (rows.isEmpty()) {
+                item(key = "empty") {
+                    Text(
+                        "期間中にまだ周回・旋回点の通過がありません。",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(16.dp),
+                    )
+                }
+            }
             items(rows, key = { it.name }) { row ->
-                StandingsRow(row, includeToday, targets[row.name].orEmpty())
+                StandingsRow(row.copy(name = uiState.standingsName(row.name)), includeToday, targets[row.name].orEmpty())
                 HorizontalDivider()
             }
             item(key = "note") {
                 Text(
-                    "各日の得点は、その日の参考得点のチーム上位3本(全国選出点は最高点)を、選手が別々として合計した目安です。過去の日は、この端末の記録から計算するか、「設定」で修正・確定された値を使います。公式成績とは異なることがあります。",
+                    "期間中に${if (uiState.dataSource == DataSource.OGN) "FLARM" else "LoRa"}で飛んだ機体が自動でチームとして並びます。各日の得点は、トラックサーバーが計時した周回の参考得点のうち機体ごとの上位3本(全国選出点は最高点)で、端末を閉じていた日も含みます。ペナルティなどは「設定」で修正できます。公式成績とは異なることがあります。",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(16.dp),

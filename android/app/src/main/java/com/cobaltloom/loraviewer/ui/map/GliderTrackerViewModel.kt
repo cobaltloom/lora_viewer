@@ -18,6 +18,7 @@ import com.cobaltloom.loraviewer.data.alert.CompetitionScoring
 import com.cobaltloom.loraviewer.data.alert.CompetitionTaskCourse
 import com.cobaltloom.loraviewer.data.alert.CompetitionTaskCourseData
 import com.cobaltloom.loraviewer.data.alert.Coordinate
+import com.cobaltloom.loraviewer.data.alert.DayResults
 import com.cobaltloom.loraviewer.data.alert.GliderAlertReason
 import com.cobaltloom.loraviewer.data.alert.LapScore
 import com.cobaltloom.loraviewer.data.alert.PartialLapDistance
@@ -72,6 +73,10 @@ data class GliderTrackerUiState(
     val handicaps: Map<String, Double> = emptyMap(),
     /** The shared competition (see [Competition]), once fetched. */
     val competition: Competition? = null,
+    /** The track server's lap results over the competition so far, for the current source: date → course → laps. */
+    val competitionResults: Map<String, DayResults> = emptyMap(),
+    /** Names of gliders that may no longer be on the map (FLARM ones looked up), by id. */
+    val gliderNames: Map<String, String> = emptyMap(),
     val standingsError: String? = null,
     val nicknameSyncMode: NicknameSyncMode = NicknameSyncMode.SYNCED,
     val favorites: Set<String> = emptySet(),
@@ -155,19 +160,18 @@ data class GliderTrackerUiState(
     /** A day's passage-history rows. */
     fun recordsOn(date: java.time.LocalDate): List<TurnpointPassageRecord> = turnpointPassageRecords.filter { it.localDate == date }
 
-    /** The teams' totals before today for [TeamRanking], or null without a competition. */
-    fun standingsBeforeToday(): TeamStandings? = competition?.let {
-        CompetitionScoring.standingsBeforeToday(it, java.time.LocalDate.now(), ::recordsOn) { id -> handicapFor(id) }
-    }
+    /** A glider's competition handicap: the competition's shared one, else this device's. */
+    fun competitionHandicap(id: String): Double = competition?.handicaps?.get(id) ?: handicapFor(id)
 
-    /** Today's scored flights for the selected course, for the provisional team standings. */
-    fun todaysTeamFlights(): List<TeamRanking.Flight> {
-        val today = java.time.LocalDate.now()
-        val courseName = selectedCourse?.name
-        val records = turnpointPassageRecords.filter { it.localDate == today && it.belongsToCourse(courseName) }
-        val laps = LapScore.laps(records) { handicapFor(it) }
-        val gliders = records.associate { it.id to it.gliderId }
-        return laps.map { TeamRanking.Flight(it, gliders[it.id]) }
+    /** A glider's name for the standings, whether or not it's on the map now. */
+    fun standingsName(id: String): String {
+        positions.firstOrNull { it.imei == id }?.let { return nameFor(it) }
+        gliderNames[id]?.let { return it }
+        // LoRa trackers: the site's board name for the tracker's index.
+        config?.imeiMaster?.entries?.firstOrNull { it.value == id }?.key?.let { index ->
+            config.nameMasterDisplayed[index]?.let { return (if (isSubscribed) nicknames[id] else null) ?: it }
+        }
+        return id
     }
 
     fun handicapFor(id: String?): Double = id?.let { handicaps[it] ?: LapScore.builtInDefault(it) } ?: LapScore.DEFAULT_HANDICAP
@@ -504,11 +508,25 @@ class GliderTrackerViewModel(
         viewModelScope.launch { nicknameRepository.setSyncMode(mode) }
     }
 
+    /** Fetches the competition and the track server's results over it so far, for the current source. */
     fun refreshCompetition() {
         viewModelScope.launch {
-            runCatching { repository.fetchCompetition() }
-                .onSuccess { competition -> _uiState.update { it.copy(competition = competition, standingsError = null) } }
-                .onFailure { e -> _uiState.update { it.copy(standingsError = e.message ?: "競技会の設定を取得できませんでした") } }
+            val source = _uiState.value.dataSource
+            runCatching {
+                val competition = repository.fetchCompetition()
+                val dates = competition?.dates(java.time.LocalDate.now()).orEmpty()
+                val results = if (dates.isEmpty()) emptyMap() else repository.fetchResults(source, dates.first().toString(), dates.last().toString())
+                competition to results
+            }.onSuccess { (competition, results) ->
+                _uiState.update { it.copy(competition = competition, competitionResults = results, standingsError = null) }
+                // FLARM gliders that have left the map: their names from the device databases.
+                if (source == DataSource.OGN) {
+                    val known = _uiState.value.gliderNames.keys + _uiState.value.positions.map { it.imei }
+                    val missing = results.values.flatMap { day -> day.values.flatten().map { it.id } }.toSet() - known
+                    val names = missing.mapNotNull { id -> repository.ognBaseName(id)?.let { id to it } }.toMap()
+                    if (names.isNotEmpty()) _uiState.update { it.copy(gliderNames = it.gliderNames + names) }
+                }
+            }.onFailure { e -> _uiState.update { it.copy(standingsError = e.message ?: "競技会の設定を取得できませんでした") } }
         }
     }
 

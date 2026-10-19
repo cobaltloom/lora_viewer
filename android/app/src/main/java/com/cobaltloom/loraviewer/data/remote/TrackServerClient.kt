@@ -2,6 +2,8 @@ package com.cobaltloom.loraviewer.data.remote
 
 import com.cobaltloom.loraviewer.data.alert.Coordinate
 import com.cobaltloom.loraviewer.data.alert.Competition
+import com.cobaltloom.loraviewer.data.alert.DayResults
+import com.cobaltloom.loraviewer.data.alert.LapResult
 import com.cobaltloom.loraviewer.data.settings.DataSource
 import com.cobaltloom.loraviewer.data.settings.TrackServerConfig
 import java.util.concurrent.TimeUnit
@@ -48,6 +50,23 @@ class TrackServerClient(
             ?: throw TrailRouteApiException.InvalidResponse()
         return flights.mapValues { (_, list) -> list.jsonArray.map { points(it.jsonArray) } }
     }
+
+    /** The server's lap results for [source] from [from] to [to] (dates "yyyy-MM-dd"): date → course → laps. */
+    suspend fun fetchResults(server: TrackServerConfig, source: DataSource, from: String, to: String): Map<String, DayResults> =
+        withContext(Dispatchers.IO) {
+            val url = server.url.toHttpUrlOrNull()?.newBuilder()?.addPathSegment("results")
+                ?.addQueryParameter("source", source.raw)?.addQueryParameter("from", from)?.addQueryParameter("to", to)?.build()
+                ?: throw TrailRouteApiException.InvalidBaseUrl()
+            val request = Request.Builder().url(url).header("X-Api-Key", server.key).get().build()
+            val body = httpClient.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) throw TrailRouteApiException.InvalidResponse()
+                response.body?.string() ?: throw TrailRouteApiException.InvalidResponse()
+            }
+            val results = json.parseToJsonElement(body).jsonObject["results"]?.jsonObject ?: return@withContext emptyMap()
+            results.mapValues { (_, day) ->
+                day.jsonObject.mapValues { (_, laps) -> laps.jsonArray.map { json.decodeFromJsonElement(LapResult.serializer(), it) } }
+            }
+        }
 
     /** The competition a representative last saved (see [Competition]), or null if none yet. */
     suspend fun fetchCompetition(server: TrackServerConfig): Competition? = withContext(Dispatchers.IO) {

@@ -1,6 +1,7 @@
 package com.cobaltloom.loraviewer.data.repository
 
 import com.cobaltloom.loraviewer.data.alert.Competition
+import com.cobaltloom.loraviewer.data.alert.DayResults
 import com.cobaltloom.loraviewer.data.model.AppConfig
 import com.cobaltloom.loraviewer.data.model.GliderPosition
 import com.cobaltloom.loraviewer.data.remote.OgnApiClient
@@ -58,6 +59,12 @@ class GliderRepository(
     suspend fun fetchCompetition(): Competition? {
         val server = settingsRepository.settings.first().trackServer ?: return null
         return trackServerClient.fetchCompetition(server)
+    }
+
+    /** The track server's lap results for [source] over a date range, or empty without a server. */
+    suspend fun fetchResults(source: DataSource, from: String, to: String): Map<String, DayResults> {
+        val server = settingsRepository.settings.first().trackServer ?: return emptyMap()
+        return trackServerClient.fetchResults(server, source, from, to)
     }
 
     suspend fun saveCompetition(competition: Competition): Competition {
