@@ -90,7 +90,8 @@ final class APISettings: ObservableObject {
         let storedBaseURL = defaults.string(forKey: Keys.baseURL)
         baseURLString = storedBaseURL ?? Self.defaultBaseURLString
         secretKey = defaults.string(forKey: Keys.secretKey) ?? ""
-        dataSource = defaults.string(forKey: Keys.dataSource).flatMap(DataSource.init(rawValue:)) ?? .lora
+        // FLARM by default: most club gliders carry one. Falls back to LoRa while OGN is switched off.
+        dataSource = defaults.string(forKey: Keys.dataSource).flatMap(DataSource.init(rawValue:)) ?? .ogn
         isOGNAvailable = defaults.bool(forKey: Keys.ognEnabledCached)
         let storedInterval = defaults.double(forKey: Keys.refreshInterval)
         refreshIntervalSeconds = storedInterval > 0 ? storedInterval : 10

@@ -12,7 +12,7 @@ struct SettingsView: View {
     @EnvironmentObject private var subscriptionManager: SubscriptionManager
     @Environment(\.dismiss) private var dismiss
     @AppStorage("showGliderTrails") private var showGliderTrails = true
-    @AppStorage("showDistanceReferencePoints") private var showDistanceReferencePoints = false
+    @AppStorage("showDistanceReferencePoints") private var showDistanceReferencePoints = true
     @AppStorage("showKK43Area") private var showKK43Area = false
 
     var body: some View {
@@ -142,7 +142,7 @@ private struct SubscribeRow: View {
 private struct MapDisplaySettingsPage: View {
     @EnvironmentObject private var subscriptionManager: SubscriptionManager
     @AppStorage("showGliderTrails") private var showGliderTrails = true
-    @AppStorage("showDistanceReferencePoints") private var showDistanceReferencePoints = false
+    @AppStorage("showDistanceReferencePoints") private var showDistanceReferencePoints = true
     @AppStorage("showKK43Area") private var showKK43Area = false
 
     var body: some View {

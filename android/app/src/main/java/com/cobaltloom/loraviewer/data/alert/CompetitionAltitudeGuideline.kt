@@ -97,7 +97,9 @@ class CompetitionGuidelineRepository(private val context: Context) {
 
     val settings: Flow<CompetitionGuidelineSettings> = context.competitionGuidelineDataStore.data.map { prefs ->
         prefs[settingsKey]?.let { runCatching { json.decodeFromString<CompetitionGuidelineSettings>(it) }.getOrNull() }
-            ?: CompetitionGuidelineSettings(isEnabled = prefs[legacyEnabledKey] ?: false)
+            // The task course is shown until turned off. Set here rather than as the class default: saved
+            // JSON leaves out fields at their default, so changing one would flip saved choices.
+            ?: CompetitionGuidelineSettings(isEnabled = prefs[legacyEnabledKey] ?: false, showTaskCourse = true)
     }
 
     suspend fun save(settings: CompetitionGuidelineSettings) {

@@ -113,7 +113,8 @@ class ApiSettingsRepository(
             refreshIntervalSeconds = prefs[Keys.REFRESH_INTERVAL]?.takeIf { it > 0 }
                 ?: ApiSettings.DEFAULT_REFRESH_INTERVAL_SECONDS,
             isBaseUrlCustomized = isCustomized(prefs[Keys.BASE_URL], prefs[Keys.BASE_URL_CUSTOMIZED]),
-            dataSource = DataSource.fromRaw(prefs[Keys.DATA_SOURCE]),
+            // FLARM by default: most club gliders carry one. Falls back to LoRa while OGN is switched off.
+            dataSource = prefs[Keys.DATA_SOURCE]?.let(DataSource::fromRaw) ?: DataSource.OGN,
             isOgnAvailable = isOgnAvailable,
             ognRefreshIntervalSeconds = prefs[Keys.OGN_REFRESH_INTERVAL]?.takeIf { it > 0 }
                 ?: ApiSettings.DEFAULT_OGN_REFRESH_INTERVAL_SECONDS,

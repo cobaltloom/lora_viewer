@@ -18,7 +18,7 @@ struct CurrentMapView: View {
     @StateObject private var alertNotifier = AlertNotifier()
     @StateObject private var turnpointPassageLog = TurnpointPassageLog()
     @AppStorage("showGliderTrails") private var showGliderTrails = true
-    @AppStorage("showDistanceReferencePoints") private var showDistanceReferencePoints = false
+    @AppStorage("showDistanceReferencePoints") private var showDistanceReferencePoints = true
     @AppStorage("showKK43Area") private var showKK43Area = false
     @AppStorage("mapStyleIsSatellite") private var mapStyleIsSatellite = false
     @State private var showAddPointOfInterest = false

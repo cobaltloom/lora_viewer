@@ -60,7 +60,8 @@ final class UpperAltitudeGuideline: ObservableObject {
 
     init() {
         let d = UserDefaults.standard
-        isEnabled = d.bool(forKey: Keys.isEnabled)
+        // On until turned off (persist() writes every key, so an absent one means never set).
+        isEnabled = d.object(forKey: Keys.isEnabled) as? Bool ?? true
         mode = UpperCeilingMode(rawValue: d.string(forKey: Keys.mode) ?? "") ?? .auto
         let storedCeiling = d.double(forKey: Keys.competitionCeilingFt)
         competitionCeilingFt = storedCeiling > 0 ? storedCeiling : 4500

@@ -60,7 +60,8 @@ final class CompetitionAltitudeGuideline: ObservableObject {
 
     init() {
         isEnabled = UserDefaults.standard.bool(forKey: Self.storageKey)
-        showTaskCourse = UserDefaults.standard.bool(forKey: Self.showTaskCourseKey)
+        // On until turned off, so a first launch shows the turnpoints.
+        showTaskCourse = UserDefaults.standard.object(forKey: Self.showTaskCourseKey) as? Bool ?? true
         if UserDefaults.standard.object(forKey: Self.selectedCourseIndexKey) != nil {
             selectedCourseIndex = UserDefaults.standard.integer(forKey: Self.selectedCourseIndexKey)
         } else {

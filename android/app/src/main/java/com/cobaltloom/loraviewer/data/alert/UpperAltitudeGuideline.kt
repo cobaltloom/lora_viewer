@@ -139,7 +139,9 @@ class UpperAltitudeGuidelineRepository(private val context: Context) {
 
     val settings: Flow<UpperAltitudeSettings> = context.upperAltitudeDataStore.data.map { prefs ->
         prefs[key]?.let { runCatching { json.decodeFromString<UpperAltitudeSettings>(it) }.getOrNull() }
-            ?: UpperAltitudeSettings()
+            // On until turned off. Set here rather than as the class default: saved JSON leaves out
+            // fields at their default, so changing one would flip saved choices.
+            ?: UpperAltitudeSettings(isEnabled = true)
     }
 
     suspend fun save(settings: UpperAltitudeSettings) {
