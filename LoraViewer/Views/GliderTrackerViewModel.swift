@@ -96,6 +96,29 @@ final class GliderTrackerViewModel: ObservableObject {
 
     var dataSource: DataSource { settings.effectiveDataSource }
 
+    /// Names of gliders that may no longer be on the map (FLARM ones looked up), by id.
+    @Published private(set) var gliderNames: [String: String] = [:]
+
+    /// A glider's name for the standings, whether or not it's on the map now: the map's, a looked-up
+    /// FLARM name, or the LoRa site's board name for the tracker.
+    func standingsName(_ id: String) -> String {
+        if let glider = positions.first(where: { $0.imei == id }) { return nameFor(glider) }
+        if let name = gliderNames[id] { return name }
+        if let config, let index = config.imeiMaster.first(where: { $0.value == id })?.key,
+           let name = config.nameMasterDisplayed[index] {
+            return name
+        }
+        return id
+    }
+
+    /// Looks up the names of FLARM gliders in `ids` that have left the map.
+    func resolveNames(_ ids: [String]) async {
+        guard dataSource == .ogn else { return }
+        for id in ids where gliderNames[id] == nil && !positions.contains(where: { $0.imei == id }) {
+            if let name = await ognAPI.baseName(forCallsign: id) { gliderNames[id] = name }
+        }
+    }
+
     func nameFor(_ glider: GliderPosition) -> String {
         glider.sourceName ?? config?.nameMasterDisplayed[glider.index] ?? "#\(glider.index)"
     }

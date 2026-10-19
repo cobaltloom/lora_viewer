@@ -475,12 +475,7 @@ struct CurrentMapView: View {
             }
             .sheet(isPresented: $showStandings) {
                 NavigationStack {
-                    TeamStandingsView(
-                        server: settings.trackServer,
-                        log: turnpointPassageLog,
-                        course: selectedTaskCourse,
-                        knownGliders: viewModel.positions.filter { !$0.isAnonymous }.map { KnownGlider(id: $0.imei, name: viewModel.nameFor($0)) }
-                    )
+                    TeamStandingsView(server: settings.trackServer, viewModel: viewModel, selectedCourse: selectedTaskCourse)
                     .environmentObject(handicapStore)
                     .toolbar {
                         ToolbarItem(placement: .topBarLeading) {

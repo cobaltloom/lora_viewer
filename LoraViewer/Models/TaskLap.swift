@@ -363,65 +363,74 @@ struct TeamStandings {
     var teams: [Team] = []
 }
 
-/// A competition's team scores day by day: a day's corrected/confirmed scores where someone entered
-/// them, else the app's own - each team's best three reference scores of that day (best one for
-/// 全国選出点), floored like the official results, on the course that day's laps were judged
-/// against. Kept in step with the Android app's CompetitionScoring, which has the unit tests.
+/// A competition's team scores day by day from the track server's results: each glider's best three
+/// reference scores that day (best one for 全国選出点), floored like the official results, on the
+/// day's course - unless corrected. Kept in step with the Android app's CompetitionScoring, which has
+/// the unit tests.
 enum CompetitionScoring {
-    /// The app's own team scores for one day, from that day's passage-history rows.
-    static func autoDayScores(_ competition: Competition, dayRecords: [TurnpointPassageRecord], courseName: String?,
-                              handicap: (String?) -> Double) -> [String: Competition.DayScore] {
-        let records = dayRecords.filter { $0.belongs(toCourse: courseName) }
-        let laps = LapScore.laps(from: records, handicap: handicap)
-        let scores = LapScore.scores(laps)
-        let gliders = Dictionary(records.map { ($0.id, $0.gliderID) }, uniquingKeysWith: { first, _ in first })
+    static func key(_ date: Date) -> String { Competition.dateFormatter.string(from: date) }
+
+    /// The day's course: as set, else the one with the most laps completed (then the most entries).
+    static func dayCourse(_ competition: Competition, date: Date, results: DayResults?) -> String? {
+        if let course = competition.days[key(date)]?.course { return course }
+        return results?.filter { !$0.value.isEmpty }.max { a, b in
+            (a.value.filter { $0.finish != nil }.count, a.value.count) < (b.value.filter { $0.finish != nil }.count, b.value.count)
+        }?.key
+    }
+
+    /// A day's flights on `course`, for scoring.
+    static func flights(_ results: DayResults?, course: String?, handicap: (String) -> Double) -> [TeamRanking.Flight] {
+        guard let course, let laps = results?[course] else { return [] }
+        return laps.map { result in
+            TeamRanking.Flight(lap: LapScore.Lap(id: UUID(), distanceKm: result.distanceKm, lapSeconds: result.lapSeconds,
+                                                 handicap: handicap(result.id), goalAltitudeM: result.goalAltitudeM),
+                               gliderID: result.id)
+        }
+    }
+
+    /// Every glider with a result on a competition day up to `today`, or a corrected score.
+    static func gliders(_ competition: Competition, today: Date, results: [String: DayResults]) -> [String] {
+        let dates = Set(competition.dates(until: today).map(key))
+        let fromResults = results.filter { dates.contains($0.key) }.values.flatMap { $0.values.flatMap { $0.map(\.id) } }
+        let corrected = competition.days.filter { dates.contains($0.key) }.values.flatMap { $0.scores.keys }
+        return Array(Set(fromResults + corrected)).sorted()
+    }
+
+    /// One day's scores per glider: corrections where entered, else the server results'.
+    static func dayScores(_ competition: Competition, date: Date, results: DayResults?,
+                          handicap: (String) -> Double) -> [String: Competition.DayScore] {
+        let dayFlights = Self.flights(results, course: dayCourse(competition, date: date, results: results), handicap: handicap)
+        let scores = LapScore.scores(dayFlights.map(\.lap))
+        var auto: [String: Competition.DayScore] = [:]
+        for (id, own) in Dictionary(grouping: dayFlights, by: { $0.gliderID ?? "" }) {
+            let best = own.compactMap { scores[$0.lap.id] }.map { $0.rounded(.down) }.sorted(by: >)
+            auto[id] = Competition.DayScore(total: best.prefix(3).reduce(0, +), national: best.first ?? 0)
+        }
+        let entered = competition.days[key(date)]?.scores ?? [:]
         var result: [String: Competition.DayScore] = [:]
-        for team in competition.teams {
-            let teamScores = laps.filter { lap in (gliders[lap.id] ?? nil).map { team.gliderIds.contains($0) } ?? false }
-                .compactMap { scores[$0.id] }.map { $0.rounded(.down) }.sorted(by: >)
-            result[team.name] = Competition.DayScore(total: teamScores.prefix(3).reduce(0, +), national: teamScores.first ?? 0)
+        for id in Set(auto.keys).union(entered.keys) {
+            result[id] = Competition.DayScore(total: entered[id]?.total ?? auto[id]?.total ?? 0,
+                                              national: entered[id]?.national ?? auto[id]?.national ?? 0)
         }
         return result
     }
 
-    /// The course most of a day's laps were judged against, for days the user isn't choosing it.
-    static func dayCourse(_ dayRecords: [TurnpointPassageRecord]) -> String? {
-        let names = dayRecords.filter(\.isScoredFlight).compactMap(\.courseName)
-        let counts = Dictionary(names.map { ($0, 1) }, uniquingKeysWith: +)
-        return counts.max { ($0.value, $1.key) < ($1.value, $0.key) }?.key
-    }
-
-    /// One day's scores: the shared corrections where entered, else the app's own.
-    static func dayScores(_ competition: Competition, date: Date, dayRecords: [TurnpointPassageRecord], courseName: String?,
-                          handicap: (String?) -> Double) -> [String: Competition.DayScore] {
-        let auto = autoDayScores(competition, dayRecords: dayRecords, courseName: courseName, handicap: handicap)
-        let entered = competition.days[Competition.dateFormatter.string(from: date)] ?? [:]
-        var result: [String: Competition.DayScore] = [:]
-        for team in competition.teams {
-            result[team.name] = Competition.DayScore(total: entered[team.name]?.total ?? auto[team.name]?.total,
-                                                     national: entered[team.name]?.national ?? auto[team.name]?.national)
-        }
-        return result
-    }
-
-    /// The teams' totals for `TeamRanking`: every competition day before today (corrected or the
-    /// app's own), plus today's corrections where entered - those teams' gliders are then left out so
-    /// today's flights aren't counted twice. `recordsOn` gives a day's passage-history rows.
-    static func standingsBeforeToday(_ competition: Competition, today: Date, recordsOn: (Date) -> [TurnpointPassageRecord],
-                                     handicap: (String?) -> Double) -> TeamStandings {
+    /// Each glider's totals over the competition days before today, plus today's corrections where
+    /// entered - those gliders are then left out of today's flights so they aren't counted twice - for
+    /// `TeamRanking`, which adds today's flights. Team names are the glider ids.
+    static func standingsBeforeToday(_ competition: Competition, today: Date, results: [String: DayResults],
+                                     handicap: (String) -> Double) -> TeamStandings {
         let calendar = Calendar.current
-        let before = competition.dates(until: today).filter { !calendar.isDate($0, inSameDayAs: today) }.map { date in
-            let records = recordsOn(date)
-            return dayScores(competition, date: date, dayRecords: records, courseName: dayCourse(records), handicap: handicap)
-        }
-        let todayEntered = competition.days[Competition.dateFormatter.string(from: today)] ?? [:]
-        return TeamStandings(competition: competition.name, teams: competition.teams.map { team in
-            let entered = todayEntered[team.name]
+        let before = competition.dates(until: today).filter { !calendar.isDate($0, inSameDayAs: today) }
+            .map { dayScores(competition, date: $0, results: results[key($0)], handicap: handicap) }
+        let todayEntered = competition.days[key(today)]?.scores ?? [:]
+        return TeamStandings(competition: competition.name, teams: gliders(competition, today: today, results: results).map { id in
+            let entered = todayEntered[id]
             return TeamStandings.Team(
-                name: team.name,
-                gliderIds: entered?.total != nil ? [] : team.gliderIds,
-                total: before.reduce(0) { $0 + ($1[team.name]?.total ?? 0) } + (entered?.total ?? 0),
-                national: before.reduce(0) { $0 + ($1[team.name]?.national ?? 0) } + (entered?.national ?? 0)
+                name: id,
+                gliderIds: entered?.total != nil ? [] : [id],
+                total: before.reduce(0) { $0 + ($1[id]?.total ?? 0) } + (entered?.total ?? 0),
+                national: before.reduce(0) { $0 + ($1[id]?.national ?? 0) } + (entered?.national ?? 0)
             )
         })
     }

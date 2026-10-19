@@ -28,6 +28,29 @@ final class TrackServerAPI {
         return decoded.flights.mapValues { flights in flights.map(Self.points) }
     }
 
+    /// The server's lap results for `source` from `from` to `to` (dates "yyyy-MM-dd"): date → course → laps.
+    func fetchResults(server: TrackServerConfig, source: DataSource, from: String, to: String) async throws -> [String: DayResults] {
+        var components = URLComponents(url: server.url.appendingPathComponent("results"), resolvingAgainstBaseURL: false)
+        components?.queryItems = [
+            URLQueryItem(name: "source", value: source.rawValue),
+            URLQueryItem(name: "from", value: from),
+            URLQueryItem(name: "to", value: to),
+        ]
+        guard let url = components?.url else { throw TrailRouteAPIError.invalidBaseURL }
+        var request = URLRequest(url: url)
+        request.timeoutInterval = 15
+        request.setValue(server.key, forHTTPHeaderField: "X-Api-Key")
+        let (data, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+            throw TrailRouteAPIError.invalidResponse
+        }
+        return try JSONDecoder().decode(ResultsResponse.self, from: data).results
+    }
+
+    private struct ResultsResponse: Decodable {
+        let results: [String: DayResults]
+    }
+
     /// The competition a representative last saved (see `Competition`), or nil if none yet.
     func fetchCompetition(server: TrackServerConfig) async throws -> Competition? {
         var request = URLRequest(url: server.url.appendingPathComponent("standings"))
@@ -125,14 +148,16 @@ struct TodaysFlights {
     let baseNames: [String: String]
 }
 
-/// A competition as a representative set it up (shared through the track server): its period, its
-/// teams and their gliders, and any day's team scores someone corrected or confirmed. Every other
-/// day's scores are worked out by each app from its own lap records (see `CompetitionScoring`).
+/// A competition as set up in the app (shared through the track server): its period, and per day the
+/// course flown and any corrected team scores, plus shared handicaps. The teams are the gliders
+/// themselves (each source's own ids), and their laps come from the track server, which times every
+/// flight whether or not any app was open (see `LapResult`).
 struct Competition: Codable, Equatable {
-    struct Team: Codable, Equatable {
-        var name: String
-        /// LoRa tracker ids and FLARM callsigns of the team's gliders.
-        var gliderIds: [String] = []
+    struct Day: Codable, Equatable {
+        /// The course flown that day (an app course name); nil = the one most laps were completed on.
+        var course: String?
+        /// Glider id → corrected scores (penalties, or where they differ from the official results).
+        var scores: [String: DayScore] = [:]
     }
 
     /// A team's score for one day: 団体 (best three) and 全国選出点 (best one).
@@ -145,9 +170,10 @@ struct Competition: Codable, Equatable {
     /// First and last competition days, "yyyy-MM-dd".
     var startDate: String?
     var endDate: String?
-    var teams: [Team] = []
-    /// Date ("yyyy-MM-dd") → team name → that day's scores, overriding the app's own.
-    var days: [String: [String: DayScore]] = [:]
+    /// Date ("yyyy-MM-dd") → that day's settings.
+    var days: [String: Day] = [:]
+    /// Glider id → competition handicap, overriding each device's own.
+    var handicaps: [String: Double] = [:]
     var updatedAt: Double?
 
     static let dateFormatter: DateFormatter = {
@@ -174,6 +200,21 @@ struct Competition: Codable, Equatable {
         return dates
     }
 }
+
+/// One lap, or partly flown course, the track server timed (see its /results): `finish` and
+/// `lapSeconds` for a lap, `passed` scoring turnpoints for a partly flown course.
+struct LapResult: Decodable, Equatable {
+    let id: String
+    let start: Double
+    var finish: Double?
+    var lapSeconds: Double?
+    let distanceKm: Double
+    var goalAltitudeM: Double?
+    var passed: [String]?
+}
+
+/// One day's server results: course name → laps and partly flown courses.
+typealias DayResults = [String: [LapResult]]
 
 struct TrackServerConfig: Equatable {
     let url: URL
