@@ -21,10 +21,10 @@
             android:name="com.google.android.geo.API_KEY"
             android:value="${MAPS_API_KEY}" />
 
-        <!-- AdMob app ID: Google's test ID until the account's own is issued (swap with AdManager's unit IDs). -->
+        <!-- AdMob app ID (debug builds still load Google's test ad units; see AdManager). -->
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
-            android:value="ca-app-pub-3940256099942544~3347511713" />
+            android:value="ca-app-pub-6754188955033183~1058213520" />
 
         <activity
             android:name=".MainActivity"

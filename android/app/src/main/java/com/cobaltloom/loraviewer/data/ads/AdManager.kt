@@ -6,6 +6,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.cobaltloom.loraviewer.BuildConfig
 import com.google.android.gms.ads.AdRequest
 import com.google.android.gms.ads.LoadAdError
 import com.google.android.gms.ads.MobileAds
@@ -109,10 +110,13 @@ class AdManager(context: Context) {
     }
 
     companion object {
-        // Google's test ad units, until the AdMob account's own are issued. Swap these (and the
-        // APPLICATION_ID in AndroidManifest.xml) before release.
-        const val BANNER_UNIT_ID = "ca-app-pub-3940256099942544/9214589741"
-        const val REWARDED_UNIT_ID = "ca-app-pub-3940256099942544/5224354917"
+        // Debug builds use Google's test ad units, so development never serves (or clicks) real ads.
+        val BANNER_UNIT_ID =
+            if (BuildConfig.DEBUG) "ca-app-pub-3940256099942544/9214589741"
+            else "ca-app-pub-6754188955033183/5843014223"
+        val REWARDED_UNIT_ID =
+            if (BuildConfig.DEBUG) "ca-app-pub-3940256099942544/5224354917"
+            else "ca-app-pub-6754188955033183/7667853902"
         const val REWARD_DURATION_MILLIS = 24 * 3600 * 1000L
     }
 }
