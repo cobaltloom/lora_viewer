@@ -8,10 +8,14 @@ import GoogleMobileAds
 /// feature is free either way.
 @MainActor
 final class AdManager: ObservableObject {
-    // Google's test ad units, until the AdMob account's own are issued. Swap these (and
-    // GADApplicationIdentifier in Info.plist) before release.
+    // Debug builds use Google's test ad units, so development never serves (or clicks) real ads.
+    #if DEBUG
     static let bannerUnitID = "ca-app-pub-3940256099942544/2435281174"
     static let rewardedUnitID = "ca-app-pub-3940256099942544/1712485313"
+    #else
+    static let bannerUnitID = "ca-app-pub-6754188955033183/9583570803"
+    static let rewardedUnitID = "ca-app-pub-6754188955033183/4079962683"
+    #endif
     static let rewardDuration: TimeInterval = 24 * 3600
 
     /// Ads are off until then, after watching a rewarded ad.
