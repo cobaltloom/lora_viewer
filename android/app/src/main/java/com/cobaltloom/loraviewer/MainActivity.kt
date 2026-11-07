@@ -5,6 +5,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -16,6 +17,8 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.cobaltloom.loraviewer.data.ads.AdManager
+import com.cobaltloom.loraviewer.data.ads.LocalAdManager
 import com.cobaltloom.loraviewer.data.alert.AlertSettingsRepository
 import com.cobaltloom.loraviewer.data.alert.CompetitionGuidelineRepository
 import com.cobaltloom.loraviewer.data.alert.ProximityAlertSettingsRepository
@@ -73,7 +76,11 @@ private object Routes {
 private fun LoraViewerApp() {
     val context = LocalContext.current
     val billingRepository = remember { BillingRepository(context) }
-    LoraViewerNavHost(billingRepository)
+    val adManager = remember { AdManager(context) }
+    LaunchedEffect(Unit) { adManager.start() }
+    CompositionLocalProvider(LocalAdManager provides adManager) {
+        LoraViewerNavHost(billingRepository)
+    }
 }
 
 /**
@@ -81,8 +88,8 @@ private fun LoraViewerApp() {
  * gated behind an active subscription, navigating to [Routes.PAYWALL] instead of performing the
  * action when there's no active subscription.
  *
- * For this release the app ships fully free (monetization moved to ads, added separately) rather
- * than through Play Billing, so subscription gating is disabled by hardcoding [isSubscribed] to
+ * The app ships fully free, with banner ads on the screens other than the map (see [AdManager]),
+ * rather than through Play Billing, so subscription gating is disabled by hardcoding [isSubscribed] to
  * true instead of reading [BillingRepository.isSubscribed]. [BillingRepository] and
  * [Routes.PAYWALL] are left wired up and untouched so subscriptions can be re-enabled later by
  * reverting this one line.

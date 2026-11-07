@@ -159,6 +159,7 @@ struct TurnpointPassageHistoryView: View {
                  ? "この端末の記録だけが消え、他の人には影響しません。今日の記録は、次にアプリを開いたときなどにサーバーの飛行記録から再び記録されます。"
                  : "この端末の記録だけが消え、他の人には影響しません。過去の日の記録は元に戻せません。")
         }
+        .safeAreaInset(edge: .bottom) { AdBanner() }
         .navigationTitle("旋回点通過履歴")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {

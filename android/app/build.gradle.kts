@@ -47,8 +47,8 @@ android {
         applicationId = "com.cobaltloom.loraviewer"
         minSdk = 26
         targetSdk = 37
-        versionCode = 15
-        versionName = "1.8"
+        versionCode = 16
+        versionName = "1.9"
 
         manifestPlaceholders["MAPS_API_KEY"] = mapsApiKey
 
@@ -114,6 +114,7 @@ dependencies {
     implementation(libs.mlkit.text.recognition.japanese)
     implementation(libs.kotlinx.coroutines.play.services)
     implementation(libs.billing.ktx)
+    implementation(libs.play.services.ads)
     testImplementation(libs.junit)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)

@@ -85,6 +85,7 @@ struct TeamStandingsView: View {
                 }
             }
         }
+        .safeAreaInset(edge: .bottom) { AdBanner() }
         .navigationTitle("団体順位")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
