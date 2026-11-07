@@ -28,15 +28,18 @@ import com.google.android.gms.ads.AdView
 
 /**
  * An adaptive banner for a Scaffold's bottomBar, unless ads are off (a rewarded ad watched in the
- * last 24 h). Not used on the map, which stays clear and cool.
+ * last 24 h). [aboveBar]: placed over another bottom bar (the map's), so no navigation-bar inset,
+ * and spaced off that bar's buttons so a tap meant for them doesn't land on the ad.
  */
 @Composable
-fun AdBanner() {
+fun AdBanner(aboveBar: Boolean = false) {
     val adManager = LocalAdManager.current ?: return
     val state by adManager.state.collectAsState()
     if (!state.showsBanners) return
     Surface(color = MaterialTheme.colorScheme.surface, tonalElevation = 2.dp) {
-        BoxWithConstraints(Modifier.fillMaxWidth().navigationBarsPadding()) {
+        BoxWithConstraints(
+            Modifier.fillMaxWidth().then(if (aboveBar) Modifier.padding(bottom = 8.dp) else Modifier.navigationBarsPadding()),
+        ) {
             val context = LocalContext.current
             val widthDp = maxWidth.value.toInt()
             val adSize = remember(widthDp) { AdSize.getLargeAnchoredAdaptiveBannerAdSize(context, widthDp) }

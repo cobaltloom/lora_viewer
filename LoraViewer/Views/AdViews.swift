@@ -2,16 +2,19 @@ import SwiftUI
 import GoogleMobileAds
 
 /// A standard 320×50 banner along the bottom of a screen, unless ads are off (subscribed, or a rewarded
-/// ad watched in the last 24 h). Not used on the map, which stays clear and cool.
+/// ad watched in the last 24 h).
 struct AdBanner: View {
     @EnvironmentObject private var adManager: AdManager
     @EnvironmentObject private var subscriptionManager: SubscriptionManager
+    /// Extra bar-coloured space under the ad, keeping it off buttons just below it.
+    var bottomSpacing: CGFloat = 0
 
     var body: some View {
         if adManager.isStarted, !subscriptionManager.isSubscribed, !adManager.isRewardActive {
             BannerAdView()
                 .frame(width: AdSizeBanner.size.width, height: AdSizeBanner.size.height)
                 .frame(maxWidth: .infinity)
+                .padding(.bottom, bottomSpacing)
                 .background(.bar)
         }
     }
