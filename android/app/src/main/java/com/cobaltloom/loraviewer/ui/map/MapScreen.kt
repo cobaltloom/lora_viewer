@@ -228,7 +228,7 @@ fun MapScreen(
                 title = {
                     Text(
                         if (uiState.dataSource == DataSource.OGN) DataSource.OGN.displayName
-                        else uiState.config?.siteTitle?.ifEmpty { null } ?: "LoRa妻沼",
+                        else uiState.config?.siteTitle?.ifEmpty { null } ?: "妻沼レーダー",
                     )
                 },
                 navigationIcon = {

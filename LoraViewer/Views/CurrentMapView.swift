@@ -350,7 +350,7 @@ struct CurrentMapView: View {
                         }
                 }
             }
-            .navigationTitle(viewModel.dataSource == .ogn ? DataSource.ogn.displayName : (viewModel.config?.settings.siteTitle ?? "LoRa妻沼"))
+            .navigationTitle(viewModel.dataSource == .ogn ? DataSource.ogn.displayName : (viewModel.config?.settings.siteTitle ?? "妻沼レーダー"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {

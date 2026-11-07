@@ -86,7 +86,7 @@ fun PaywallScreen(billingRepository: BillingRepository, onBack: () -> Unit) {
                 modifier = Modifier.size(64.dp).padding(top = 24.dp),
             )
             Text(
-                "LoRa妻沼",
+                "妻沼レーダー",
                 style = MaterialTheme.typography.headlineMedium,
                 modifier = Modifier.padding(top = 16.dp),
             )

@@ -463,7 +463,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = LoraViewer/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "LoRa妻沼";
+				INFOPLIST_KEY_CFBundleDisplayName = "妻沼レーダー";
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_NSCameraUsageDescription = "ホワイトボードの名簿を撮影して読み取るために使用します。";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "現在地を地図の中心に表示するために使用します。";
@@ -499,7 +499,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = LoraViewer/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "LoRa妻沼";
+				INFOPLIST_KEY_CFBundleDisplayName = "妻沼レーダー";
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_NSCameraUsageDescription = "ホワイトボードの名簿を撮影して読み取るために使用します。";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "現在地を地図の中心に表示するために使用します。";
