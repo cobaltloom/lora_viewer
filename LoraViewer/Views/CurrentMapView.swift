@@ -316,6 +316,11 @@ struct CurrentMapView: View {
                             .padding(.bottom, 28)
                     }
                 }
+                // Below the map, above the bottom toolbar; spaced off the toolbar buttons so a tap meant
+                // for them doesn't land on the ad.
+                .safeAreaInset(edge: .bottom, spacing: 0) {
+                    AdBanner(bottomSpacing: 8)
+                }
                 .safeAreaInset(edge: .top) {
                     // Only built when there's something to show: an empty stack still made a
                     // full-width, zero-height layer, which Core Animation logged as
@@ -350,7 +355,7 @@ struct CurrentMapView: View {
                         }
                 }
             }
-            .navigationTitle(viewModel.dataSource == .ogn ? DataSource.ogn.displayName : (viewModel.config?.settings.siteTitle ?? "LoRa妻沼"))
+            .navigationTitle(viewModel.dataSource == .ogn ? DataSource.ogn.displayName : (viewModel.config?.settings.siteTitle ?? "妻沼レーダー"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {

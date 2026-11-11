@@ -457,13 +457,13 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 19;
+				CURRENT_PROJECT_VERSION = 20;
 				DEVELOPMENT_ASSET_PATHS = "\"LoraViewer/Preview Content\"";
 				DEVELOPMENT_TEAM = 563XHL5ZLR;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = LoraViewer/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "LoRa妻沼";
+				INFOPLIST_KEY_CFBundleDisplayName = "妻沼レーダー";
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_NSCameraUsageDescription = "ホワイトボードの名簿を撮影して読み取るために使用します。";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "現在地を地図の中心に表示するために使用します。";
@@ -478,7 +478,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.9;
+				MARKETING_VERSION = 2.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.cobaltloom.loraviewer;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -493,13 +493,13 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 19;
+				CURRENT_PROJECT_VERSION = 20;
 				DEVELOPMENT_ASSET_PATHS = "\"LoraViewer/Preview Content\"";
 				DEVELOPMENT_TEAM = 563XHL5ZLR;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = LoraViewer/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "LoRa妻沼";
+				INFOPLIST_KEY_CFBundleDisplayName = "妻沼レーダー";
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_NSCameraUsageDescription = "ホワイトボードの名簿を撮影して読み取るために使用します。";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "現在地を地図の中心に表示するために使用します。";
@@ -514,7 +514,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.9;
+				MARKETING_VERSION = 2.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.cobaltloom.loraviewer;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;

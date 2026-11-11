@@ -13,7 +13,7 @@ struct PaywallView: View {
     private let privacyPolicyURL = URL(string: "https://cobaltloom.github.io/lora_viewer/privacy-policy.html")!
 
     private let subscriberFeatures = [
-        "旋回点通過履歴・団体順位・設定などの画面から広告がなくなります",
+        "地図・旋回点通過履歴・団体順位・設定など、すべての画面から広告がなくなります",
         "アプリの開発とサーバーの運営を応援できます",
     ]
 
@@ -44,7 +44,7 @@ struct PaywallView: View {
                     .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16))
                     .padding(.horizontal)
 
-                    Text("すべての機能は購読なしで無料でお使いいただけます。地図の画面には広告を表示しません。")
+                    Text("すべての機能は購読なしで無料でお使いいただけます。")
                         .font(.caption)
                         .multilineTextAlignment(.center)
                         .foregroundStyle(.secondary)

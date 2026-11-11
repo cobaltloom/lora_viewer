@@ -17,6 +17,12 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
+                Section {
+                    AdFreeRows()
+                } header: {
+                    Text("広告")
+                }
+
                 if settings.isOGNAvailable {
                     Section {
                         Picker("データ元", selection: $settings.dataSource) {
@@ -62,12 +68,6 @@ struct SettingsView: View {
                     }
                 } header: {
                     Text("アラート")
-                }
-
-                Section {
-                    AdFreeRows()
-                } header: {
-                    Text("広告")
                 }
 
                 Section("その他") {

@@ -79,6 +79,7 @@ import com.cobaltloom.loraviewer.data.alert.pointOnCircle
 import com.cobaltloom.loraviewer.data.model.GliderPosition
 import com.cobaltloom.loraviewer.data.remote.OgnApiClient
 import com.cobaltloom.loraviewer.data.settings.DataSource
+import com.cobaltloom.loraviewer.ui.common.AdBanner
 import com.cobaltloom.loraviewer.ui.detail.GliderDetailCard
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
@@ -228,7 +229,7 @@ fun MapScreen(
                 title = {
                     Text(
                         if (uiState.dataSource == DataSource.OGN) DataSource.OGN.displayName
-                        else uiState.config?.siteTitle?.ifEmpty { null } ?: "LoRa妻沼",
+                        else uiState.config?.siteTitle?.ifEmpty { null } ?: "妻沼レーダー",
                     )
                 },
                 navigationIcon = {
@@ -274,32 +275,35 @@ fun MapScreen(
             )
         },
         bottomBar = {
-            Surface(tonalElevation = 2.dp) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text("機体数: ${uiState.positions.size}", style = MaterialTheme.typography.bodySmall)
-                    if (uiState.isLoading) {
-                        CircularProgressIndicator(modifier = Modifier.size(16.dp))
-                    } else {
-                        uiState.lastUpdated?.let {
-                            Text("更新: ${formatTime(it)}", style = MaterialTheme.typography.bodySmall)
+            Column {
+                AdBanner(aboveBar = true)
+                Surface(tonalElevation = 2.dp) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text("機体数: ${uiState.positions.size}", style = MaterialTheme.typography.bodySmall)
+                        if (uiState.isLoading) {
+                            CircularProgressIndicator(modifier = Modifier.size(16.dp))
+                        } else {
+                            uiState.lastUpdated?.let {
+                                Text("更新: ${formatTime(it)}", style = MaterialTheme.typography.bodySmall)
+                            }
                         }
-                    }
-                    Row {
-                        TextButton(
-                            onClick = { if (uiState.isSubscribed) onOpenStandings() else onRequireSubscription() },
-                        ) {
-                            Icon(Icons.Filled.EmojiEvents, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Text("団体順位")
-                        }
-                        TextButton(
-                            onClick = { if (uiState.isSubscribed) onOpenTurnpointHistory() else onRequireSubscription() },
-                        ) {
-                            Icon(Icons.Filled.ListAlt, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Text("通過履歴")
+                        Row {
+                            TextButton(
+                                onClick = { if (uiState.isSubscribed) onOpenStandings() else onRequireSubscription() },
+                            ) {
+                                Icon(Icons.Filled.EmojiEvents, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Text("団体順位")
+                            }
+                            TextButton(
+                                onClick = { if (uiState.isSubscribed) onOpenTurnpointHistory() else onRequireSubscription() },
+                            ) {
+                                Icon(Icons.Filled.ListAlt, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Text("通過履歴")
+                            }
                         }
                     }
                 }

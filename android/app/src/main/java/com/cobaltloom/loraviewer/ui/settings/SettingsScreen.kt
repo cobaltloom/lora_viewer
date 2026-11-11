@@ -106,6 +106,16 @@ fun SettingsScreen(
         LazyColumn(modifier = Modifier.padding(padding).padding(horizontal = 16.dp)) {
             when (page) {
                 null -> {
+            item {
+                SettingsSectionHeader("広告")
+                AdFreeRow()
+                Text(
+                    "すべての機能は無料でお使いいただけます。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
+            }
             if (uiState.isOgnAvailable) {
                 item {
                     SettingsSectionHeader("位置情報のデータ元")
@@ -171,15 +181,6 @@ fun SettingsScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-
-                SettingsSectionHeader("広告")
-                AdFreeRow()
-                Text(
-                    "すべての機能は無料でお使いいただけます。地図の画面には広告を表示しません。",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
                 SettingsSectionHeader("その他")
