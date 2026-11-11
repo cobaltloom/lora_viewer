@@ -104,6 +104,8 @@ data class GliderTrackerUiState(
     /** Whether the KK4-3 civil training/testing area boundary is drawn on the map - a
      * subscriber-only display preference. */
     val showKk43Area: Boolean = false,
+    /** Whether the member list also shows FLARM aircraft beyond 20 km of Menuma (other airfields). */
+    val showDistantGliders: Boolean = false,
     val showFavoritesOnly: Boolean = false,
     val lastUpdated: Instant? = null,
     val errorMessage: String? = null,
@@ -419,6 +421,11 @@ class GliderTrackerViewModel(
                 _uiState.update { it.copy(showKk43Area = show) }
             }
         }
+        viewModelScope.launch {
+            mapDisplaySettingsRepository.showDistantGliders.collect { show ->
+                _uiState.update { it.copy(showDistantGliders = show) }
+            }
+        }
     }
 
     fun startPolling() {
@@ -588,6 +595,10 @@ class GliderTrackerViewModel(
 
     fun setShowKk43Area(show: Boolean) {
         viewModelScope.launch { mapDisplaySettingsRepository.setShowKk43Area(show) }
+    }
+
+    fun setShowDistantGliders(show: Boolean) {
+        viewModelScope.launch { mapDisplaySettingsRepository.setShowDistantGliders(show) }
     }
 
     suspend fun refreshOnce() {

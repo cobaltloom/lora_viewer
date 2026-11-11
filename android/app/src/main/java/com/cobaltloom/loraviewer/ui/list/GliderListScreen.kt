@@ -29,6 +29,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -42,7 +43,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import com.cobaltloom.loraviewer.data.alert.CompetitionAltitudeGuideline
 import com.cobaltloom.loraviewer.data.alert.LapScore
+import com.cobaltloom.loraviewer.data.alert.distanceMeters
+import com.cobaltloom.loraviewer.data.model.PositionSource
 import com.cobaltloom.loraviewer.data.model.GliderPosition
 import com.cobaltloom.loraviewer.data.nickname.NicknameSyncMode
 import com.cobaltloom.loraviewer.ui.map.GliderTrackerViewModel
@@ -58,8 +62,9 @@ fun GliderListScreen(
     val uiState by viewModel.uiState.collectAsState()
     var editingGlider by remember { mutableStateOf<GliderPosition?>(null) }
 
-    val sortedPositions = remember(uiState.positions, uiState.favorites) {
-        uiState.positions.sortedWith(
+    val distantCount = remember(uiState.positions) { uiState.positions.count(::isDistant) }
+    val sortedPositions = remember(uiState.positions, uiState.favorites, uiState.showDistantGliders) {
+        uiState.positions.filter { uiState.showDistantGliders || !isDistant(it) }.sortedWith(
             compareByDescending<GliderPosition> { uiState.isFavorite(it.imei) }
                 .thenBy { it.index.toIntOrNull() ?: Int.MAX_VALUE },
         )
@@ -122,6 +127,26 @@ fun GliderListScreen(
                     )
                 }
                 HorizontalDivider()
+            }
+            if (uiState.positions.any { it.source == PositionSource.OGN }) {
+                item {
+                    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("20km圏外の機体も表示", style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+                            Switch(checked = uiState.showDistantGliders, onCheckedChange = viewModel::setShowDistantGliders)
+                        }
+                        Text(
+                            text = if (uiState.showDistantGliders) {
+                                "他の滑空場の機体も含め、受信したFLARM機をすべて表示しています。"
+                            } else {
+                                "妻沼滑空場から20km以内のFLARM機だけを表示しています。圏外 ${distantCount}機"
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    HorizontalDivider()
+                }
             }
             items(sortedPositions, key = { it.imei }) { glider ->
                 Row(
@@ -208,6 +233,16 @@ fun GliderListScreen(
             },
         )
     }
+}
+
+/** FLARM aircraft farther than this from 妻沼滑空場中心点 are left out of the list unless asked for. */
+private const val NEARBY_RADIUS_M = 20_000.0
+
+/** FLARM reaches all of Kanto, so by default the list keeps to aircraft near Menuma. */
+private fun isDistant(glider: GliderPosition): Boolean {
+    if (glider.source != PositionSource.OGN) return false
+    val center = CompetitionAltitudeGuideline.referenceCoordinate
+    return distanceMeters(center.latitude, center.longitude, glider.lat, glider.lon) > NEARBY_RADIUS_M
 }
 
 /** The glider's competition handicap, used for the reference scores of its completed laps. */

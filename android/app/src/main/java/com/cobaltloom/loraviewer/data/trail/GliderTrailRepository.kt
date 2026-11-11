@@ -149,12 +149,15 @@ class MapDisplaySettingsRepository(private val context: Context) {
     private val showSatelliteKey = booleanPreferencesKey("showSatelliteMap")
     private val showDistanceReferencePointsKey = booleanPreferencesKey("showDistanceReferencePoints")
     private val showKk43AreaKey = booleanPreferencesKey("showKK43Area")
+    private val showDistantGlidersKey = booleanPreferencesKey("showDistantGliders")
 
     val showGliderTrails: Flow<Boolean> = context.gliderTrailsDataStore.data.map { it[showTrailsKey] ?: true }.distinctUntilChanged()
     val showSatelliteMap: Flow<Boolean> = context.gliderTrailsDataStore.data.map { it[showSatelliteKey] ?: false }.distinctUntilChanged()
     val showDistanceReferencePoints: Flow<Boolean> =
         context.gliderTrailsDataStore.data.map { it[showDistanceReferencePointsKey] ?: true }.distinctUntilChanged()
     val showKk43Area: Flow<Boolean> = context.gliderTrailsDataStore.data.map { it[showKk43AreaKey] ?: false }.distinctUntilChanged()
+    val showDistantGliders: Flow<Boolean> =
+        context.gliderTrailsDataStore.data.map { it[showDistantGlidersKey] ?: false }.distinctUntilChanged()
 
     suspend fun setShowGliderTrails(value: Boolean) {
         context.gliderTrailsDataStore.edit { it[showTrailsKey] = value }
@@ -170,5 +173,9 @@ class MapDisplaySettingsRepository(private val context: Context) {
 
     suspend fun setShowKk43Area(value: Boolean) {
         context.gliderTrailsDataStore.edit { it[showKk43AreaKey] = value }
+    }
+
+    suspend fun setShowDistantGliders(value: Boolean) {
+        context.gliderTrailsDataStore.edit { it[showDistantGlidersKey] = value }
     }
 }
