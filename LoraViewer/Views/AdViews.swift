@@ -1,35 +1,50 @@
 import SwiftUI
 import GoogleMobileAds
 
-/// A standard 320×50 banner along the bottom of a screen, unless ads are off (subscribed, or a rewarded
-/// ad watched in the last 24 h).
+/// An adaptive banner (full width, height chosen by the SDK for that width) along the bottom of a
+/// screen, unless ads are off (subscribed, or a rewarded ad watched in the last 24 h).
 struct AdBanner: View {
     @EnvironmentObject private var adManager: AdManager
     @EnvironmentObject private var subscriptionManager: SubscriptionManager
     /// Extra bar-coloured space under the ad, keeping it off buttons just below it.
     var bottomSpacing: CGFloat = 0
+    /// The width available to the banner; 0 until measured, and no ad is requested before that.
+    @State private var width: CGFloat = 0
 
     var body: some View {
         if adManager.isStarted, !subscriptionManager.isSubscribed, !adManager.isRewardActive {
-            BannerAdView()
-                .frame(width: AdSizeBanner.size.width, height: AdSizeBanner.size.height)
-                .frame(maxWidth: .infinity)
-                .padding(.bottom, bottomSpacing)
-                .background(.bar)
+            let adSize = largeAnchoredAdaptiveBanner(width: width)
+            ZStack {
+                if width > 0 {
+                    BannerAdView(adSize: adSize)
+                        .frame(width: adSize.size.width, height: adSize.size.height)
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
+            .padding(.bottom, bottomSpacing)
+            .background(.bar)
         }
     }
 }
 
 private struct BannerAdView: UIViewRepresentable {
+    let adSize: AdSize
+
     func makeUIView(context: Context) -> BannerView {
-        let banner = BannerView(adSize: AdSizeBanner)
+        let banner = BannerView(adSize: adSize)
         banner.adUnitID = AdManager.bannerUnitID
         banner.rootViewController = AdManager.topViewController()
         banner.load(Request())
         return banner
     }
 
-    func updateUIView(_ banner: BannerView, context: Context) {}
+    /// On rotation the width changes, so the banner takes the new size and loads an ad for it.
+    func updateUIView(_ banner: BannerView, context: Context) {
+        guard !CGSizeEqualToSize(banner.adSize.size, adSize.size) else { return }
+        banner.adSize = adSize
+        banner.load(Request())
+    }
 }
 
 /// The settings rows for turning ads off: the subscription, or a rewarded ad for 24 h.
