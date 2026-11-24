@@ -15,45 +15,61 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.cobaltloom.loraviewer.data.ads.AdManager
 import com.cobaltloom.loraviewer.data.ads.LocalAdManager
+import com.google.android.gms.ads.AdListener
 import com.google.android.gms.ads.AdRequest
 import com.google.android.gms.ads.AdSize
 import com.google.android.gms.ads.AdView
 
 /**
- * An adaptive banner for a Scaffold's bottomBar, unless ads are off (a rewarded ad watched in the
- * last 24 h). [aboveBar]: placed over another bottom bar (the map's), so no navigation-bar inset,
- * and spaced off that bar's buttons so a tap meant for them doesn't land on the ad.
+ * A full-width banner for a Scaffold's bottomBar, unless ads are off (a rewarded ad watched in the
+ * last 24 h). The SDK picks the ad's height, capped at 60 dp (50 dp on a short screen such as
+ * landscape, where the map has little room); the slot shrinks to the ad it actually gets. [aboveBar]:
+ * placed over another bottom bar (the map's), so no navigation-bar inset, and spaced off that bar's
+ * buttons so a tap meant for them doesn't land on the ad.
  */
 @Composable
 fun AdBanner(aboveBar: Boolean = false) {
     val adManager = LocalAdManager.current ?: return
     val state by adManager.state.collectAsState()
     if (!state.showsBanners) return
+    val maxHeightDp = if (LocalConfiguration.current.screenHeightDp < 480) 50 else 60
     Surface(color = MaterialTheme.colorScheme.surface, tonalElevation = 2.dp) {
         BoxWithConstraints(
             Modifier.fillMaxWidth().then(if (aboveBar) Modifier.padding(bottom = 8.dp) else Modifier.navigationBarsPadding()),
         ) {
-            val context = LocalContext.current
             val widthDp = maxWidth.value.toInt()
-            val adSize = remember(widthDp) { AdSize.getLargeAnchoredAdaptiveBannerAdSize(context, widthDp) }
-            AndroidView(
-                modifier = Modifier.fillMaxWidth().height(adSize.height.dp),
-                factory = { viewContext ->
-                    AdView(viewContext).apply {
-                        setAdSize(adSize)
-                        adUnitId = AdManager.BANNER_UNIT_ID
-                        loadAd(AdRequest.Builder().build())
-                    }
-                },
-                onRelease = { it.destroy() },
-            )
+            // An AdView's size can be set only once, so a new width or cap (rotation) makes a new one.
+            key(widthDp, maxHeightDp) {
+                val adSize = remember { AdSize.getInlineAdaptiveBannerAdSize(widthDp, maxHeightDp) }
+                var loadedHeightDp by remember { mutableStateOf<Int?>(null) }
+                AndroidView(
+                    modifier = Modifier.fillMaxWidth().height(minOf(loadedHeightDp ?: maxHeightDp, maxHeightDp).dp),
+                    factory = { viewContext ->
+                        AdView(viewContext).apply {
+                            setAdSize(adSize)
+                            adUnitId = AdManager.BANNER_UNIT_ID
+                            adListener = object : AdListener() {
+                                override fun onAdLoaded() {
+                                    loadedHeightDp = this@apply.adSize?.height
+                                }
+                            }
+                            loadAd(AdRequest.Builder().build())
+                        }
+                    },
+                    onRelease = { it.destroy() },
+                )
+            }
         }
     }
 }
