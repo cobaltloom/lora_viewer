@@ -63,6 +63,11 @@ final class NicknameStore: ObservableObject {
         db.collection(id.allSatisfy(\.isNumber) ? collectionName : flarmCollectionName)
     }
 
+    /// The FLARM (OGN) ids that have a nickname, whether or not the aircraft is being received.
+    var flarmNicknamedIDs: [String] {
+        nicknames.keys.filter { !$0.allSatisfy(\.isNumber) }
+    }
+
     func nickname(forIMEI imei: String) -> String? {
         nicknames[imei]
     }

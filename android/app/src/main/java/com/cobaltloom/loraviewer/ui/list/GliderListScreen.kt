@@ -14,6 +14,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.Star
@@ -34,6 +37,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -46,6 +50,7 @@ import androidx.compose.ui.unit.dp
 import com.cobaltloom.loraviewer.data.alert.CompetitionAltitudeGuideline
 import com.cobaltloom.loraviewer.data.alert.LapScore
 import com.cobaltloom.loraviewer.data.alert.distanceMeters
+import com.cobaltloom.loraviewer.data.settings.DataSource
 import com.cobaltloom.loraviewer.data.model.PositionSource
 import com.cobaltloom.loraviewer.data.model.GliderPosition
 import com.cobaltloom.loraviewer.data.nickname.NicknameSyncMode
@@ -61,6 +66,8 @@ fun GliderListScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var editingGlider by remember { mutableStateOf<GliderPosition?>(null) }
+    var editingOfflineId by remember { mutableStateOf<String?>(null) }
+    var showsOfflineNamed by remember { mutableStateOf(false) }
 
     val distantCount = remember(uiState.positions) { uiState.positions.count(::isDistant) }
     val sortedPositions = remember(uiState.positions, uiState.favorites, uiState.showDistantGliders) {
@@ -69,6 +76,19 @@ fun GliderListScreen(
                 .thenBy { it.index.toIntOrNull() ?: Int.MAX_VALUE },
         )
     }
+
+    // Named FLARM aircraft not being received now (switched off, landed elsewhere...): FLARM
+    // nicknames never reset, so without these rows a name could no longer be changed or removed.
+    val offlineNamedIds = remember(uiState.dataSource, uiState.nicknames, uiState.positions, uiState.gliderNames) {
+        if (uiState.dataSource != DataSource.OGN) {
+            emptyList()
+        } else {
+            val received = uiState.positions.map { it.imei }.toSet()
+            uiState.nicknames.keys.filter { id -> !id.all { it.isDigit() } && id !in received }
+                .sortedBy { uiState.standingsName(it) }
+        }
+    }
+    LaunchedEffect(offlineNamedIds) { viewModel.resolveNames(offlineNamedIds) }
 
     Scaffold(
         topBar = {
@@ -208,31 +228,100 @@ fun GliderListScreen(
                 }
                 HorizontalDivider()
             }
+            if (offlineNamedIds.isNotEmpty()) {
+                item {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { showsOfflineNamed = !showsOfflineNamed }
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                    ) {
+                        Text(
+                            "受信していない名前付きFLARM機 ${offlineNamedIds.size}機",
+                            style = MaterialTheme.typography.titleSmall,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Icon(
+                            if (showsOfflineNamed) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
+                            contentDescription = if (showsOfflineNamed) "閉じる" else "開く",
+                        )
+                    }
+                    HorizontalDivider()
+                }
+                if (showsOfflineNamed) {
+                    items(offlineNamedIds, key = { "offline-$it" }) { id ->
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { if (uiState.isSubscribed) editingOfflineId = id else onRequireSubscription() }
+                                .padding(start = 16.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
+                        ) {
+                            Text(
+                                "${uiState.standingsName(id)} ${uiState.nicknames[id].orEmpty()}",
+                                style = MaterialTheme.typography.titleMedium,
+                                modifier = Modifier.weight(1f),
+                            )
+                            IconButton(onClick = { viewModel.setNickname(id, "") }) {
+                                Icon(Icons.Filled.Delete, contentDescription = "名前を削除")
+                            }
+                        }
+                        HorizontalDivider()
+                    }
+                }
+                item {
+                    Text(
+                        "電源が切れているなどで、今は受信していない機体です。名前をタップすると変更、ゴミ箱で削除できます。",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    )
+                }
+            }
         }
     }
 
     editingGlider?.let { glider ->
-        var nicknameInput by remember(glider.imei) { mutableStateOf(uiState.nicknames[glider.imei] ?: "") }
-        AlertDialog(
-            onDismissRequest = { editingGlider = null },
-            confirmButton = {
-                TextButton(onClick = {
-                    viewModel.setNickname(glider.imei, nicknameInput)
-                    editingGlider = null
-                }) { Text("保存") }
-            },
-            dismissButton = { TextButton(onClick = { editingGlider = null }) { Text("キャンセル") } },
-            title = { Text("ニックネームを編集") },
-            text = {
-                OutlinedTextField(
-                    value = nicknameInput,
-                    onValueChange = { nicknameInput = it },
-                    label = { Text("${glider.index}番機のニックネーム") },
-                    singleLine = true,
-                )
-            },
+        NicknameDialog(
+            initial = uiState.nicknames[glider.imei] ?: "",
+            label = "${glider.index}番機のニックネーム",
+            onSave = { viewModel.setNickname(glider.imei, it) },
+            onDismiss = { editingGlider = null },
         )
     }
+    editingOfflineId?.let { id ->
+        NicknameDialog(
+            initial = uiState.nicknames[id] ?: "",
+            label = "${uiState.standingsName(id)}のニックネーム",
+            onSave = { viewModel.setNickname(id, it) },
+            onDismiss = { editingOfflineId = null },
+        )
+    }
+}
+
+@Composable
+private fun NicknameDialog(initial: String, label: String, onSave: (String) -> Unit, onDismiss: () -> Unit) {
+    var nicknameInput by remember(initial) { mutableStateOf(initial) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(onClick = {
+                onSave(nicknameInput)
+                onDismiss()
+            }) { Text("保存") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("キャンセル") } },
+        title = { Text("ニックネームを編集") },
+        text = {
+            OutlinedTextField(
+                value = nicknameInput,
+                onValueChange = { nicknameInput = it },
+                label = { Text(label) },
+                singleLine = true,
+            )
+        },
+    )
 }
 
 /** FLARM aircraft farther than this from 妻沼滑空場中心点 are left out of the list unless asked for. */
