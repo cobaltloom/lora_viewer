@@ -9,6 +9,7 @@ struct GliderListView: View {
     @State private var showBoardScan = false
     /// FLARM reaches all of Kanto, so by default the list keeps to aircraft near Menuma.
     @AppStorage("showDistantGliders") private var showDistantGliders = false
+    @State private var showsOfflineNamed = false
 
     /// FLARM aircraft farther than this from 妻沼滑空場中心点 are left out unless `showDistantGliders`.
     private static let nearbyRadiusMeters: CLLocationDistance = 20_000
@@ -33,6 +34,15 @@ struct GliderListView: View {
             }
             return lhs.index < rhs.index
         }
+    }
+
+    /// Named FLARM aircraft not being received now (switched off, landed elsewhere...): FLARM
+    /// nicknames never reset, so without these rows a name could no longer be changed or removed.
+    private var offlineNamedIDs: [String] {
+        guard viewModel.dataSource == .ogn else { return [] }
+        let received = Set(viewModel.positions.map(\.imei))
+        return nicknameStore.flarmNicknamedIDs.filter { !received.contains($0) }
+            .sorted { viewModel.standingsName($0) < viewModel.standingsName($1) }
     }
 
     var body: some View {
@@ -102,6 +112,25 @@ struct GliderListView: View {
                     }
                     .padding(.vertical, 4)
                 }
+            }
+
+            let offlineIDs = offlineNamedIDs
+            if !offlineIDs.isEmpty {
+                Section {
+                    DisclosureGroup("受信していない名前付きFLARM機 \(offlineIDs.count)機", isExpanded: $showsOfflineNamed) {
+                        ForEach(offlineIDs, id: \.self) { id in
+                            EditableGliderName(imei: id, baseName: viewModel.standingsName(id))
+                                .swipeActions {
+                                    Button("削除", role: .destructive) {
+                                        nicknameStore.setNickname("", forIMEI: id)
+                                    }
+                                }
+                        }
+                    }
+                } footer: {
+                    Text("電源が切れているなどで、今は受信していない機体です。名前をタップすると変更、左にスワイプすると削除できます。")
+                }
+                .task(id: offlineIDs) { await viewModel.resolveNames(offlineIDs) }
             }
         }
         .safeAreaInset(edge: .bottom) { AdBanner() }

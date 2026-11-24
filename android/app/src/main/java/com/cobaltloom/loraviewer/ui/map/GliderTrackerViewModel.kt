@@ -511,6 +511,17 @@ class GliderTrackerViewModel(
         nicknameRepository.setNickname(imei, name)
     }
 
+    /** Looks up the names of FLARM gliders in [ids] that aren't on the map (named, but switched off). */
+    fun resolveNames(ids: Collection<String>) {
+        viewModelScope.launch {
+            val state = _uiState.value
+            if (state.dataSource != DataSource.OGN) return@launch
+            val missing = ids.toSet() - state.gliderNames.keys - state.positions.map { it.imei }.toSet()
+            val names = missing.mapNotNull { id -> repository.ognBaseName(id)?.let { id to it } }.toMap()
+            if (names.isNotEmpty()) _uiState.update { it.copy(gliderNames = it.gliderNames + names) }
+        }
+    }
+
     fun setNicknameSyncMode(mode: NicknameSyncMode) {
         viewModelScope.launch { nicknameRepository.setSyncMode(mode) }
     }
