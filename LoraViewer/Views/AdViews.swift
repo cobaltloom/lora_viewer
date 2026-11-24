@@ -20,16 +20,22 @@ struct AdBanner: View {
     var body: some View {
         if adManager.isStarted, !subscriptionManager.isSubscribed, !adManager.isRewardActive {
             let adSize = inlineAdaptiveBanner(width: width, maxHeight: maxHeight)
-            ZStack {
-                if width > 0 {
-                    BannerAdView(adSize: adSize) { adHeight = $0 }
-                        .frame(width: adSize.size.width, height: min(adHeight ?? maxHeight, maxHeight))
+            // The slot's width comes from the screen, never from the banner: the banner is an
+            // overlay, so one still sized for the old width (just after rotating) can't widen the
+            // slot — and with it the whole screen — and keep it from shrinking back.
+            Color.clear
+                .frame(maxWidth: .infinity)
+                .frame(height: width > 0 ? min(adHeight ?? maxHeight, maxHeight) : 0)
+                .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
+                .overlay {
+                    if width > 0 {
+                        BannerAdView(adSize: adSize) { adHeight = $0 }
+                            .frame(width: adSize.size.width, height: min(adHeight ?? maxHeight, maxHeight))
+                    }
                 }
-            }
-            .frame(maxWidth: .infinity)
-            .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
-            .padding(.bottom, bottomSpacing)
-            .background(.bar)
+                .clipped()
+                .padding(.bottom, bottomSpacing)
+                .background(.bar)
         }
     }
 }
