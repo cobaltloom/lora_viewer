@@ -63,8 +63,8 @@ final class AdManager: ObservableObject {
     func showRewardedAd() {
         guard let ad = rewardedAd, let root = Self.topViewController() else { return }
         rewardedAd = nil
-        ad.present(from: root) {
-            Task { @MainActor [weak self] in
+        ad.present(from: root) { [weak self] in
+            Task { @MainActor in
                 self?.grantReward()
             }
         }
